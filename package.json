@@ -1,0 +1,53 @@
+{
+  "name": "@jsdoom/tools",
+  "version": "0.1.0",
+  "description": "Tools for reading, writing, and manipulating WAD files.",
+  "keywords": [
+    "wad",
+    "lump",
+    "doom",
+    "typescript"
+  ],
+  "homepage": "https://github.com/pineapplemachine/jsdoom-tools",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "unzip": "0.1.11",
+    "upng-js": "2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "10.11.4",
+    "@types/unzip": "0.1.1",
+    "@types/upng-js": "^2.1.0",
+    "ts-node": "7.0.1",
+    "tscpaths": "0.0.5",
+    "typescript": "3.1.1"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "package.json",
+    "readme.md",
+    "LICENSE",
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pineapplemachine/jsdoom-wad-test.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pineapplemachine/jsdoom-wad-test/issues"
+  },
+  "contributors": [
+    {
+      "name": "Sophie Kirschner",
+      "email": "sophiek@pineapplemachine.com"
+    }
+  ],
+  "scripts": {
+    "tsc": "./node_modules/typescript/bin/tsc",
+    "trace-resolution": "npm run tsc -- --traceResolution",
+    "tscpaths": "tscpaths -p tsconfig.json -s src -o dist/src && tscpaths -p tsconfig.json -s test -o dist/test",
+    "build": "npm run tsc && npm run tscpaths",
+    "test": "npm run build && node ./dist/test/test.js",
+    "prepare": "npm test"
+  }
+}
