@@ -7,7 +7,7 @@ import {Parser} from "@src/cli/options";
 
 import {WADColors} from "@src/lumps/doom/colors";
 import {WADColorMap} from "@src/lumps/doom/colormap";
-import {WADFileList} from "@src/wad/wadList";
+import {WADFileList} from "@src/wad/fileList";
 import {WADFlat} from "@src/lumps/doom/flat";
 import {WADLump} from "@src/wad/lump";
 import {WADPalette} from "@src/lumps/doom/playpal";

@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import {WADFile} from "@src/wad/wad";
+import {WADFile} from "@src/wad/file";
 import {downloadTestWad} from "@test/download";
 
 // This function reads a WAD and then writes it back to a new file path,

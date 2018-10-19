@@ -1,6 +1,6 @@
 import * as fs from "fs";
 
-import {WADFile} from "@src/wad/wad";
+import {WADFile} from "@src/wad/file";
 import {openTestWad} from "@test/open";
 
 // This function reads a WAD and then writes it back to a new file path,

@@ -1,4 +1,4 @@
-import {WADFile} from "@src/wad/wad";
+import {WADFile} from "@src/wad/file";
 
 // Represents a WAD lump.
 export class WADLump {

@@ -1,4 +1,4 @@
-import {WADFile} from "@src/wad/wad";
+import {WADFile} from "@src/wad/file";
 import {WADLump} from "@src/wad/lump";
 
 // Object interface used by the WADLumpMap implementation.
