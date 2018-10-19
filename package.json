@@ -31,10 +31,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/pineapplemachine/jsdoom-wad-test.git"
+    "url": "https://github.com/pineapplemachine/jsdoom-tools.git"
   },
   "bugs": {
-    "url": "https://github.com/pineapplemachine/jsdoom-wad-test/issues"
+    "url": "https://github.com/pineapplemachine/jsdoom-tools/issues"
   },
   "contributors": [
     {
