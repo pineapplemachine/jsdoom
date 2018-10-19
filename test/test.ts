@@ -1,24 +1,18 @@
 import * as fs from "fs";
 
-// import {findWad, testWad} from "@test/testWad";
-// import * as jsdoom from "@src/index";
+import {WADFile} from "@src/wad/file";
 
-import {openTestWad} from "@test/open";
+import {testWriteIdentical} from "@test/writeIdentical";
 
-// testWad({
-//     WADFile: WADTools.WADFile,
-//     testWadDirectory: "./test-wads",
-//     fileName: "doom1.wad",
-//     verbose: true,
-// }).then((status: number) => {
-//     if(status){
-//         console.log(`Tests FAILED with status code ${status}.`);
-//     }else{
-//         console.log("Tests PASSED.");
-//     }
-//     process.exit(status);
-// }).catch((error: Error) => {
-//     console.log("Tests FAILED due to an unhandled error.");
-//     console.log(error);
-//     process.exit(1);
-// });
+async function runTests(): Promise<void> {
+    await testWriteIdentical("./test-wads", "doom1.wad");
+}
+
+runTests().then(() => {
+    console.log("Tests PASSED.");
+    process.exit(0);
+}).catch((error: Error) => {
+    console.log("Tests FAILED.");
+    console.log(error);
+    process.exit(1);
+});
