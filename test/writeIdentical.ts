@@ -14,7 +14,8 @@ export async function testWriteIdentical(
     // Save the WAD file
     const saveFilePath = wad.path + ".copy";
     console.log(`Writing a copy to path "${saveFilePath}"...`);
-    await wad.saveFile(saveFilePath);
+    const saveData: Buffer = wad.getData();
+    fs.writeFileSync(saveFilePath, saveData);
     console.log("Finished writing WAD file.");
     // Make sure the input and output files are identical
     // Fail the test if the files are different

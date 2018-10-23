@@ -7,6 +7,7 @@ import {Parser} from "@src/cli/options";
 
 import {WADColors} from "@src/lumps/doom/colors";
 import {WADColorMap} from "@src/lumps/doom/colormap";
+import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
 import {WADFlat} from "@src/lumps/doom/flat";
 import {WADLump} from "@src/wad/lump";
@@ -173,17 +174,13 @@ async function main(): Promise<void> {
         if(!paths.length){
             throw new Error("Must specify an IWAD or at least one PWAD.");
         }
-        console.log("Loading WADs: ");
+        console.log("Loading WADs...");
+        const files: WADFileList = new WADFileList();
         for(const path of paths){
-            console.log(`  - "${path}"`);
-        }
-        const files: WADFileList = await WADFileList.loadFiles(paths);
-        if(files.errors.length){
-            for(const error of files.errors){
-                console.log(`- Error loading "${error.path}":`);
-                console.log(`  ${error.error.message}`);
-            }
-            throw new Error("Failed to load WADs.");
+            console.log(`Loading "${path}".`);
+            const data: Buffer = fs.readFileSync(path);
+            const file: WADFile = new WADFile(path, data);
+            files.addFile(file);
         }
         console.log("Finished loading WADs.");
         console.log(`Exporting lump "${args.lump}".`);

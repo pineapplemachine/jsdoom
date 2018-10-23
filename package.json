@@ -20,7 +20,9 @@
     "@types/upng-js": "^2.1.0",
     "ts-node": "7.0.1",
     "tscpaths": "0.0.5",
-    "typescript": "3.1.1"
+    "typescript": "3.1.1",
+    "webpack": "^4.21.0",
+    "webpack-cli": "^3.1.2"
   },
   "main": "dist/index.js",
   "files": [
@@ -43,11 +45,14 @@
     }
   ],
   "scripts": {
-    "tsc": "./node_modules/typescript/bin/tsc",
-    "trace-resolution": "npm run tsc -- --traceResolution",
-    "tscpaths": "tscpaths -p tsconfig.json -s src -o dist/src && tscpaths -p tsconfig.json -s test -o dist/test",
     "build": "npm run tsc && npm run tscpaths",
     "test": "npm run build && node ./dist/test/test.js",
-    "prepare": "npm test"
+    "prepare": "npm test",
+    "tsc": "./node_modules/typescript/bin/tsc",
+    "tscpaths": "tscpaths -p tsconfig.json -s src -o dist/src && tscpaths -p tsconfig.json -s test -o dist/test",
+    "tsc-trace-resolution": "npm run tsc -- --traceResolution",
+    "watch": "node util/watch.js $@",
+    "watch-tsc": "npm run watch \"./src\" \"./web\" \"npm run build\"",
+    "webpack": "./node_modules/.bin/webpack"
   }
 }

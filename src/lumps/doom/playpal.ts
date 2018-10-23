@@ -1,6 +1,6 @@
-import * as fs from "fs";
-
 import {WADLump} from "@src/wad/lump";
+
+import {DoomPlaypalData} from "@src/lumps/doom/defaultPlaypal";
 
 // Represents a single 24-bit color within a PLAYPAL lump.
 export interface WADPaletteColor {
@@ -19,7 +19,7 @@ export class WADPalette {
     // Palette lumps are always named "PLAYPAL".
     static readonly LumpName: string = "PLAYPAL";
     // Location of "playpal.lmp", relative to the root `jsdoom-tools` directory
-    static readonly DefaultDataPath: string = "resources/doom/playpal.json";
+    static readonly DefaultData: Buffer = DoomPlaypalData;
     
     // The binary data representing this playpal.
     data: Buffer;
@@ -46,11 +46,7 @@ export class WADPalette {
     
     // Load the Doom 1 palette.
     static getDefault(): WADPalette {
-        const jsonData: string = JSON.parse(
-            fs.readFileSync(WADPalette.DefaultDataPath, "utf-8")
-        );
-        const data: Buffer = Buffer.from(jsonData);
-        return new WADPalette(data);
+        return new WADPalette(WADPalette.DefaultData);
     }
     
     // Get the number of palettes

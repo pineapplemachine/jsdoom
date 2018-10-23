@@ -6,58 +6,25 @@ import {WADColorMap} from "@src/lumps/doom/colormap";
 import {WADColors} from "@src/lumps/doom/colors";
 import {WADPalette} from "@src/lumps/doom/playpal";
 
-export interface WADFileListError {
-    // The path to the file relevant to this error.
-    path: string;
-    // The thrown Error object.
-    error: Error;
-}
-
 export class WADFileList {
     // The list of files, ordered from first in the load order to last.
     files: WADFile[];
-    // A list of errors encountered while loading WAD files, if any.
-    errors: WADFileListError[];
     // A map for quickly retrieving lumps by name.
     map: WADLumpMap;
     
-    constructor(files: WADFile[], errors?: WADFileListError[]) {
-        this.files = files;
-        this.errors = errors || [];
-        this.map = WADLumpMap.fromWads(files);
+    constructor(files?: WADFile[]) {
+        this.files = files || [];
+        this.map = new WADLumpMap();
+        if(files){
+            this.map.addFiles(files);
+        }
     }
     
-    // Asynchronously load files from a list of paths.
-    // When resolving lump names, WADs which appeared later in the list will
-    // have precedence over WADs earlier in the list.
-    // The moral of the story being: IWAD first, then PWADs.
-    static async loadFiles(paths: string[]): Promise<WADFileList> {
-        // Keep track of files, errors, and promises...
-        const files: WADFile[] = [];
-        const errors: WADFileListError[] = [];
-        const promises: Promise<void>[] = [];
-        // Asynchronously load all of the files.
-        for(const path of paths){
-            promises.push(
-                WADFile.loadFile(path).then(file => {
-                    files.push(file);
-                }).catch(error => {
-                    errors.push({
-                        path: path,
-                        error: error,
-                    });
-                })
-            );
-        }
-        // Wait for all the files to finish loading.
-        await Promise.all(promises);
-        // Order of promise resolution may not be guaranteed; make sure that
-        // the file list is actually in the order that the paths were given.
-        files.sort((a, b) => {
-            return paths.indexOf(a.path) - paths.indexOf(b.path);
-        });
-        // All done
-        return new WADFileList(files, errors);
+    // Add a single WAD file to the end of the list.
+    // IWAD should be added first and PWADs last.
+    addFile(file: WADFile): void {
+        this.files.push(file);
+        this.map.addFile(file);
     }
     
     // Get a PLAYPAL lump object given the list of wads or, if none of the WADs

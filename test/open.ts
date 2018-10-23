@@ -17,7 +17,8 @@ export async function openTestWad(
     }
     // Read the WAD file
     console.log(`Loading WAD from path "${filePath}"...`);
-    const file: WADFile = await WADFile.loadFile(filePath);
+    const fileData: Buffer = fs.readFileSync(filePath);
+    const file: WADFile = new WADFile(filePath, fileData);
     // Log data about the WAD file (more if the "verbose" flag is set)
     console.log(`Finished loading WAD file. (Found ${file.lumps.length} lumps.)`);
     console.log(`Lumps in the WAD were padded? ${file.padLumps}`);

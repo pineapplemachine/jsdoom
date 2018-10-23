@@ -1,5 +1,3 @@
-import * as fs from "fs";
-
 import {WADLump} from "./lump";
 import {WADReader} from "./reader";
 import {WADFileType} from "./fileType";
@@ -20,31 +18,19 @@ export class WADFile {
     // omit the padding.
     padLumps: boolean;
     
-    constructor(path: string = "") {
+    constructor(path: string = "", data?: Buffer) {
         this.path = path;
         this.type = WADFileType.Invalid;
         this.lumps = [];
         this.padLumps = false;
+        if(data){
+            this.loadData(data);
+        }
     }
     
     // Add a lump to the end of the list.
     addLump(lump: WADLump): void {
         this.lumps.push(lump);
-    }
-    
-    // Load a WAD file from a given file path.
-    static async loadFile(path: string): Promise<WADFile> {
-        return new Promise<WADFile>((resolve, reject) => {
-            fs.readFile(path, (error, data) => {
-                if(error){
-                    reject(error);
-                }else{
-                    const file: WADFile = new WADFile(path);
-                    file.loadData(data);
-                    resolve(file);
-                }
-            });
-        });
     }
     
     // Synchronously read a WAD file from a data buffer.
@@ -106,29 +92,6 @@ export class WADFile {
         }
         // All done!
         return;
-    }
-    
-    // Save the WAD to a file path.
-    // If no path is provided, or if the input path is an empty string,
-    // then the WADFile's existing `path` attribute will be used.
-    // The function throws an exception when both the input and the `path`
-    // attribute are empty strings.
-    saveFile(path: string = ""): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const destination: string = path || this.path;
-            if(!destination){
-                reject(new Error("Invalid file destination."));
-                return;
-            }
-            const data: Buffer = this.getData();
-            fs.writeFile(path, data, (error) => {
-                if(error){
-                    reject(error);
-                }else{
-                    resolve();
-                }
-            });
-        });
     }
     
     // Synchronously get a Buffer representing the WAD's binary file content.

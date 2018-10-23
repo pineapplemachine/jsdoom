@@ -1,7 +1,7 @@
-import * as fs from "fs";
-
 import {WADLump} from "@src/wad/lump";
 import {WADPalette} from "@src/lumps/doom/playpal";
+
+import {DoomColormapData} from "@src/lumps/doom/defaultColormap";
 
 // Represents a color map, e.g. as read from a COLORMAP lump.
 // A Doom COLORMAP lump normally contains 34 maps.
@@ -14,7 +14,7 @@ export class WADColorMap {
     // Color map lumps are always named "COLORMAP".
     static readonly LumpName: string = "COLORMAP";
     // Location of "colormap.lmp", relative to the root `jsdoom-tools` directory
-    static readonly DefaultDataPath: string = "resources/doom/colormap.json";
+    static readonly DefaultData: Buffer = DoomColormapData;
     
     // Index of the megasphere (invulnerability) color map.
     static readonly Invulnerable: number = 32;
@@ -44,11 +44,7 @@ export class WADColorMap {
     
     // Load the Doom 1 color map.
     static getDefault(): WADColorMap {
-        const jsonData: string = JSON.parse(
-            fs.readFileSync(WADColorMap.DefaultDataPath, "utf-8")
-        );
-        const data: Buffer = Buffer.from(jsonData);
-        return new WADColorMap(data);
+        return new WADColorMap(WADColorMap.DefaultData);
     }
     
     // Get the number of maps contained in this COLORMAP.

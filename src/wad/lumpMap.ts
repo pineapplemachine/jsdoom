@@ -13,24 +13,34 @@ export class WADLumpMap {
     // An object used to map lumps by name.
     lumps: WADLumpMapObject;
     
-    constructor(lumps: WADLumpMapObject) {
-        this.lumps = lumps;
+    constructor(lumps?: WADLumpMapObject) {
+        this.lumps = lumps || {};
     }
     
-    // Create a lump map given a list of WADFile objects.
-    static fromWads(files: WADFile[]): WADLumpMap {
-        const lumps: WADLumpMapObject = {};
-        for(const file of files){
-            for(const lump of file.lumps){
-                const upperName: string = lump.name.toUpperCase();
-                if(lumps[upperName]){
-                    lumps[upperName].push(lump);
-                }else{
-                    lumps[upperName] = [lump];
-                }
-            }
+    // Add a single lump to the map.
+    // Lumps should be added from the first loaded file to the last loaded
+    // file and, within each file, from the first lump to the last lump.
+    addLump(lump: WADLump): void {
+        const upperName: string = lump.name.toUpperCase();
+        if(this.lumps[upperName]){
+            this.lumps[upperName].push(lump);
+        }else{
+            this.lumps[upperName] = [lump];
         }
-        return new WADLumpMap(lumps);
+    }
+    
+    // Add all the lumps in one WAD file to the map.
+    addFile(file: WADFile): void {
+        for(const lump of file.lumps){
+            this.addLump(lump);
+        }
+    }
+    
+    // Add multiple files at once.
+    addFiles(files: WADFile[]): void {
+        for(const file of files){
+            this.addFile(file);
+        }
     }
     
     // Get a list of all lumps matching a name.
