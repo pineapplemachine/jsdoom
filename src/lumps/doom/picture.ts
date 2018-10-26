@@ -42,8 +42,13 @@ export class WADPicture {
         if(!lump.data || lump.length < 8){
             return false;
         }
-        // Make sure all of the column pointers are valid
+        // Check that the image dimensions make sense
         const width: number = lump.data.readUInt16LE(0);
+        const height: number = lump.data.readUInt16LE(2);
+        if(width <= 0 || width > 4096 || height <= 0 || height > 4096){
+            return false;
+        }
+        // Make sure all of the column pointers are valid
         const colOffsetsEnd: number = 8 + 4 * width;
         if(lump.length < colOffsetsEnd){
             return false;
@@ -54,8 +59,18 @@ export class WADPicture {
                 return false;
             }
         }
-        // This is very probably a valid picture lump
-        // TODO: Should this method also verify that the posts are valid?
+        // Check each post for correctness
+        for(let colIndex: number = 0; colIndex < width; colIndex++){
+            let dataOffset: number = lump.data.readUInt32LE(8 + (4 * colIndex));
+            while(true){
+                const postOffset: number = lump.data.readUInt8(dataOffset);
+                if(postOffset === 0xff) break;
+                const length: number = lump.data.readUInt8(dataOffset + 1);
+                dataOffset += length + 4;
+                if(dataOffset >= lump.data.length) return false;
+            }
+        }
+        // This is (probably) a valid picture lump
         return true;
     }
     
@@ -79,12 +94,12 @@ export class WADPicture {
     
     // Get the X offset of the picture in pixels.
     get x(): number {
-        return this.data.readUInt16LE(4);
+        return this.data.readInt16LE(4);
     }
     
     // Get the Y offset of the picture in pixels.
     get y(): number {
-        return this.data.readUInt16LE(6);
+        return this.data.readInt16LE(6);
     }
     
     // Count the number of unique colors in the picture.
@@ -143,7 +158,7 @@ export class WADPicture {
     getPixelDataRGBA(colors: WADColors): Buffer {
         // Create the pixel data: size in pixels * 4 color channels
         const width: number = this.width;
-        const height: number= this.height;
+        const height: number = this.height;
         const data: Buffer = Buffer.alloc(width * height * 4, 0);
         // Fill the array from post data
         // Pixels in between posts will be skipped; it will remain 0x00000000,

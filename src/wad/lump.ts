@@ -56,6 +56,37 @@ export class WADLump {
         return this.data;
     }
     
+    // Returns the lump before this one in the containing WAD file.
+    // Returns null if this was the first lump in the file, or if the lump
+    // doesn't actually belong to any file.
+    getPreviousLump(): (WADLump | null) {
+        if(!this.file){
+            return null;
+        }
+        for(let index: number = 0; index < this.file.lumps.length; index++){
+            if(this.file.lumps[index] === this){
+                return index === 0 ? null : this.file.lumps[index - 1];
+            }
+        }
+        return null;
+    }
+    
+    // Returns the lump after this one in the containing WAD file.
+    // Returns null if this was the first lump in the file, or if the lump
+    // doesn't actually belong to any file.
+    getNextLump(): (WADLump | null) {
+        if(!this.file){
+            return null;
+        }
+        const lastIndex = this.file.lumps.length - 1;
+        for(let index: number = 0; index < this.file.lumps.length; index++){
+            if(this.file.lumps[index] === this){
+                return index >= lastIndex ? null : this.file.lumps[index + 1];
+            }
+        }
+        return null;
+    }
+    
     // Returns true if this lump is between two lumps of the given names.
     // This can be used, for example, to determine if a lump appears between
     // "F_START" and "F_END" markers.
@@ -70,6 +101,23 @@ export class WADLump {
             }else if(lump.name === before){
                 between = true;
             }else if(lump.name === after){
+                between = false;
+            }
+        }
+        return false;
+    }
+    
+    isBetweenMulti(before: string[], after: string[]): boolean {
+        if(!this.file){
+            return false;
+        }
+        let between: boolean = false;
+        for(const lump of this.file.lumps){
+            if(lump === this){
+                return between;
+            }else if(before.indexOf(lump.name) >= 0){
+                between = true;
+            }else if(after.indexOf(lump.name) >= 0){
                 between = false;
             }
         }

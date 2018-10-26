@@ -2,3 +2,4 @@
 // lumps from a WAD file.
 
 export * from "./doom/index";
+export * from "./zdoom/index";
