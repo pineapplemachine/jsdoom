@@ -1,0 +1,40 @@
+<html>
+    <head>
+        <title>Inspect</title>
+        <base href="/">
+        <link rel="shortcut icon" type="image/png" href="assets/icons/inspector-favicon.png"/>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1,user-scalable=0"/>
+        <link rel="stylesheet" type="text/css" href="web/inspector.css">
+    </head>
+    <script src="dist/webpack-bundle.js"></script>
+    <body
+        onload="onInspectorLoad()"
+        ondrop="onInspectorDrop(event)"
+        ondragover="event.preventDefault()">
+        <div id="main-header">
+            <div id="main-filename">No WAD</div>
+            <div id="main-open-button" onclick="onClickOpenWad()">Open WAD</div>
+            <input type="file" id="main-file-input" style="display:none">
+        </div>
+        <div id="main-content">
+            <div id="lump-list">
+                <div id="lump-list-header">
+                    <input type="text" id="lump-list-search"
+                        placeholder="Search..." oninput="onSearchInput()">
+                    <div id="lump-list-count">No Lumps</div>
+                </div>
+                <div id="lump-list-content">
+                </div>
+            </div><div id="lump-view">
+                <div id="lump-view-header">
+                    <div id="lump-view-name">No Lump</div>
+                    <div id="lump-view-type"></div>
+                    <div id="lump-view-buttons"></div>
+                </div>
+                <div id="lump-view-content">
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

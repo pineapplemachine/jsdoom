@@ -53,6 +53,7 @@
     "tsc-trace-resolution": "npm run tsc -- --traceResolution",
     "watch": "node util/watch.js $@",
     "watch-tsc": "npm run watch \"./src\" \"./web\" \"npm run build\"",
+    "watch-web": "npm run watch \"./src\" \"./web\" \"npm run build && npm run webpack\"",
     "webpack": "./node_modules/.bin/webpack"
   }
 }

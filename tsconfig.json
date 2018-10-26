@@ -13,12 +13,14 @@
         "baseUrl": ".",
         "paths": {
             "@src/*": ["src/*"],
-            "@test/*": ["test/*"]
+            "@test/*": ["test/*"],
+            "@web/*": ["web/*"]
         }
     },
     "include": [
         "src/**/*.ts",
-        "test/**/*.ts"
+        "test/**/*.ts",
+        "web/**/*.ts"
     ],
     "exclude": [
         "node_modules"

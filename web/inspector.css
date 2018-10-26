@@ -1,0 +1,352 @@
+body {
+    overflow: hidden;
+    position: relative;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    font-family: sans-serif;
+    color: #fff;
+    background-color: #111;
+}
+
+::-webkit-scrollbar {
+    width: 12px;
+}
+::-webkit-scrollbar-track {
+    background: #222;
+}
+::-webkit-scrollbar-thumb {
+    background: #333;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #444;
+}
+
+#main-header {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    background-color: #151519;
+}
+
+#main-filename {
+    display: inline-block;
+    margin: 0 16px;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+#main-open-button {
+    margin: 10px 16px;
+    padding: 0 12px;
+    border-radius: 4px;
+    height: 40px;
+    line-height: 40px;
+    box-sizing: border-box;
+    cursor: pointer;
+    font-size: 16px;
+    float: right;
+}
+
+#main-open-button:hover,
+#main-open-button:active {
+    background-color: #222;
+}
+
+#main-content {
+    position: absolute;
+    width: 100%;
+    left: 0;
+    top: 60px;
+    bottom: 0;
+}
+
+#lump-list {
+    position: relative;
+    display: inline-block;
+    width: 400px;
+    height: 100%;
+    margin: 0;
+}
+
+#lump-list-header {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 40px;
+    line-height: 40px;
+    font-size: 16px;
+}
+
+#lump-list-search {
+    display: inline-block;
+    box-sizing: border-box;
+    vertical-align: middle;
+    color: #fff;
+    background-color: #111;
+    border-color: #333;
+    font-size: 16px;
+    width: 60%;
+    height: 28px;
+    line-height: 28px;
+    margin-left: 8px;
+    margin-top: 4px;
+    padding: 0 4px;
+}
+
+#lump-list-count {
+    float: right;
+    display: inline-block;
+    box-sizing: border-box;
+    text-align: right;
+    margin-right: 16px;
+    font-size: 13px;
+    line-height: 40px;
+}
+
+#lump-list-content {
+    position: absolute;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    left: 0;
+    top: 40px;
+    width: 100%;
+    height: calc(100% - 40px);
+}
+
+#lump-view {
+    position: relative;
+    display: inline-block;
+    margin: 0;
+    width: calc(100% - 400px);
+    height: 100%;
+}
+
+#lump-view-header {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 40px;
+    line-height: 40px;
+    font-size: 16px;
+}
+
+#lump-view-content {
+    position: absolute;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    left: 0;
+    top: 40px;
+    width: 100%;
+    height: calc(100% - 40px);
+}
+
+#lump-view-name {
+    display: inline-block;
+    vertical-align: middle;
+    font-weight: bold;
+    margin-left: 8px;
+    line-height: 40px;
+}
+
+#lump-view-type {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 16px;
+    line-height: 40px;
+}
+
+#lump-view-buttons {
+    display: inline-block;
+    float: right;
+    margin-right: 8px;
+    height: 100%;
+    line-height: 40px;
+}
+
+#lump-view-buttons .view-button {
+    display: inline-block;
+    box-sizing: border-box;
+    border-radius: 4px;
+    height: 40px;
+    line-height: 40px;
+    padding: 2px 4px;
+    margin: 0;
+    cursor: pointer;
+}
+
+#lump-view-buttons .view-button.selected {
+    background-color: #181818;
+    border-radius: 0;
+}
+#lump-view-buttons .view-button:hover,
+#lump-view-buttons .view-button:active {
+    background-color: #222;
+}
+
+#lump-view-buttons .view-button .icon {
+    display: inline-block;
+    vertical-align: middle;
+    width: 16px;
+    height: 16px;
+    margin-left: 2px;
+    margin-right: 4px;
+}
+
+#lump-view-buttons .view-button .name {
+    display: inline-block;
+    font-size: 14px;
+    margin-right: 4px;
+}
+
+.list-item {
+    display: block;
+    overflow: hidden;
+    height: 20px;
+    line-height: 20px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.list-item.selected,
+.list-item:hover,
+.list-item:active {
+    background-color: #222;
+}
+
+.list-item.filtered {
+    display: none;
+}
+
+.list-item .icon {
+    display: inline-block;
+    vertical-align: middle;
+    box-sizing: border-box;
+    width: 24px;
+    height: 16px;
+    padding-left: 8px;
+}
+.list-item .name {
+    display: inline-block;
+    box-sizing: border-box;
+    width: calc(45% - 24px);
+    padding-left: 4px;
+    font-weight: bold;
+}
+.list-item .type {
+    display: inline-block;
+    text-align: right;
+    width: 37%;
+}
+.list-item .size {
+    display: inline-block;
+    box-sizing: border-box;
+    text-align: right;
+    width: 18%;
+    padding-right: 8px;
+}
+
+#lump-view-content .lump-view-warning {
+    display: block;
+    box-sizing: border-box;
+    cursor: pointer;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px;
+    font-size: 18px;
+}
+
+#lump-view-content .lump-view-warning:hover,
+#lump-view-content .lump-view-warning:active {
+    background-color: #181818;
+}
+
+#lump-view-content .lump-view-text {
+    padding: 20px;
+    margin: 0;
+    background-color: #181818;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 16px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+#lump-view-content .lump-view-hex {
+    padding: 20px;
+    margin: 0;
+    background-color: #181818;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 16px;
+}
+
+#lump-view-content .lump-view-hex .octet {
+    display: inline-block;
+    width: 48px;
+    text-align: center;
+}
+
+#lump-view-content .lump-view-patch-table {
+    width: 100%;
+    height: auto;
+    background-color: #181818;
+}
+
+#lump-view-content .lump-view-patch-table .patch-name {
+    display: block;
+    box-sizing: border-box;
+    font-size: 14px;
+    width: 100%;
+    height: 20px;
+    line-height: 20px;
+    padding: 0 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: #222;
+    border-bottom-style: solid;
+}
+
+.lump-view-image {
+    display: block;
+    vertical-align: middle;
+    text-align: center;
+    margin: 0 auto;
+    margin-top: 64px;
+    line-height: calc(100% - 40px);
+    border-width: 1px;
+    border-style: solid;
+    border-color: rgba(0, 0, 0, 0);
+}
+
+.lump-view-image:hover {
+    border-color: #aaa;
+}
+
+.lump-view-textures {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+.lump-view-textures .textures-list {
+    display: inline-block;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    width: 200px;
+    height: 100%;
+}
+
+.lump-view-textures .textures-list .list-item {
+    box-sizing: border-box;
+    padding: 0 8px;
+}
+
+.lump-view-textures .textures-image-container {
+    display: inline-block;
+    width: calc(100% - 200px);
+    height: 100%;
+}
