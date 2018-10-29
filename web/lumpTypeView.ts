@@ -3,8 +3,10 @@ import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
 import * as lumps from "@src/lumps/index";
 
-import {getPng64} from "@web/png64";
+import {getPng64, bufferbtoa} from "@web/png64";
 import * as util from "@web/util";
+
+const win: any = window as any;
 
 // Warn the user before previewing lumps this big
 export const BigLumpThreshold: number = 10000;
@@ -237,6 +239,36 @@ export const LumpTypeViewPngImage = new LumpTypeView({
             class: "lump-view-image",
             src: getPng64(files, lumps.WADPng.from(lump)),
             appendTo: root,
+        });
+    },
+});
+
+export const LumpTypeViewAudio = new LumpTypeView({
+    name: "Audio",
+    icon: "assets/icons/lump-audio.png",
+    view: (lump: WADLump, root: HTMLElement) => {
+        let format: string = "";
+        if(!lump.data){
+            return;
+        }
+        if(lumps.WADWave.match(lump)){
+            format = "audio/wav";
+        }else if(lumps.WADVorbis.match(lump)){
+            format = "audio/ogg";
+        }else if(lumps.WADMp3.match(lump)){
+            format = "audio/mpeg";
+        }else{
+            throw new Error("Unknown audio lump.");
+        }
+        const data64: string = bufferbtoa(lump.data);
+        const audio = util.createElement({
+            tag: "audio",
+            class: "lump-view-audio",
+            controls: true,
+            autoplay: false,
+            loop: false,
+            appendTo: root,
+            src: `data:${format};base64,${data64}`
         });
     },
 });

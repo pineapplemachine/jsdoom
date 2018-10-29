@@ -350,3 +350,10 @@ body {
     width: calc(100% - 200px);
     height: 100%;
 }
+
+.lump-view-audio {
+    display: block;
+    vertical-align: middle;
+    margin: 0 auto;
+    margin-top: 64px;
+}

@@ -182,16 +182,19 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Audio (WAV)",
         icon: "assets/icons/lump-audio.png",
+        views: [view.LumpTypeViewAudio],
         filter: lumps.WADWave.match,
     }),
     new LumpType({
         name: "Audio (OGG)",
         icon: "assets/icons/lump-audio.png",
+        views: [view.LumpTypeViewAudio],
         filter: lumps.WADVorbis.match,
     }),
     new LumpType({
         name: "Audio (MP3)",
         icon: "assets/icons/lump-audio.png",
+        views: [view.LumpTypeViewAudio],
         filter: (lump: WADLump) => {
             return lumps.WADMp3.match(lump);
         }
