@@ -61,5 +61,6 @@ typings/
 .next
 
 # Repository-specific
+dist/*
 test-wads/*
 !test-wads/.gitkeep
