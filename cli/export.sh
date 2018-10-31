@@ -1,5 +1,5 @@
 #!/bin/bash
 
-# Export a flat from a WAD as a PNG image.
+# Export a lump from a WAD to a file.
 # Run using the "--help" option for more details.
 node dist/src/cli/export.js $@
