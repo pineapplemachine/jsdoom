@@ -290,13 +290,13 @@ body {
     text-align: center;
 }
 
-#lump-view-content .lump-view-patch-table {
+.lump-view-list {
     width: 100%;
     height: auto;
     background-color: #181818;
 }
 
-#lump-view-content .lump-view-patch-table .patch-name {
+.lump-view-list .list-item {
     display: block;
     box-sizing: border-box;
     font-size: 14px;
@@ -356,4 +356,16 @@ body {
     vertical-align: middle;
     margin: 0 auto;
     margin-top: 64px;
+}
+
+.lump-view-map-things .list-item .position {
+    display: inline-block;
+    font-style: italic;
+    width: 120px;
+}
+
+.lump-view-map-things .list-item .name {
+    display: inline-block;
+    font-weight: normal;
+    width: auto;
 }

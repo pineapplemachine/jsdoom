@@ -182,28 +182,60 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Audio (WAV)",
         icon: "assets/icons/lump-audio.png",
-        views: [view.LumpTypeViewAudio],
+        views: [view.LumpTypeViewRawAudio("wav")],
         filter: lumps.WADWave.match,
     }),
     new LumpType({
         name: "Audio (OGG)",
         icon: "assets/icons/lump-audio.png",
-        views: [view.LumpTypeViewAudio],
+        views: [view.LumpTypeViewRawAudio("ogg")],
         filter: lumps.WADVorbis.match,
     }),
     new LumpType({
         name: "Audio (MP3)",
         icon: "assets/icons/lump-audio.png",
-        views: [view.LumpTypeViewAudio],
+        views: [view.LumpTypeViewRawAudio("mpeg")],
         filter: (lump: WADLump) => {
             return lumps.WADMp3.match(lump);
         }
     }),
     new LumpType({
+        name: "Graphic (BMP)",
+        icon: "assets/icons/lump-image.png",
+        views: [view.LumpTypeViewRawImage("bmp")],
+        filter: lumps.WADBitmap.match,
+    }),
+    new LumpType({
+        name: "Graphic (GIF)",
+        icon: "assets/icons/lump-image.png",
+        views: [view.LumpTypeViewRawImage("gif")],
+        filter: lumps.WADGif.match,
+    }),
+    new LumpType({
+        name: "Graphic (JPG)",
+        icon: "assets/icons/lump-image.png",
+        views: [view.LumpTypeViewRawImage("jpeg")],
+        filter: lumps.WADJpeg.match,
+    }),
+    new LumpType({
         name: "Graphic (PNG)",
         icon: "assets/icons/lump-image.png",
-        views: [view.LumpTypeViewPngImage],
+        views: [view.LumpTypeViewRawImage("png")],
         filter: lumps.WADPng.match,
+    }),
+    new LumpType({
+        name: "Graphic (TGA)",
+        icon: "assets/icons/lump-image.png",
+        // Not supported by browsers
+        // views: [view.LumpTypeViewRawImage("targa")],
+        filter: lumps.WADTarga.match,
+    }),
+    new LumpType({
+        name: "Graphic (TIFF)",
+        icon: "assets/icons/lump-image.png",
+        // Not supported by browsers
+        // views: [view.LumpTypeViewRawImage("tiff")],
+        filter: lumps.WADTiff.match,
     }),
     new LumpType({
         name: "Graphic (Flat)",
@@ -224,8 +256,9 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Map Things",
         icon: "assets/icons/lump-map.png",
+        views: [view.LumpTypeViewMapThings],
         filter: (lump: WADLump) => {
-            return lump.name === "THINGS";
+            return lumps.WADMapThings.match(lump);
         }
     }),
     new LumpType({

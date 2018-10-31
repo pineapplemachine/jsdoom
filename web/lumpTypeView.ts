@@ -132,14 +132,14 @@ export const LumpTypeViewPatches = new LumpTypeView({
     view: (lump: WADLump, root: HTMLElement) => {
         const table = util.createElement({
             tag: "div",
-            class: "lump-view-patch-table",
+            classList: ["lump-view-patch-table", "lump-view-list"],
             appendTo: root,
         });
         const patches = lumps.WADPatches.from(lump);
         for(const patchName of patches.enumeratePatchNames()){
             util.createElement({
                 tag: "div",
-                class: "patch-name",
+                class: "list-item",
                 innerText: patchName,
                 appendTo: table,
             });
@@ -228,47 +228,70 @@ export const LumpTypeViewPictureImage = new LumpTypeView({
     },
 });
 
-export const LumpTypeViewPngImage = new LumpTypeView({
-    name: "Image",
-    icon: "assets/icons/view-image.png",
-    view: (lump: WADLump, root: HTMLElement) => {
-        // TODO: Proper WADFileList support
-        const files: WADFileList = new WADFileList([<WADFile> lump.file]);
-        return util.createElement({
-            tag: "img",
-            class: "lump-view-image",
-            src: getPng64(files, lumps.WADPng.from(lump)),
-            appendTo: root,
-        });
-    },
-});
+export const LumpTypeViewRawImage = function(format: string): LumpTypeView {
+    return new LumpTypeView({
+        name: "Image",
+        icon: "assets/icons/view-image.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            const data64: string = lump.data ? bufferbtoa(lump.data) : "";
+            return util.createElement({
+                tag: "img",
+                class: "lump-view-image",
+                src: `data:image/${format};base64,${data64}`,
+                appendTo: root,
+            });
+        },
+    });
+};
 
-export const LumpTypeViewAudio = new LumpTypeView({
-    name: "Audio",
-    icon: "assets/icons/lump-audio.png",
+export const LumpTypeViewRawAudio = function(format: string): LumpTypeView {
+    return new LumpTypeView({
+        name: "Image",
+        icon: "assets/icons/view-image.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            const data64: string = lump.data ? bufferbtoa(lump.data) : "";
+            const audio = util.createElement({
+                tag: "audio",
+                class: "lump-view-audio",
+                controls: true,
+                autoplay: false,
+                loop: false,
+                appendTo: root,
+                src: `data:audio/${format};base64,${data64}`,
+            });
+        },
+    });
+};
+
+export const LumpTypeViewMapThings = new LumpTypeView({
+    name: "Things",
+    icon: "assets/icons/lump-map.png",
     view: (lump: WADLump, root: HTMLElement) => {
-        let format: string = "";
-        if(!lump.data){
-            return;
-        }
-        if(lumps.WADWave.match(lump)){
-            format = "audio/wav";
-        }else if(lumps.WADVorbis.match(lump)){
-            format = "audio/ogg";
-        }else if(lumps.WADMp3.match(lump)){
-            format = "audio/mpeg";
-        }else{
-            throw new Error("Unknown audio lump.");
-        }
-        const data64: string = bufferbtoa(lump.data);
-        const audio = util.createElement({
-            tag: "audio",
-            class: "lump-view-audio",
-            controls: true,
-            autoplay: false,
-            loop: false,
+        const table = util.createElement({
+            tag: "div",
+            classList: ["lump-view-map-things", "lump-view-list"],
             appendTo: root,
-            src: `data:${format};base64,${data64}`
         });
+        const things = lumps.WADMapThings.from(lump);
+        for(const thing of things.enumerateThings()){
+            const thingType = thing.getTypeObject();
+            const item = util.createElement({
+                tag: "div",
+                class: "list-item",
+                appendTo: table,
+            });
+            util.createElement({
+                tag: "div",
+                class: "position",
+                innerText: `(${thing.x}, ${thing.y})`,
+                appendTo: item,
+            });
+            util.createElement({
+                tag: "div",
+                class: "name",
+                innerText: thingType ? thingType.name : thing.type,
+                appendTo: item,
+            });
+        }
     },
 });
