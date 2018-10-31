@@ -1,13 +1,10 @@
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
+import {readPaddedString8} from "@src/wad/string";
 
 import {WADColors} from "@src/lumps/doom/colors";
 import {WADPatches} from "@src/lumps/doom/patches";
 import {WADPicture, WADPicturePost} from "@src/lumps/doom/picture";
-
-// TODO: Use a utility function for reading padded strings instead of
-// having to instantiate an object like this
-import {WADReader} from "@src/wad/reader";
 
 // Represents a single texture from a TEXTURE lump.
 export class WADTexture {
@@ -239,12 +236,11 @@ export class WADTextures {
     // Returns the first matching texture.
     // Returns null if the name doesn't match any textures.
     getTextureByName(name: string): (WADTexture | null) {
-        const reader: WADReader = new WADReader(this.data);
         const upperName: string = name.toUpperCase();
         const length: number = this.length;
         for(let texIndex: number = 0; texIndex < length; texIndex++){
             const texOffset: number = this.data.readUInt32LE(4 + (4 * texIndex));
-            const texName: string = reader.padded(texOffset, 8);
+            const texName: string = readPaddedString8(this.data, texOffset);
             if(upperName === texName.toUpperCase()){
                 return this.readTextureAt(texOffset);
             }
@@ -264,7 +260,6 @@ export class WADTextures {
     // Helper to read the WADTexture at an offset in the lump.
     // Intended for internal use.
     readTextureAt(texOffset: number): WADTexture {
-        const reader: WADReader = new WADReader(this.data);
         // Read the patch list
         const patchCount: number = this.data.readUInt16LE(texOffset + 20);
         const patches: WADTexturePatch[] = [];
@@ -280,7 +275,7 @@ export class WADTextures {
         }
         // Read and return the texture object
         return new WADTexture({
-            name: reader.padded(texOffset, 8),
+            name: readPaddedString8(this.data, texOffset),
             flags: this.data.readUInt32LE(texOffset + 8),
             width: this.data.readUInt16LE(texOffset + 12),
             height: this.data.readUInt16LE(texOffset + 14),

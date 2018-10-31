@@ -1,7 +1,7 @@
 import {WADLump} from "./lump";
-import {WADReader} from "./reader";
 import {WADFileType} from "./fileType";
-import {WADWriter} from "./writer";
+
+import {writePaddedString, readPaddedString, readPaddedString8} from "./string";
 
 // Represents the contents of one WAD file.
 export class WADFile {
@@ -41,8 +41,7 @@ export class WADFile {
             throw new Error("File is too small to be a valid WAD.");
         }
         // Read the file header.
-        const read = new WADReader(data);
-        const typeName: string = read.padded(0, 4);
+        const typeName: string = readPaddedString(data, 0, 4);
         this.type = WADFileType.fromName(typeName);
         // If the file header wasn't either "IWAD" or "PWAD" then immediately
         // abort; this is not a WAD file.
@@ -50,8 +49,8 @@ export class WADFile {
             throw new Error("File is corrupt or not a WAD.");
         }
         // Read the rest of the header...
-        const numEntries: number = read.int(4);
-        const directoryStart: number = read.int(8);
+        const numEntries: number = data.readUInt32LE(4);
+        const directoryStart: number = data.readUInt32LE(8);
         // Read the lump directory
         let dirPosition: number = directoryStart;
         // Set lump padding to "true" by default, and switch to "false"
@@ -60,9 +59,9 @@ export class WADFile {
         this.padLumps = true;
         while(this.lumps.length < numEntries && dirPosition < data.length){
             // Read lump metadata: lump name; data offset and length.
-            const lumpStart: number = read.int(dirPosition);
-            const lumpSize: number = read.int(dirPosition + 4);
-            const lumpName: string = read.padded(dirPosition + 8, 8);
+            const lumpStart: number = data.readUInt32LE(dirPosition);
+            const lumpSize: number = data.readUInt32LE(dirPosition + 4);
+            const lumpName: string = readPaddedString8(data, dirPosition + 8);
             const lumpEnd: number = lumpStart + lumpSize;
             // Make sure the lump metadata makes sense
             if(lumpEnd > data.length) throw new Error(
@@ -105,21 +104,19 @@ export class WADFile {
         }
         // Write the header
         const headerData: Buffer = Buffer.alloc(12);
-        const writeHeader = new WADWriter(headerData);
-        writeHeader.padded(0, 4, WADFileType.getName(this.type));
-        writeHeader.int(4, this.lumps.length);
+        writePaddedString(headerData, 0, 4, WADFileType.getName(this.type));
+        headerData.writeUInt32LE(this.lumps.length, 4);
         // Write the lump directory
         const directoryData: Buffer = Buffer.alloc(16 * this.lumps.length);
-        const writeDirectory = new WADWriter(directoryData);
         let directoryIndex = 0;
         let lumpPosition = 0;
         for(let lumpIndex: number = 0; lumpIndex < this.lumps.length; lumpIndex++){
             // Write lump metadata: Data offset, length, and name.
             const lump: WADLump = this.lumps[lumpIndex];
             const lumpDataOffset: number = lump.noDataOffset ? 0 : 12 + lumpPosition;
-            writeDirectory.int(directoryIndex, lumpDataOffset);
-            writeDirectory.int(directoryIndex + 4, lump.length);
-            writeDirectory.padded(directoryIndex + 8, 8, lump.name);
+            directoryData.writeUInt32LE(lumpDataOffset, directoryIndex);
+            directoryData.writeUInt32LE(lump.length, directoryIndex + 4);
+            writePaddedString(directoryData, directoryIndex + 8, 8, lump.name);
             // Advance 16 bytes in the directory buffer
             directoryIndex += 16;
             // Advance the lump byte position counter; add the lump length,
@@ -160,7 +157,7 @@ export class WADFile {
         );
         // Write the lump directory offset to the header.
         // Offset is [header bytes] + [total lump data bytes]
-        writeHeader.int(8, 12 + lumpDataTotalLength);
+        headerData.writeUInt32LE(12 + lumpDataTotalLength, 8);
         // Concatenate all the buffers and return.
         const buffers = [headerData, ...lumpDataList, directoryData];
         const dataLength = 12 + 16 * this.lumps.length + lumpDataTotalLength;

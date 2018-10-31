@@ -1,8 +1,5 @@
 import {WADLump} from "@src/wad/lump";
-
-// TODO: Use a utility function for reading padded strings instead of
-// having to instantiate an object like this
-import {WADReader} from "@src/wad/reader";
+import {readPaddedString8} from "@src/wad/string";
 
 // Represents the patch table ("PNAMES") lump.
 // Stores the names of all patch lumps in the WAD and its dependencies.
@@ -50,16 +47,14 @@ export class WADPatches {
         if(patchIndex < 0 || patchIndex >= this.length){
             throw new Error("Patch index out of range.");
         }
-        const reader: WADReader = new WADReader(this.data);
-        return reader.padded(4 + (8 * patchIndex), 8);
+        return readPaddedString8(this.data, 4 + (8 * patchIndex));
     }
     
     // Enumerate all of the patch names in the lump.
     *enumeratePatchNames(): Iterable<string> {
-        const reader: WADReader = new WADReader(this.data);
         const numPatches: number = this.length;
         for(let patchIndex: number = 0; patchIndex < numPatches; patchIndex++){
-            yield reader.padded(4 + (8 * patchIndex), 8);
+            yield readPaddedString8(this.data, 4 + (8 * patchIndex));
         }
     }
 }

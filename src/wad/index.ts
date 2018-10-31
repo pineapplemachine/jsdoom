@@ -2,8 +2,6 @@
 
 export * from "./lump";
 export * from "./lumpMap";
-export * from "./reader";
 export * from "./file";
 export * from "./fileList";
 export * from "./fileType";
-export * from "./writer";
