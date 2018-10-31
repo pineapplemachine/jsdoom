@@ -10,10 +10,10 @@ One day, it may grow up to become a fully-featured browser-based
 [Doom port](https://doomwiki.org/wiki/Source_port).
 
 [license-image]: http://img.shields.io/badge/license-GPL3-green.svg
-[license]: https://github.com/pineapplemachine/jsdoom-tools/blob/master/LICENSE
+[license]: https://github.com/pineapplemachine/jsdoom/blob/master/LICENSE
 
-[travis-url]: https://travis-ci.org/pineapplemachine/jsdoom-tools
-[travis-image]: https://travis-ci.org/pineapplemachine/jsdoom-tools.svg?branch=master
+[travis-url]: https://travis-ci.org/pineapplemachine/jsdoom
+[travis-image]: https://travis-ci.org/pineapplemachine/jsdoom.svg?branch=master
 
 ## Structure overview
 
