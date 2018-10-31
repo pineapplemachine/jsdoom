@@ -3,6 +3,7 @@
 export * from "./colormap";
 export * from "./colors";
 export * from "./flat";
+export * from "./mapThings";
 export * from "./midi";
 export * from "./music";
 export * from "./patches";
