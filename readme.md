@@ -1,4 +1,4 @@
-# @jsdoom/tools
+# jsdoom
 
 [![GNU GPLv3 License][license-image]][license]
 [![Build Status][travis-image]][travis-url]

@@ -1,5 +1,5 @@
 {
-  "name": "@jsdoom/tools",
+  "name": "jsdoom",
   "version": "0.1.0",
   "description": "Tools for reading, writing, and manipulating WAD files.",
   "keywords": [
