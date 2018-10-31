@@ -1,10 +1,19 @@
 # @jsdoom/tools
 
+[![GNU GPLv3 License][license-image]][license]
+[![Build Status][travis-image]][travis-url]
+
 This package contains tools for reading, writing, and manipulating WAD files,
 written in TypeScript.
 
 One day, it may grow up to become a fully-featured browser-based
 [Doom port](https://doomwiki.org/wiki/Source_port).
+
+[license-image]: http://img.shields.io/badge/license-GPL3-green.svg
+[license]: https://github.com/pineapplemachine/jsdoom-tools/blob/master/LICENSE
+
+[travis-url]: https://travis-ci.org/pineapplemachine/jsdoom-tools
+[travis-image]: https://travis-ci.org/pineapplemachine/jsdoom-tools.svg?branch=master
 
 ## Structure overview
 
