@@ -157,7 +157,7 @@ function selectListItem(item: any): void {
         item.lumpType.getViews(item.lump).indexOf(selectedView) >= 0
     ){
         viewListItem(item, selectedView);
-    }else if(!item.lump.length){
+    }else if(!item.lumpType.views.length){
         const contentRoot = util.id("lump-view-content");
         util.removeChildren(contentRoot);
     }else{
@@ -170,6 +170,9 @@ function selectListItem(item: any): void {
 function viewListItem(item: any, view: LumpTypeView): void {
     const contentRoot = util.id("lump-view-content");
     const buttons = util.id("lump-view-buttons");
+    if(selectedView && selectedView.clear){
+        selectedView.clear(item.lump, <HTMLElement> contentRoot);
+    }
     util.removeChildren(contentRoot);
     view.view(item.lump, <HTMLElement> contentRoot);
     selectedView = view;

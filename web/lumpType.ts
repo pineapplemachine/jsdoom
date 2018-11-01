@@ -74,16 +74,12 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Map Marker",
         icon: "assets/icons/lump-marker.png",
+        views: [view.LumpTypeViewMapGeometry({
+            drawLines: true,
+            drawThings: true,
+        })],
         filter: (lump: WADLump) => {
-            // TODO: Possibly use MAPINFO to detect other map names
-            return lump.length === 0 && (
-                (lump.name.length >= 5 &&
-                    lump.name.startsWith("MAP")
-                ) ||
-                (lump.name.length >= 4 &&
-                    lump.name[0] === "E" && lump.name[2] === "M"
-                )
-            );
+            return lumps.WADMap.match(lump);
         }
     }),
     new LumpType({
@@ -256,7 +252,10 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Map Things",
         icon: "assets/icons/lump-map.png",
-        views: [view.LumpTypeViewMapThings],
+        views: [
+            view.LumpTypeViewMapGeometry({drawThings: true}),
+            view.LumpTypeViewMapThings
+        ],
         filter: (lump: WADLump) => {
             return lumps.WADMapThings.match(lump);
         }
@@ -264,22 +263,24 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Map Lines",
         icon: "assets/icons/lump-map.png",
+        views: [view.LumpTypeViewMapGeometry({drawLines: true})],
         filter: (lump: WADLump) => {
-            return lump.name === "LINEDEFS";
+            return lumps.WADMapLines.match(lump);
         }
     }),
     new LumpType({
         name: "Map Sides",
         icon: "assets/icons/lump-map.png",
         filter: (lump: WADLump) => {
-            return lump.name === "SIDEDEFS";
+            return lumps.WADMapSides.match(lump);
         }
     }),
     new LumpType({
         name: "Map Vertexes",
         icon: "assets/icons/lump-map.png",
+        views: [view.LumpTypeViewMapGeometry({drawVertexes: true})],
         filter: (lump: WADLump) => {
-            return lump.name === "VERTEXES";
+            return lumps.WADMapVertexes.match(lump);
         }
     }),
     new LumpType({
@@ -307,7 +308,7 @@ export const LumpTypeList: LumpType[] = [
         name: "Map Sectors",
         icon: "assets/icons/lump-map.png",
         filter: (lump: WADLump) => {
-            return lump.name === "SECTORS";
+            return lumps.WADMapSectors.match(lump);
         }
     }),
     new LumpType({

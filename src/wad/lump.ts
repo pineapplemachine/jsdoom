@@ -56,35 +56,65 @@ export class WADLump {
         return this.data;
     }
     
+    // Get the index of this lump in the containing WAD file.
+    // Returns -1 if the lump is not contained within any file.
+    getIndex(): number {
+        if(!this.file){
+            return -1;
+        }
+        for(let index: number = 0; index < this.file.lumps.length; index++){
+            if(this.file.lumps[index] === this){
+                return index;
+            }
+        }
+        return -1;
+    }
+    
     // Returns the lump before this one in the containing WAD file.
     // Returns null if this was the first lump in the file, or if the lump
     // doesn't actually belong to any file.
     getPreviousLump(): (WADLump | null) {
-        if(!this.file){
+        const index: number = this.getIndex();
+        if(!this.file || index <= 0){
             return null;
+        }else{
+            return this.file.lumps[index - 1];
         }
-        for(let index: number = 0; index < this.file.lumps.length; index++){
-            if(this.file.lumps[index] === this){
-                return index === 0 ? null : this.file.lumps[index - 1];
-            }
-        }
-        return null;
     }
     
     // Returns the lump after this one in the containing WAD file.
     // Returns null if this was the first lump in the file, or if the lump
     // doesn't actually belong to any file.
     getNextLump(): (WADLump | null) {
-        if(!this.file){
+        const index: number = this.getIndex();
+        if(!this.file || index < 0 || index >= this.file.lumps.length - 1){
             return null;
+        }else{
+            return this.file.lumps[index + 1];
         }
-        const lastIndex = this.file.lumps.length - 1;
-        for(let index: number = 0; index < this.file.lumps.length; index++){
-            if(this.file.lumps[index] === this){
-                return index >= lastIndex ? null : this.file.lumps[index + 1];
-            }
+    }
+    
+    // Enumerate the lumps preceding this one in the containing WAD file.
+    // Starts with the immediately prior lump and then continues up the list.
+    *enumeratePreviousLumps(): Iterable<WADLump> {
+        let index: number = this.getIndex();
+        if(!this.file || index < 0){
+            return;
         }
-        return null;
+        while(--index >= 0){
+            yield this.file.lumps[index];
+        }
+    }
+    
+    // Enumerate the lumps following this one in the containing WAD file.
+    *enumerateNextLumps(): Iterable<WADLump> {
+        let index: number = this.getIndex();
+        if(!this.file || index < 0){
+            return;
+        }
+        while(++index < this.file.lumps.length){
+            yield this.file.lumps[index];
+        }
     }
     
     // Returns true if this lump is between two lumps of the given names.

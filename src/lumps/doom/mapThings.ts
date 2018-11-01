@@ -92,6 +92,8 @@ export class WADMapThing {
 export class WADMapThings {
     // Map things lumps are always named "THINGS".
     static readonly LumpName: string = "THINGS";
+    // The number of bytes which make up each thing in the lump.
+    static readonly ItemSize: number = 10;
     // The thing data.
     data: Buffer;
     
@@ -102,22 +104,19 @@ export class WADMapThings {
     // Returns true when a WADLump can be read as map things.
     // Returns false otherwise.
     static match(lump: WADLump): boolean {
-        return lump.length % 10 === 0 && (
+        return lump.length % WADMapThings.ItemSize === 0 && (
             lump.name.toUpperCase() === WADMapThings.LumpName
         );
     }
     
     // Create a WADMapThings given a WADLump object.
     static from(lump: WADLump): WADMapThings {
-        if(!this.match(lump)){
-            throw new Error("Not a valid THINGS lump.");
-        }
         return new WADMapThings(lump.name, <Buffer> lump.data);
     }
     
     // Get the number of things represented in the lump.
     get length(): number {
-        return Math.floor(this.data.length / 10);
+        return Math.floor(this.data.length / WADMapThings.ItemSize);
     }
     
     // Get the thing at an index.
@@ -125,7 +124,7 @@ export class WADMapThings {
         if(thingIndex < 0 || thingIndex >= this.length){
             throw new Error("Thing index out of bounds.");
         }
-        const thingOffset: number = 10 * thingIndex;
+        const thingOffset: number = WADMapThings.ItemSize * thingIndex;
         return new WADMapThing({
             x: this.data.readInt16LE(thingOffset),
             y: this.data.readInt16LE(thingOffset + 2),
