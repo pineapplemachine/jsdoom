@@ -269,7 +269,7 @@ export const LumpTypeViewRawAudio = function(format: string): LumpTypeView {
 
 export const LumpTypeViewMapThings = new LumpTypeView({
     name: "Table",
-    icon: "assets/icons/lump-map.png",
+    icon: "assets/icons/lump-ansi.png",
     view: (lump: WADLump, root: HTMLElement) => {
         const table = util.createElement({
             tag: "div",
