@@ -471,3 +471,62 @@ function drawMapGeometry(
         }
     }
 }
+
+export function LumpTypeViewPlaypal(
+    options:{scaleX:number, scaleY:number} = {scaleX: 4, scaleY: 4}
+) {
+    return new LumpTypeView({
+        name: "Playpal",
+        icon: "assets/icons/lump-playpal.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            const container2 = util.createElement({class: "lump-view-playpal", appendTo: root});
+            const container = util.createElement({class: "lump-view-playpal-inner", appendTo: container2});
+            const numPals = Math.floor(lump.dataLength / 768); // Sometimes, the PLAYPAL has a comment at the end.
+            let curPal = 0;
+            const nextArrow = util.createElement({content: "»", class: "lump-view-playpal-navbtn", onleftclick: () => {
+                    curPal += 1;
+                    if (curPal >= numPals) { curPal = numPals - 1; }
+                    drawPalette(curPal);
+                }
+            });
+            const prevArrow = util.createElement({content: "«", class: "lump-view-playpal-navbtn", onleftclick: () => {
+                    curPal -= 1;
+                    if (curPal < 0) { curPal = 0; }
+                    drawPalette(curPal);
+                }
+            });
+
+            let palNumTxt = `${curPal+1}/${numPals}`;
+            const displayWidth = 16 * options.scaleX;
+            const displayHeight = 16 * options.scaleY;
+
+            const palNumEl = util.createElement({content: palNumTxt, appendTo: container});
+            const palCanvas = util.createElement({tag: "canvas", appendTo: container});
+            util.createElement({content: [prevArrow, nextArrow], class: "lump-view-playpal-nav", appendTo: container});
+            palCanvas.width = displayWidth;
+            palCanvas.height = displayHeight;
+
+            function drawPalette(palNum: number) {
+                if (!lump.data) { return; }
+                const context = palCanvas.getContext("2d") as CanvasRenderingContext2D;
+                for (let x = 0; x < 256; x++) {
+                    const rgb = [0, 0, 0];
+                    for (let comp = 0; comp < 3; comp++) {
+                        rgb[comp] = lump.data.readUInt8(palNum * 768 + x * 3 + comp);
+                    }
+                    const column = x % 16;
+                    const row = Math.floor(x / 16);
+                    context.fillStyle = `#${rgb.map((x) => util.toHex(x)).join("")}`;
+                    context.fillRect(
+                        column * options.scaleX,
+                        row * options.scaleY,
+                        options.scaleX, options.scaleY
+                    );
+                    palNumTxt = `${curPal+1}/${numPals}`;
+                    palNumEl.innerText = palNumTxt;
+                }
+            }
+            drawPalette(curPal);
+        }
+    });
+}

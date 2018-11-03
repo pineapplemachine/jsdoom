@@ -375,3 +375,34 @@ body {
     height: 100%;
     background-color: #181818;
 }
+
+.lump-view-playpal {
+    display: block;
+    text-align: center;
+}
+
+.lump-view-playpal-inner {
+    display: inline-block;
+    margin: 0 auto;
+}
+
+.lump-view-playpal-nav {
+    display: flex;
+    justify-content: center;
+}
+
+.lump-view-playpal-navbtn {
+    padding: 12px;
+    border-radius: 9px;
+    margin: 8px;
+
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.lump-view-playpal-navbtn:hover,
+.lump-view-playpal-navbtn:active {
+    background-color: #222;
+}
