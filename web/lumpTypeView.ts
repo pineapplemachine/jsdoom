@@ -472,58 +472,100 @@ function drawMapGeometry(
     }
 }
 
-export function LumpTypeViewPlaypal(
-    options:{scaleX:number, scaleY:number} = {scaleX: 4, scaleY: 4}
-) {
+export function LumpTypeViewPlaypal(scaleX:number = 4, scaleY:number = 4) {
     return new LumpTypeView({
         name: "Playpal",
         icon: "assets/icons/lump-playpal.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const container2 = util.createElement({class: "lump-view-playpal", appendTo: root});
-            const container = util.createElement({class: "lump-view-playpal-inner", appendTo: container2});
-            const numPals = Math.floor(lump.dataLength / 768); // Sometimes, the PLAYPAL has a comment at the end.
-            let curPal = 0;
-            const nextArrow = util.createElement({content: "»", class: "lump-view-playpal-navbtn", onleftclick: () => {
+            // 2 containers are needed in order to center the inner container
+            const container2 = util.createElement({
+                class: "lump-view-playpal",
+                appendTo: root
+            });
+            const container = util.createElement({
+                class: "lump-view-playpal-inner",
+                appendTo: container2
+            });
+
+            const playpal = lumps.WADPalette.from(lump);
+            const numPals = playpal.getPaletteCount();
+            let curPal = 0; // Current palette index
+
+            // Arrow buttons to navigate between palettes
+            const nextArrow = util.createElement({
+                content: "»",
+                class: "lump-view-playpal-navbtn",
+                onleftclick: () => {
                     curPal += 1;
-                    if (curPal >= numPals) { curPal = numPals - 1; }
+                    if (curPal >= numPals) {
+                        curPal = 0;
+                    }
                     drawPalette(curPal);
                 }
             });
-            const prevArrow = util.createElement({content: "«", class: "lump-view-playpal-navbtn", onleftclick: () => {
+            const prevArrow = util.createElement({
+                content: "«",
+                class: "lump-view-playpal-navbtn",
+                onleftclick: () => {
                     curPal -= 1;
-                    if (curPal < 0) { curPal = 0; }
+                    if (curPal < 0) {
+                        curPal = numPals - 1;
+                    }
                     drawPalette(curPal);
                 }
             });
 
-            let palNumTxt = `${curPal+1}/${numPals}`;
-            const displayWidth = 16 * options.scaleX;
-            const displayHeight = 16 * options.scaleY;
+            // Width and height of palette canvas
+            const displayWidth = 16 * scaleX;
+            const displayHeight = 16 * scaleY;
 
-            const palNumEl = util.createElement({content: palNumTxt, appendTo: container});
-            const palCanvas = util.createElement({tag: "canvas", appendTo: container});
-            util.createElement({content: [prevArrow, nextArrow], class: "lump-view-playpal-nav", appendTo: container});
+            // Construct view
+            // Palette number display
+            const palNumEl = util.createElement({
+                content: `${curPal+1}/${numPals}`,
+                appendTo: container
+            });
+            // Palette canvas
+            const palCanvas = util.createElement({
+                tag: "canvas",
+                appendTo: container
+            });
+            // Palette navigator
+            util.createElement({
+                content: [prevArrow, nextArrow],
+                class: "lump-view-playpal-nav",
+                appendTo: container
+            });
             palCanvas.width = displayWidth;
             palCanvas.height = displayHeight;
 
+            // Draw palette to palCanvas
             function drawPalette(palNum: number) {
-                if (!lump.data) { return; }
+                if (!lump.data) {
+                    return;
+                }
+
                 const context = palCanvas.getContext("2d") as CanvasRenderingContext2D;
-                for (let x = 0; x < 256; x++) {
-                    const rgb = [0, 0, 0];
-                    for (let comp = 0; comp < 3; comp++) {
-                        rgb[comp] = lump.data.readUInt8(palNum * 768 + x * 3 + comp);
-                    }
-                    const column = x % 16;
-                    const row = Math.floor(x / 16);
-                    context.fillStyle = `#${rgb.map((x) => util.toHex(x)).join("")}`;
+                for (let palIdx = 0; palIdx < 256; palIdx++) {
+
+                    // Set RGB components
+                    const rgb = playpal.getColorBGRA(palNum, palIdx);
+
+                    // Calculate position to draw
+                    const column = palIdx % 16;
+                    const row = Math.floor(palIdx / 16);
+
+                    // Set colour and draw
+                    // Convert to hexadecimal string and trim alpha - HTML/CSS colours are in #RRGGBB format
+                    context.fillStyle = `#${rgb.toString(16).substring(2)}`;
                     context.fillRect(
-                        column * options.scaleX,
-                        row * options.scaleY,
-                        options.scaleX, options.scaleY
+                        column * scaleX,
+                        row * scaleY,
+                        scaleX, scaleY
                     );
-                    palNumTxt = `${curPal+1}/${numPals}`;
-                    palNumEl.innerText = palNumTxt;
+
+                    // Update palette number display
+                    palNumEl.innerText = `${curPal+1}/${numPals}`;
                 }
             }
             drawPalette(curPal);

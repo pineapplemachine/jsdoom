@@ -395,10 +395,6 @@ body {
     padding: 12px;
     border-radius: 9px;
     margin: 8px;
-
-    -moz-user-select: none;
-    -webkit-user-select: none;
-    -ms-user-select: none;
     user-select: none;
 }
 

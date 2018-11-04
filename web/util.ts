@@ -117,7 +117,7 @@ export function createElement(options: any): any {
     return element;
 }
 
-export function toHex(x: number) {
+export function toPaddedHex(x: number) {
     let octet = x.toString(16);
     if (octet.length < 2) octet = "0" + octet;
     return octet;
