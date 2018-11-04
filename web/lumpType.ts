@@ -90,6 +90,7 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Palette",
         icon: "assets/icons/lump-playpal.png",
+        views: [view.LumpTypeViewPlaypal()],
         filter: lumps.WADPalette.match,
     }),
     new LumpType({
