@@ -36,9 +36,9 @@ function myFunction(): void {
 Code should be styled in such a way that each line is indented at either the same level as the last line, one more level, or one less. There should never be a jump of two or more indentation levels between lines. There should never be a partial change in indentation, e.g. one line should not be indented three spaces further than the next.
 
 ``` ts
-myArray.map(value => {
+myArray.map((value) => {
     return transformMyValue(value);
-}).filter(value => {
+}).filter((value) => {
     return filterMyValue(value);
 });
 ```
@@ -248,14 +248,24 @@ const myLongStringLiteral = (
 );
 ```
 
+## Prefer spaces around arrow function parameters
+
+In general, the parameter list of an arrow function should always be enclosed within paretheses `()`.
+
+``` ts
+myArray.map((value) => {
+    return value + value;
+});
+```
+
 ## Prefer braces around arrow function bodies
 
 In general, the bodies of arrow functions should always be enclosed within
 braces `{}`.
 
 ``` ts
-myArray.map(value => {
-    return value + value;
+myArray.filter((value) => {
+    return value > 0;
 });
 ```
 
@@ -361,7 +371,7 @@ function lerp(a: number, b: number, t: number): Vector {
 
 ``` ts
 // Note that `a` and `b` are acceptable parameter names for
-// comparator functions, though single-character variable names
+// comparator functions, even though single-character variable names
 // generally are not allowed.
 myArray.sort((a: number, b: number) => {
     return a - b;
