@@ -1,6 +1,6 @@
 # Jsdoom Code of Conduct
 
-The jsdoom code of conduct is based on the [microsoft.github.io code of conduct](https://microsoft.github.io/codeofconduct/).
+The jsdoom code of conduct is based on the [Microsoft Open Source Code of Conduct](https://microsoft.github.io/codeofconduct/).
 
 ### Why does this code of conduct exist?
 
