@@ -33,7 +33,7 @@ export class WADFlat {
         if(!this.match(lump)){
             throw new Error("Not a valid flat lump.");
         }
-        return new WADFlat(lump.name, <Buffer> lump.data);
+        return new WADFlat(lump.name, lump.data as Buffer);
     }
     
     // Get the width of the flat in pixels.

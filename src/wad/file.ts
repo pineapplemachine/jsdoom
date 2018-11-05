@@ -12,7 +12,7 @@ export class WADFile {
     // enumeration also contains an "Invalid" member.
     type: WADFileType;
     // An ordered list of the lumps which appear in this file.
-    lumps: Array<WADLump>;
+    lumps: WADLump[];
     // Whether or not outputted files should include lump padding.
     // DOOM.WAD and DOOM2.WAD have this padding, but modern WAD tools typically
     // omit the padding.
@@ -96,7 +96,7 @@ export class WADFile {
     // Synchronously get a Buffer representing the WAD's binary file content.
     getData(): Buffer {
         // Get binary data for all lumps
-        const lumpDataList: Array<Buffer> = [];
+        const lumpDataList: Buffer[] = [];
         for(const lump of this.lumps){
             if(lump.data){
                 lumpDataList.push(lump.data);

@@ -27,7 +27,7 @@ export class WADSpeakerEffect {
         if(!this.match(lump)){
             throw new Error("Not a valid DMX lump.");
         }
-        return new WADSpeakerEffect(lump.name, <Buffer> lump.data);
+        return new WADSpeakerEffect(lump.name, lump.data as Buffer);
     }
 }
 

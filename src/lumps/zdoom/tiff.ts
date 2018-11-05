@@ -40,7 +40,7 @@ export class WADTiff {
         if(!this.match(lump)){
             throw new Error("Not a valid TIFF lump.");
         }
-        return new WADTiff(lump.name, <Buffer> lump.data);
+        return new WADTiff(lump.name, lump.data as Buffer);
     }
     
     // Get the width of the TIFF image in pixels.

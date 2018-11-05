@@ -31,7 +31,7 @@ export class WADSound {
         if(!this.match(lump)){
             throw new Error("Not a valid DMX lump.");
         }
-        return new WADSound(lump.name, <Buffer> lump.data);
+        return new WADSound(lump.name, lump.data as Buffer);
     }
 }
 

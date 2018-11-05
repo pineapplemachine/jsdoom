@@ -67,7 +67,7 @@ export class WADMapVertexes {
     
     // Create a WADMapVertexes given a WADLump object.
     static from(lump: WADLump): WADMapVertexes {
-        return new WADMapVertexes(lump.name, <Buffer> lump.data);
+        return new WADMapVertexes(lump.name, lump.data as Buffer);
     }
     
     // Get the number of vertexes represented in the lump.

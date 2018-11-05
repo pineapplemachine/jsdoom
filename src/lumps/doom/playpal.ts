@@ -41,7 +41,7 @@ export class WADPalette {
         if(!this.match(lump)){
             throw new Error("Not a valid PLAYPAL lump.");
         }
-        return new WADPalette(<Buffer> lump.data);
+        return new WADPalette(lump.data as Buffer);
     }
     
     // Load the Doom 1 palette.

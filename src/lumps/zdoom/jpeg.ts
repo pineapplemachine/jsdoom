@@ -47,7 +47,7 @@ export class WADJpeg {
         if(!this.match(lump)){
             throw new Error("Not a valid JPEG lump.");
         }
-        return new WADJpeg(lump.name, <Buffer> lump.data);
+        return new WADJpeg(lump.name, lump.data as Buffer);
     }
     
     // Get JPEG density units.

@@ -39,7 +39,7 @@ export class WADColorMap {
         if(!this.match(lump)){
             throw new Error("Not a valid COLORMAP lump.");
         }
-        return new WADColorMap(<Buffer> lump.data);
+        return new WADColorMap(lump.data as Buffer);
     }
     
     // Load the Doom 1 color map.

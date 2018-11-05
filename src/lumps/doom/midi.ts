@@ -30,7 +30,7 @@ export class WADMidi {
         if(!this.match(lump)){
             throw new Error("Not a valid MUS lump.");
         }
-        return new WADMidi(lump.name, <Buffer> lump.data);
+        return new WADMidi(lump.name, lump.data as Buffer);
     }
 }
 

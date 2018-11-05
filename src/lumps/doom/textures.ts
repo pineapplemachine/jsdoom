@@ -224,7 +224,7 @@ export class WADTextures {
         if(!this.match(lump)){
             throw new Error("Not a valid TEXTURE lump.");
         }
-        return new WADTextures(<Buffer> lump.data);
+        return new WADTextures(lump.data as Buffer);
     }
     
     // Get the number of textures represented in the lump.

@@ -30,7 +30,7 @@ export class WADPng {
         if(!this.match(lump)){
             throw new Error("Not a valid PNG lump.");
         }
-        return new WADPng(lump.name, <Buffer> lump.data);
+        return new WADPng(lump.name, lump.data as Buffer);
     }
     
     // Get the width of the PNG in pixels.

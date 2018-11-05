@@ -38,7 +38,7 @@ export class WADGif {
         if(!this.match(lump)){
             throw new Error("Not a valid GIF lump.");
         }
-        return new WADGif(lump.name, <Buffer> lump.data);
+        return new WADGif(lump.name, lump.data as Buffer);
     }
     
     // Get the width of the GIF image in pixels.

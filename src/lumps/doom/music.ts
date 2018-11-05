@@ -30,7 +30,7 @@ export class WADMusic {
         if(!this.match(lump)){
             throw new Error("Not a valid MUS lump.");
         }
-        return new WADMusic(lump.name, <Buffer> lump.data);
+        return new WADMusic(lump.name, lump.data as Buffer);
     }
 }
 

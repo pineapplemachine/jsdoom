@@ -11,7 +11,7 @@ export interface WADInfo {
 }
 
 // A list of WAD urls with metadata needed by the downloader.
-export const WADInfoList: Array<WADInfo> = [
+export const WADInfoList: WADInfo[] = [
     // Doom: Knee-Deep in the Dead shareware by Id Software (1993)
     {
         name: "doom1.wad",

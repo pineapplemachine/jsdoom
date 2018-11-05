@@ -79,7 +79,7 @@ export class WADPicture {
         if(!this.match(lump)){
             throw new Error("Not a valid picture lump.");
         }
-        return new WADPicture(lump.name, <Buffer> lump.data);
+        return new WADPicture(lump.name,lump.data as Buffer);
     }
     
     // Get the width of the picture in pixels.
