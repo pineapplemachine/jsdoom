@@ -105,7 +105,7 @@ const myLongExpressionResult: string = (
 
 ## Always use semicolons
 
-Always put a semicolon `;` at the end of each line. There should not be any whitespace in between the last character on the line and its terminating semicolon.
+Always put a semicolon `;` at the end of each statement. There should not be any whitespace in between the last character on the line and its terminating semicolon.
 
 ``` ts
 doStuff();
