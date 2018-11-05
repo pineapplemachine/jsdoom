@@ -333,9 +333,14 @@ const myAsciiVariableName: number = 0;
 
 Functions, classes, variables, and other named entities should have informative, descriptive names. Names should generally not contain abbreviations.
 
-"HTML" abbreviating "HypertextMarkupLanguage" ot "WAD" abbreviating "WheresAllTheData" is okay but "Idx" abbreviating "Index" or "Err" abbreviating "Error" is not. Please use common sense in judging whether an abbreviation is really necessary, and whether it might make the code more difficult to read.
+"HTML" abbreviating "HypertextMarkupLanguage" or "WAD" abbreviating "WheresAllTheData" is okay and encouraged, but "Idx" abbreviating "Index" or "Err" abbreviating "Error" is not okay. Please use common sense in judging whether an abbreviation is really necessary, and whether it might make the code more difficult to read.
 
-Single-letter identifiers are strictly disallowed with the exception of `x`, `y`, `z`, `w`, `i`, `j`, and `k` where specifically used to describe position or vector components, or `a` and `b` where used as the parameters of a comparator function with a clear purpose.
+Single-letter identifiers are strictly disallowed with the exception
+of `x`, `y`, `z`, `w`, `i`, `j`, and `k` where they are specifically used to
+describe position or vector components,
+`t` where used to name the [interpolant parameter of an interpolation function](https://en.wikipedia.org/wiki/Linear_interpolation),
+or `a`, `b`, `c, etc. where they are used to name the parameters of a function
+with very clear inputs and purpose.
 
 ``` ts
 // [Comment explaining the purpose of my vector class]
@@ -343,6 +348,14 @@ class MyVector {
     x: number;
     y: number;
     z: number;
+}
+```
+
+``` ts
+// Linearly interpolate between the numbers "a" and "b".
+// The value "t" should normally be in the inclusive range [0.0, 1.0].
+function lerp(a: number, b: number, t: number): Vector {
+    return (a * (1 - t)) + (b * t);
 }
 ```
 
@@ -355,7 +368,24 @@ myArray.sort((a: number, b: number) => {
 });
 ```
 
-Do not name loop variables `x` or `i`; use descriptive names for them instead. Prefer identifiers like `vectorIndex` over the less descriptive `index`.
+Except for describing the ordering of color channels, e.g. `RGBA` or `ARGB`, do not abbreviate `red` as `r`, `green` as `g`, `blue` as `b`, or `alpha` as `a`.
+Instead, write out the full names of each color channel.
+
+``` ts
+// [Comment explaining the purpose of my interface]
+// Note that each channel attribute is fully written out and not abbreviated.
+interface MyColorInterface {
+    red: number;
+    green: number;
+    blue: number;
+    alpha: number;
+}
+```
+
+Do not assign loop variables single-character names such as `x` or `i` if
+the value does not literally correspond to a position or to a vector component.
+Use descriptive names for loop variables instead, and prefer more descriptive
+identifiers like `vectorIndex` over less descriptive identifiers like `index`.
 
 ``` ts
 for(let vectorIndex: number = 0; vectorIndex < totalVectors; vectorIndex++){
