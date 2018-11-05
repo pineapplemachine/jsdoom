@@ -111,7 +111,7 @@ export class WADMapThings {
     
     // Create a WADMapThings given a WADLump object.
     static from(lump: WADLump): WADMapThings {
-        return new WADMapThings(lump.name, <Buffer> lump.data);
+        return new WADMapThings(lump.name, lump.data as Buffer);
     }
     
     // Get the number of things represented in the lump.

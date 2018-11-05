@@ -89,7 +89,7 @@ export class WADBitmap {
         if(!this.match(lump)){
             throw new Error("Not a valid bitmap lump.");
         }
-        return new WADBitmap(lump.name, <Buffer> lump.data);
+        return new WADBitmap(lump.name, lump.data as Buffer);
     }
     
     // Get the size in bytes of the DIB header.

@@ -29,7 +29,7 @@ export class WADPatches {
         if(!this.match(lump)){
             throw new Error("Not a valid PNAMES lump.");
         }
-        return new WADPatches(<Buffer> lump.data);
+        return new WADPatches(lump.data as Buffer);
     }
     
     // Get the number of patches in the table.

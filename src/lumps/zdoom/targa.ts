@@ -37,7 +37,7 @@ export class WADTarga {
         if(!this.match(lump)){
             throw new Error("Not a valid TGA lump.");
         }
-        return new WADTarga(lump.name, <Buffer> lump.data);
+        return new WADTarga(lump.name, lump.data as Buffer);
     }
     
     // Get the width of the TGA image in pixels.

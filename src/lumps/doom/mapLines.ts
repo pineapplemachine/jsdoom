@@ -135,7 +135,7 @@ export class WADMapLines {
     
     // Create a WADMapLines given a WADLump object.
     static from(lump: WADLump): WADMapLines {
-        return new WADMapLines(lump.name, <Buffer> lump.data);
+        return new WADMapLines(lump.name, lump.data as Buffer);
     }
     
     // Get the number of linedefs represented in the lump.

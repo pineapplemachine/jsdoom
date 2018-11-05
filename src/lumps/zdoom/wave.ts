@@ -36,7 +36,7 @@ export class WADWave {
         if(!this.match(lump)){
             throw new Error("Not a valid PNG lump.");
         }
-        return new WADWave(lump.name, <Buffer> lump.data);
+        return new WADWave(lump.name, lump.data as Buffer);
     }
 }
 

@@ -58,7 +58,7 @@ export class WADMapSides {
     
     // Create a WADMapSides given a WADLump object.
     static from(lump: WADLump): WADMapSides {
-        return new WADMapSides(lump.name, <Buffer> lump.data);
+        return new WADMapSides(lump.name, lump.data as Buffer);
     }
     
     // Get the number of sidedefs represented in the lump.

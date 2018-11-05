@@ -31,7 +31,7 @@ export class WADVorbis {
         if(!this.match(lump)){
             throw new Error("Not a valid PNG lump.");
         }
-        return new WADVorbis(lump.name, <Buffer> lump.data);
+        return new WADVorbis(lump.name, lump.data as Buffer);
     }
 }
 

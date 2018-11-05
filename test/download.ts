@@ -58,7 +58,7 @@ export async function downloadTestWad(
     if(!findWad){
         throw new Error(`Couldn't find a download link for "${fileName}".`);
     }
-    const wad: WADInfo = <WADInfo> findWad;
+    const wad: WADInfo = findWad as WADInfo;
     console.log(`Downloading from ${wad.url} ...`);
     const downloadFileExt = wad.url.slice(
         wad.url.lastIndexOf("."), wad.url.length

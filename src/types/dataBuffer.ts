@@ -26,7 +26,7 @@ export class DataBuffer {
     
     // Concatenate a list of DataBuffer inputs.
     // Requires an explicit combined byte length argument.
-    static concat(list: Array<DataBuffer>, size: number): DataBuffer {
+    static concat(list: DataBuffer[], size: number): DataBuffer {
         let byteLength: number = 0;
         if(size !== null){
             byteLength = size;
@@ -51,7 +51,7 @@ export class DataBuffer {
     }
     
     // Create a DataBuffer from an array of unsigned bytes.
-    static from(array: Array<number>): DataBuffer {
+    static from(array: number[]): DataBuffer {
         const buffer: DataBuffer = DataBuffer.alloc(array.length);
         buffer.array.set(array);
         return buffer;

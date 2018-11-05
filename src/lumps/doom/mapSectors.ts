@@ -108,7 +108,7 @@ export class WADMapSectors {
     
     // Create a WADMapSectors given a WADLump object.
     static from(lump: WADLump): WADMapSectors {
-        return new WADMapSectors(lump.name, <Buffer> lump.data);
+        return new WADMapSectors(lump.name, lump.data as Buffer);
     }
     
     // Get the number of sectors represented in the lump.

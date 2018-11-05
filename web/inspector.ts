@@ -72,7 +72,7 @@ function onLoadNewFile(): void {
     reader.readAsArrayBuffer(localFile)
     reader.onload = function() {
         if(reader.result){
-            wad.loadData(Buffer.from(<ArrayBuffer> reader.result));
+            wad.loadData(Buffer.from(reader.result as ArrayBuffer));
             win.onWadLoaded();
         }
     };
@@ -171,10 +171,10 @@ function viewListItem(item: any, view: LumpTypeView): void {
     const contentRoot = util.id("lump-view-content");
     const buttons = util.id("lump-view-buttons");
     if(selectedView && selectedView.clear){
-        selectedView.clear(item.lump, <HTMLElement> contentRoot);
+        selectedView.clear(item.lump, contentRoot as HTMLElement);
     }
     util.removeChildren(contentRoot);
-    view.view(item.lump, <HTMLElement> contentRoot);
+    view.view(item.lump, contentRoot as HTMLElement);
     selectedView = view;
     for(const child of buttons.children){
         if(child.view === view){

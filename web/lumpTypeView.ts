@@ -156,7 +156,7 @@ export const LumpTypeViewTextures = new LumpTypeView({
     icon: "assets/icons/lump-textures.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = new WADFileList([<WADFile> lump.file]);
+        const files: WADFileList = new WADFileList([lump.file as WADFile]);
         const textures = lumps.WADTextures.from(lump);
         const viewRoot = util.createElement({
             tag: "div",
@@ -205,7 +205,7 @@ export const LumpTypeViewFlatImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = new WADFileList([<WADFile> lump.file]);
+        const files: WADFileList = new WADFileList([lump.file as WADFile]);
         const flat: lumps.WADFlat = lumps.WADFlat.from(lump);
         return util.createElement({
             tag: "img",
@@ -221,7 +221,7 @@ export const LumpTypeViewPictureImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = new WADFileList([<WADFile> lump.file]);
+        const files: WADFileList = new WADFileList([lump.file as WADFile]);
         const picture: lumps.WADPicture = lumps.WADPicture.from(lump);
         return util.createElement({
             tag: "img",
