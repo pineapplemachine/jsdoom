@@ -349,8 +349,10 @@ Single-letter identifiers are strictly disallowed with the exception
 of `x`, `y`, `z`, `w`, `i`, `j`, and `k` where they are specifically used to
 describe position or vector components,
 `t` where used to name the [interpolant parameter of an interpolation function](https://en.wikipedia.org/wiki/Linear_interpolation),
-or `a`, `b`, `c, etc. where they are used to name the parameters of a function
+or `a`, `b`, `c`, etc. where they are used to name the parameters of a function
 with very clear inputs and purpose.
+
+To summarize: Single-character identifiers should be used when it follows a long-standing mathematical convention (`x`, `y`, `t`, etc.), or when used to describe a sequence of parameters where sequential single-character identifiers represent a clear and prevalent naming convention (`a`, `b`, `c`, etc.). Single-character identifiers should not generally be used otherwise.
 
 ``` ts
 // [Comment explaining the purpose of my vector class]
