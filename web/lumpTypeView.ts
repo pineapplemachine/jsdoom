@@ -572,3 +572,86 @@ export function LumpTypeViewPlaypal(scaleX:number = 4, scaleY:number = 4) {
         }
     });
 }
+
+export function LumpTypeViewColormapAll(scaleX:number = 2, scaleY:number = 2) {
+    return new LumpTypeView({
+        name: "Colormap (all)",
+        icon: "assets/icons/lump-colormap.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            const cmap = lumps.WADColorMap.from(lump);
+
+            // Get PLAYPAL, or use default if it isn't found.
+            let playpal = null;
+            if (!lump.file) {
+                playpal = lumps.WADPalette.getDefault();
+            } else {
+                for (const wadlump of lump.file.lumps) {
+                    try {
+                        playpal = lumps.WADPalette.from(wadlump);
+                    } catch (err) {
+                        continue;
+                    }
+                }
+            }
+            if (!playpal) {
+                playpal = lumps.WADPalette.getDefault();
+            }
+
+            // Set up canvas
+            const displayWidth = playpal.getColorPerPaletteCount() * scaleX;
+            const displayHeight = cmap.getMapCount() * scaleY;
+            const canvas = util.createElement({
+                tag: "canvas",
+                class: "lump-view-image",
+                appendTo: root
+            });
+            canvas.width = displayWidth;
+            canvas.height = displayHeight;
+
+            const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+            const data = cmap.getPixelDataRGBA(playpal, 0);
+
+            // Draw the colormap
+            for (let cmapIdx = 0; cmapIdx < cmap.getMapCount(); cmapIdx++) {
+                for (let palIdx = 0; palIdx < playpal.getColorPerPaletteCount(); palIdx++) {
+
+                    // Figure out where to paint
+                    const row = cmapIdx * scaleY;
+                    const col = palIdx * scaleX;
+                    const width = scaleX;
+                    const height = scaleY;
+
+                    // Data index
+                    const didx = (palIdx + cmapIdx * playpal.getColorPerPaletteCount()) * 4;
+
+                    // Get RGB string
+                    let rgb = data.readUInt32BE(didx).toString(16);
+                    while (rgb.length < 8) {
+                        rgb = "0" + rgb;
+                    }
+
+                    // Set style and fill colour
+                    context.fillStyle = `#${rgb.substring(0, 6)}`;
+                    context.fillRect(col, row, width, height);
+                }
+            }
+        }
+    });
+}
+
+export function LumpTypeViewColormapByMap(scaleX:number = 4, scaleY:number = 4) {
+    // WIP!!
+    const specialCmapNames = {
+        0: "Light amp goggles",
+        6: "Partial invisibility/Spectre",
+        32: "Invulnerability",
+        33: "Unused/Beta Invul"
+    }
+    return new LumpTypeView({
+        name: "Colormap (by map)",
+        icon: "assets/icons/lump-colormap.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            return;
+        }
+    })
+}

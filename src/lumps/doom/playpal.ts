@@ -59,6 +59,11 @@ export class WADPalette {
         return Math.floor(this.data.length / 3);
     }
     
+    // Get the number of colors in one palette
+    getColorPerPaletteCount(): number {
+        return Math.floor(this.data.length / this.getPaletteCount() / 3);
+    }
+    
     // Get the color at a palette and color index.
     // Returns an object with "red", "green", and "blue" attributes.
     getColor(palIndex: number, colorIndex: number): WADPaletteColor {

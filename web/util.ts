@@ -117,8 +117,23 @@ export function createElement(options: any): any {
     return element;
 }
 
-export function toPaddedHex(x: number) {
-    let octet = x.toString(16);
-    if (octet.length < 2) octet = "0" + octet;
-    return octet;
+/*
+export class Rgb {
+    static red(color:number) {
+        return (color >> 16) & 255;
+    }
+    static green(color:number) {
+        return (color >> 8) & 255;
+    }
+    static blue(color:number) {
+        return color & 255;
+    }
+    static rgb(color:number) {
+        const cstr = color.toString(16);
+        while (cstr.length < 8) {
+            cstr = "0" + cstr;
+        }
+        return cstr.substring(0, 6);
+    }
 }
+*/
