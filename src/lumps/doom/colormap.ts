@@ -15,7 +15,12 @@ export class WADColorMap {
     static readonly LumpName: string = "COLORMAP";
     // Location of "colormap.lmp", relative to the root `jsdoom-tools` directory
     static readonly DefaultData: Buffer = DoomColormapData;
-    
+    static readonly SpecialCmapNames:{[idx: number]: string} = {
+        0: "Light amplification goggles",
+        6: "Partial invisibility/Spectre",
+        32: "Invulnerability",
+        33: "Unused/Beta Invulnerability"
+    };
     // Index of the megasphere (invulnerability) color map.
     static readonly Invulnerable: number = 32;
     
