@@ -248,7 +248,7 @@ const myLongStringLiteral = (
 );
 ```
 
-## Prefer spaces around arrow function parameters
+## Prefer parentheses around arrow function parameters
 
 In general, the parameter list of an arrow function should always be enclosed within paretheses `()`.
 
