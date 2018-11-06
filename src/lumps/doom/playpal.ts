@@ -20,7 +20,6 @@ export class WADPalette {
     static readonly LumpName: string = "PLAYPAL";
     // Location of "playpal.lmp", relative to the root `jsdoom-tools` directory
     static readonly DefaultData: Buffer = DoomPlaypalData;
-    
     // The binary data representing this playpal.
     data: Buffer;
     
@@ -60,6 +59,9 @@ export class WADPalette {
     }
     
     // Get the number of colors in one palette
+    get colorsPerPalette(): number {
+        return 256;
+    }
     getColorPerPaletteCount(): number {
         return Math.floor(this.data.length / this.getPaletteCount() / 3);
     }

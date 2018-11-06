@@ -107,7 +107,7 @@ export function exportLump(options: {
         const playpal: WADPalette = WADPalette.from(lump);
         const data: Buffer = playpal.getPixelDataRGBA();
         const png = UPNG.encode(
-            [data.buffer], 16, 16 * playpal.getPaletteCount(), 0
+            [data.buffer as ArrayBuffer], 16, 16 * playpal.getPaletteCount(), 0
         );
         const outPath: string = getPath("PNG");
         fs.writeFileSync(outPath, Buffer.from(png));
@@ -118,7 +118,7 @@ export function exportLump(options: {
         const colormap: WADColorMap = WADColorMap.from(lump);
         const data: Buffer = colormap.getPixelDataRGBA(files.getPlaypal());
         const png = UPNG.encode(
-            [data.buffer], 16, 16 * colormap.getMapCount(), 256
+            [data.buffer as ArrayBuffer], 16, 16 * colormap.getMapCount(), 256
         );
         const outPath: string = getPath("PNG");
         fs.writeFileSync(outPath, Buffer.from(png));
@@ -130,7 +130,7 @@ export function exportLump(options: {
         const data: Buffer = graphic.getPixelDataRGBA(files.getColors());
         const colors = graphic.countColors() <= 256 ? 256 : 0;
         const png = UPNG.encode(
-            [data.buffer], graphic.width, graphic.height, colors
+            [data.buffer as ArrayBuffer], graphic.width, graphic.height, colors
         );
         const outPath: string = getPath("PNG");
         fs.writeFileSync(outPath, Buffer.from(png));
@@ -141,7 +141,7 @@ export function exportLump(options: {
         const graphic: WADFlat = WADFlat.from(lump);
         const data: Buffer = graphic.getPixelDataRGBA(files.getColors());
         const png = UPNG.encode(
-            [data.buffer], graphic.width, graphic.height, 256
+            [data.buffer as ArrayBuffer], graphic.width, graphic.height, 256
         );
         const outPath: string = getPath("PNG");
         fs.writeFileSync(outPath, Buffer.from(png));

@@ -97,7 +97,7 @@ export function getPng64(files: WADFileList, graphic: WADGraphic): string {
 function getPng64FromPixelData(
     pixels: Buffer, width: number, height: number
 ): string {
-    const png: ArrayBuffer = UPNG.encode([pixels.buffer], width, height, 0);
+    const png: ArrayBuffer = UPNG.encode([pixels.buffer as ArrayBuffer], width, height, 0);
     // TODO: Is this *really* the best way to do this?
     // const data64: string = btoa(String.fromCharCode(...new Uint8Array(png)));
     const data64: string = bufferbtoa(Buffer.from(png));

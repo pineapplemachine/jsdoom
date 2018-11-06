@@ -98,7 +98,7 @@ export const LumpTypeList: LumpType[] = [
         icon: "assets/icons/lump-colormap.png",
         views: [
             view.LumpTypeViewColormapAll(),
-            view.LumpTypeViewColormapByMap()
+            view.LumpTypeViewColormapByMap(),
         ],
         filter: lumps.WADColorMap.match,
     }),
