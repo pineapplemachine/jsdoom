@@ -518,54 +518,49 @@ export function LumpTypeViewPlaypal(scaleX:number = 4, scaleY:number = 4) {
                     drawPalette(currentPaletteIndex);
                 }
             });
-            // Width and height of palette canvas
-            const displayWidth = 16 * scaleX;
-            const displayHeight = 16 * scaleY;
             // Construct view
             // Palette number display
-            const paletteNumElement = util.createElement({
+            const paletteNumberElement = util.createElement({
                 content: `${currentPaletteIndex+1}/${numPalettes}`,
                 appendTo: innerContainer
             });
             // Palette canvas
             const canvas = util.createElement({
                 tag: "canvas",
-                appendTo: innerContainer
+                appendTo: innerContainer,
+                width: 16 * scaleX, // 16 columns
+                height: 16 * scaleY, // 16 rows
             });
+            const context = canvas.getContext("2d") as CanvasRenderingContext2D;
             // Palette navigator
             util.createElement({
                 content: [prevArrow, nextArrow],
                 class: "lump-view-playpal-nav",
                 appendTo: innerContainer
             });
-            canvas.width = displayWidth;
-            canvas.height = displayHeight;
-            // Draw palette to palCanvas
+            // Draw palette to canvas
             function drawPalette(paletteNum: number) {
                 if (!lump.data) {
                     return;
                 }
-                const context = canvas.getContext("2d") as CanvasRenderingContext2D;
                 for (let colorIndex = 0; colorIndex < 256; colorIndex++) {
                     // Set RGB components
                     const rgb = playpal.getColorBGRA(paletteNum, colorIndex);
                     // Calculate position to draw
-                    const column = colorIndex % 16;
-                    const row = Math.floor(colorIndex / 16);
+                    const column = (colorIndex % 16) * scaleX;
+                    const row = (Math.floor(colorIndex / 16)) * scaleY;
                     // Set color and draw
                     // Convert to hexadecimal string and trim alpha
                     // HTML/CSS colors are in #RRGGBB format
-                    context.fillStyle = `#${rgb.toString(16).substring(2)}`;
-                    context.fillRect(
-                        column * scaleX,
-                        row * scaleY,
-                        scaleX, scaleY
-                    );
+                    const rgbHex = rgb.toString(16).substring(2).padEnd(6, "0");
+                    context.fillStyle = `#${rgbHex}`;
+                    context.fillRect(column, row, scaleX, scaleY);
                     // Update palette number display
-                    paletteNumElement.innerText = (
+                    paletteNumberElement.innerText = (
                         `${currentPaletteIndex+1}/${numPalettes}`);
                 }
             }
+            // Initial draw
             drawPalette(currentPaletteIndex);
         }
     });
@@ -576,40 +571,40 @@ export function LumpTypeViewColormapAll(scaleX:number = 2, scaleY:number = 2) {
         name: "Colormap (all)",
         icon: "assets/icons/lump-colormap.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const colormap = lumps.WADColorMap.from(lump);
-            // Get PLAYPAL, or use default if it isn't found.
             const files = getWadFileList(lump);
+            // Get Playpal and Colormap
+            const colormap = lumps.WADColorMap.from(lump);
             const playpal = files.getPlaypal();
             // Set up canvas
-            const displayWidth = playpal.colorsPerPalette * scaleX;
-            const displayHeight = colormap.getMapCount() * scaleY;
             const canvas = util.createElement({
                 tag: "canvas",
-                class: "lump-view-image",
-                appendTo: root
+                class: "lump-view-image", // Centers the canvas
+                appendTo: root,
+                width: playpal.colorsPerPalette * scaleX, // 1 column per color
+                height: colormap.getMapCount() * scaleY, // 1 row per colormap
             });
-            canvas.width = displayWidth;
-            canvas.height = displayHeight;
-            const context = (canvas.getContext("2d") as
-                CanvasRenderingContext2D);
-            const data = colormap.getPixelDataRGBA(playpal, 0);
-            // Draw the colormap
+            const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+            // WADColors is a helper that gets the color from a Playpal and
+            // colormap, and makes the code for these views cleaner
+            const colorHelper = new lumps.WADColors({
+                playpal,
+                colormap,
+            });
+            // Draw all colormaps
+            // For each colormap
             for (let mapIndex = 0; mapIndex < colormap.getMapCount(); mapIndex++) {
+                // For each color in the palette
                 for (let colorIndex = 0; colorIndex < playpal.colorsPerPalette; colorIndex++) {
-                    // Figure out where to paint
+                    colorHelper.mapIndex = mapIndex;
+                    // Calculate position to draw
                     const row = mapIndex * scaleY;
                     const column = colorIndex * scaleX;
-                    const width = scaleX;
-                    const height = scaleY;
-                    // Index of data
-                    const dataIndex = (colorIndex + mapIndex *
-                        playpal.colorsPerPalette) * 4;
                     // Get RGB string
-                    let rgb = (data.readUInt32BE(dataIndex)
-                        .toString(16).padStart(8, "0"));
+                    const rgb = colorHelper.getColorBGRA(colorIndex);
+                    const rgbHex = rgb.toString(16).substring(2).padEnd(6, "0");
                     // Set style and fill color
-                    context.fillStyle = `#${rgb.substring(0, 6)}`;
-                    context.fillRect(column, row, width, height);
+                    context.fillStyle = `#${rgbHex}`;
+                    context.fillRect(column, row, scaleX, scaleY);
                 }
             }
         }
@@ -630,17 +625,19 @@ export function LumpTypeViewColormapByMap(scaleX:number = 4, scaleY:number = 4) 
                 class: "lump-view-playpal-inner",
                 appendTo: outerContainer
             });
-            // Playpal and Colormap
             const files = getWadFileList(lump);
+            // Playpal and Colormap
             const playpal = files.getPlaypal();
             const colormap = lumps.WADColorMap.from(lump);
             const numColormaps = colormap.getMapCount();
-            let currentColormap = 0; // Current colormap index
+            // Used to decide which colormap to render to the canvas
+            let currentColormap = 0;
             // Arrow buttons to navigate between colormaps
             const nextArrow = util.createElement({
                 content: "»",
                 class: "lump-view-playpal-navbtn",
                 onleftclick: () => {
+                    // Go to next colormap. If at the end, go to first.
                     currentColormap += 1;
                     if (currentColormap >= numColormaps) {
                         currentColormap = 0;
@@ -652,6 +649,7 @@ export function LumpTypeViewColormapByMap(scaleX:number = 4, scaleY:number = 4) 
                 content: "«",
                 class: "lump-view-playpal-navbtn",
                 onleftclick: () => {
+                    // Go to previous colormap. If at the first, go to last.
                     currentColormap -= 1;
                     if (currentColormap < 0) {
                         currentColormap = numColormaps - 1;
@@ -659,64 +657,64 @@ export function LumpTypeViewColormapByMap(scaleX:number = 4, scaleY:number = 4) 
                     drawPalette(currentColormap);
                 }
             });
-            // Width and height of palette canvas
-            const displayWidth = 16 * scaleX;
-            const displayHeight = 16 * scaleY;
             // Construct view
             // Colormap number/name display
-            const colormapNumDisplay = util.createElement({
+            const colormapNameDisplay = util.createElement({
                 content: getColormapName(currentColormap),
                 appendTo: innerContainer
             });
             // Colormap canvas
             const canvas = util.createElement({
                 tag: "canvas",
-                appendTo: innerContainer
+                appendTo: innerContainer,
+                width: 16 * scaleX, // 16 columns
+                height: 16 * scaleY, // 16 rows
             });
+            const context = canvas.getContext("2d") as CanvasRenderingContext2D;
             // Colormap navigator
             util.createElement({
                 content: [prevArrow, nextArrow],
                 class: "lump-view-playpal-nav",
                 appendTo: innerContainer
             });
-            canvas.width = displayWidth;
-            canvas.height = displayHeight;
-            function getColormapName(cmapNum: number) {
+            // Get text to be displayed above colormapped palette
+            function getColormapName(colormapNum: number) {
+                // What colormap are you looking at, out of how many colormaps?
                 let colormapName = `${currentColormap+1}/${numColormaps}`;
-                if (lumps.WADColorMap.ColorMapNames[cmapNum] != null) {
+                // Add the name/usage of the colormap, if applicable
+                if (lumps.WADColorMap.ColorMapNames[colormapNum] != null) {
                     colormapName += (
-                        ` (${lumps.WADColorMap.ColorMapNames[cmapNum]})`);
+                        ` (${lumps.WADColorMap.ColorMapNames[colormapNum]})`);
                 }
                 return colormapName;
             }
-            // Draw palette to colormapCanvas
+            // Draw colormapped palette to canvas
             function drawPalette(colormapNum: number) {
-                if (!lump.data) {
-                    return;
-                }
-                const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+                // WADColors is a helper that gets the color from a Playpal and
+                // colormap, and makes the code for these views cleaner
+                const colorHelper = new lumps.WADColors({
+                    playpal,
+                    colormap,
+                    mapIndex: colormapNum,
+                });
                 for (let colorIndex = 0; colorIndex < 256; colorIndex++) {
                     // Set RGB components
-                    const mappedColorIndex = colormap.getColor(
-                        colormapNum, colorIndex);
-                    const rgb = playpal.getColorBGRA(0, mappedColorIndex);
+                    const rgb = colorHelper.getColorBGRA(colorIndex);
                     // Calculate position to draw
-                    const column = colorIndex % 16;
-                    const row = Math.floor(colorIndex / 16);
+                    const column = (colorIndex % 16) * scaleX;
+                    const row = (Math.floor(colorIndex / 16)) * scaleY;
                     // Set color and draw
                     // Convert to hexadecimal string and trim alpha
                     // HTML/CSS colors are in #RRGGBB format
-                    context.fillStyle = `#${rgb.toString(16).substring(2)}`;
-                    context.fillRect(
-                        column * scaleX,
-                        row * scaleY,
-                        scaleX, scaleY
-                    );
+                    const rgbHex = rgb.toString(16).substring(2).padEnd(6, "0");
+                    context.fillStyle = `#${rgbHex}`;
+                    context.fillRect(column, row, scaleX, scaleY);
                     // Update palette number display
-                    colormapNumDisplay.innerText = (
+                    colormapNameDisplay.innerText = (
                         getColormapName(currentColormap));
                 }
             }
+            // Initial draw
             drawPalette(currentColormap);
         }
     })
