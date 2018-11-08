@@ -59,7 +59,10 @@ export class DataBuffer {
     
     // Get the underlying ArrayBuffer object.
     get buffer(): ArrayBuffer {
-        return this.array.buffer;
+        // ES2017 has SharedArrayBuffer, which causes TypeScript
+        // compilation errors, since TypedArray.buffer can be either
+        // ArrayBuffer or SharedArrayBuffer
+        return this.array.buffer as ArrayBuffer;
     }
     
     // Get the length of the buffer in bytes.
