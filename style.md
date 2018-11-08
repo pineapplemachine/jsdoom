@@ -1,25 +1,147 @@
 # Jsdoom Style Guide
 
-The purpose of this style guide is to keep jsdoom's source code readable, approachable, consistent, and maintainable. When contributing to jsdoom, please follow these guidelines. Pull requests containing code that does not follow the guidelines may be rejected until the code has been made conformant.
+The purpose of this style guide is to keep jsdoom's source code readable,
+approachable, consistent, and maintainable.
+When contributing to jsdoom, please follow these guidelines.
+Pull requests containing code that does not follow the guidelines may be
+rejected until the code has been made conformant.
 
-These are not strict rules! Exceptions are allowed where it improves readability. However, exceptions should be just that: Exceptional. Exceptions should be made sparingly, if they are made at all.
+These are not strict rules! Exceptions are allowed where it improves
+readability. However, exceptions should be just that: Exceptional.
+Exceptions should be made sparingly, if they are made at all.
 
-Please [create a GitHub issue](https://github.com/pineapplemachine/jsdoom/issues/new) if you would like to request a change or an addition to this style guide.
+Please [create a GitHub issue](https://github.com/pineapplemachine/jsdoom/issues/new)
+if you would like to request a change or an addition to this style guide.
 
-Throughout this guide, specific examples of conforming code will be provided like so:
+Throughout this guide, specific examples of conforming code will be provided
+like so:
 
 ``` ts
 // An example of conforming code
 console.log("jsdoom is pretty neat");
 ```
 
+# Table of Contents
+
+* [**1.** Whitespace](#1-whitespace)
+    * [**1.1.** Indent using four spaces](#11-indent-using-four-spaces)
+    * [**1.2.** Do not use double indents](#12-do-not-use-double-indents)
+    * [**1.3.** Do not use partial indents](#13-do-not-use-partial-indents)
+    * [**1.4.** Whitespace as it pertains to braces, brackets, and paretheses](#14-whitespace-as-it-pertains-to-braces-brackets-and-paretheses)
+        * [**1.4.1.** No characters inside empty literals, blocks, or expressions](#141-no-characters-inside-empty-literals-blocks-or-expressions)
+        * [**1.4.2.** Nested code should be indented at one additional level](#142-nested-code-should-be-indented-at-one-additional-level)
+        * [**1.4.3.** Code within braces should not be in-line](#143-code-within-braces-should-not-be-in-line)
+        * [**1.4.4.** Do not put open braces on their own line](#144-do-not-put-open-braces-on-their-own-line)
+        * [**1.4.5.** Do not pad code between paretheses or brackets](#145-do-not-pad-code-between-paretheses-or-brackets)
+    * [**1.5.** Use a single space after colons but no whitespace before](#15-use-a-single-space-after-colons-but-no-whitespace-before)
+    * [**1.5.** Use whitespace after commas but not before](#15-use-whitespace-after-commas-but-not-before)
+    * [**1.6.** Infix operators](#16-infix-operators)
+        * [**1.6.1.** Put a single space between an infix operator and its left operand](#161-put-a-single-space-between-an-infix-operator-and-its-left-operand)
+        * [**1.6.2.** Put whitespace between an infix operator and its right operand](#162-put-whitespace-between-an-infix-operator-and-its-right-operand)
+* [**2.** Newlines](#2-newlines)
+    * [**2.1.** Lines should not exceed eighty characters](#21-lines-should-not-exceed-eighty-characters)
+    * [**2.4.** Line breaks](#24-line-breaks)
+        * [**2.4.1.** Line breaks should always occur after a semicolon](#241-line-breaks-should-always-occur-after-a-semicolon)
+        * [**2.4.2.** Line breaks may occur after a comma](#242-line-breaks-may-occur-after-a-comma)
+        * [**2.4.3.** Line breaks may occur after an open brace, bracket, or parethese](#243-line-breaks-may-occur-after-an-open-brace-bracket-or-parethese)
+        * [**2.4.4.** Line breaks may occur after an infix operator](#244-line-breaks-may-occur-after-an-infix-operator)
+        * [**2.4.5.** Line breaks may occur after the last expression in a list](#245-line-breaks-may-occur-after-the-last-expression-in-a-list)
+        * [**2.4.6.** Line breaks should not occur anywhere not mentioned in **2.4.**](#246-line-breaks-should-not-occur-anywhere-not-mentioned-in-24)
+    * [**2.2.** Blank lines](#22-blank-lines)
+        * [**2.2.1.** Source files should not begin with a blank line](#221-source-files-should-not-begin-with-a-blank-line)
+        * [**2.2.2.** Functions and methods should be padded by blank lines](#222-functions-and-methods-should-be-padded-by-blank-lines)
+        * [**2.2.3.** Function blocks should not contain blank lines](#223-function-blocks-should-not-contain-blank-lines)
+        * [**2.2.4.** Logical groups of imports should be padded by blank lines](#224-logical-groups-of-imports-should-be-padded-by-blank-lines)
+        * [**2.2.5.** Logical groups of class members should be padded by blank lines](#225-logical-groups-of-class-members-should-be-padded-by-blank-lines)
+    * [**2.5.** There should be a newline at the end of each source file](#25-there-should-be-a-newline-at-the-end-of-each-source-file)
+* [**3.** Punctuation](#3-punctuation)
+    * [**3.1.** Always use semicolons at the end of statements](#31-always-use-semicolons-at-the-end-of-statements)
+    * [**3.2.** Use trailing commas in multi-line lists](#32-use-trailing-commas-in-multi-line-lists)
+    * [**3.3.** Always enclose block statements within braces](#33-always-enclose-block-statements-within-braces)
+    * [**3.4.** Use parentheses generously when mixing infix operators](#34-use-parentheses-generously-when-mixing-infix-operators)
+    * [**3.5.** Arrow functions](#35-arrow-functions)
+        * [**3.5.1.** Prefer parentheses around arrow function parameters](#351-prefer-parentheses-around-arrow-function-parameters)
+        * [**3.5.2.** Prefer braces around arrow function bodies](#352-prefer-braces-around-arrow-function-bodies)
+    * [**3.6.** Strings](#36-strings)
+        * [**3.6.1.** Prefer double-quoted strings](#361-prefer-double-quoted-strings)
+        * [**3.6.2.** Use concatenation when writing long string literals](#362-use-concatenation-when-writing-long-string-literals)
+* [**4.** Comments](#4-comments)
+    * [**4.1.** Begin all comments with a single space](#41-begin-all-comments-with-a-single-space)
+    * [**4.2.** Prefer multiple single-line comments to multi-line block comments](#42-prefer-multiple-single-line-comments-to-multi-line-block-comments)
+    * [**4.3.** Prefer comments on their own line to trailing comments](#43-prefer-comments-on-their-own-line-to-trailing-comments)
+    * [**4.4.** Trailing comments should have one space between "//" and the end of the line](#44-trailing-comments-should-have-one-space-between--and-the-end-of-the-line)
+    * [**4.5.** Documenting comments](#45-documenting-comments)
+        * [**4.5.1.** Document all classes and interfaces](#451-document-all-classes-and-interfaces)
+        * [**4.5.2.** Document all functions and methods](#452-document-all-functions-and-methods)
+        * [**4.5.3.** Document the impure behavior of functions](#453-document-the-impure-behavior-of-functions)
+        * [**4.5.4.** Document all constants and enumerations](#454-document-all-constants-and-enumerations)
+        * [**4.5.6.** Document variables or attributes that are not completely self-explanatory](#456-document-variables-or-attributes-that-are-not-completely-self-explanatory)
+        * [**4.5.6.** Document statements or expressions that are not completely self-explanatory](#456-document-statements-or-expressions-that-are-not-completely-self-explanatory)
+    * [**4.6.** Todos](#46-todos)
+        * [**4.6.1.** Todo comments should begin with "// TODO:"](#461-todo-comments-should-begin-with--todo)
+        * [**4.6.2.** Todo comments should include an explanation of the unfinished task](#462-todo-comments-should-include-an-explanation-of-the-unfinished-task)
+        * [**4.6.3.** Todo comments should include the URL for a relevant issue or PR](#463-todo-comments-should-include-the-url-for-a-relevant-issue-or-pr)
+* [**5.** Names](#5-names)
+    * [**5.1.** Use descriptive names](#51-use-descriptive-names)
+    * [**5.2.** Do not use needless or unconventional abbreviations](#52-do-not-use-needless-or-unconventional-abbreviations)
+    * [**5.3.** Names should contain only "A"-"Z", "a"-"z", and "0"-"9"](#53-names-should-contain-only-a-z-a-z-and-0-9)
+    * [**5.4.** Classes and constants should have PascalCase names](#54-classes-and-constants-should-have-pascalcase-names)
+    * [**5.5.** Functions and variables should have camelCase names](#55-functions-and-variables-should-have-camelcase-names)
+    * [**5.6.** TypeScript source files should have camelCase names](#56-typescript-source-files-should-have-camelcase-names)
+    * [**5.7.** Single-character names](#57-single-character-names)
+        * [**5.7.1.** Parameters with very clear purpose may be named "a", "b", "c", and so on](#571-parameters-with-very-clear-purpose-may-be-named-a-b-c-and-so-on)
+        * [**5.7.2.** The interpolant parameter should be named "t"](#572-the-interpolant-parameter-should-be-named-t)
+        * [**5.7.3.** Extremely generic type parameters may be named "T"](#573-extremely-generic-type-parameters-may-be-named-t)
+        * [**5.7.4.** Coordinates should be named "x", "y", "z", and "w"](#574-coordinates-should-be-named-x-y-z-and-w)
+        * [**5.7.5.** Vector components should be named "ijk" or "xyzw"](#575-vector-components-should-be-named-ijk-or-xyzw)
+        * [**5.7.6.** Single-character names should not be used except as mentioned in **5.7.**](#576-single-character-names-should-not-be-used-except-as-mentioned-in-57)
+* [**6.** Syntax conventions](#6-syntax-conventions)
+    * [**6.1.** Do not use "eval" or the function constructor](#61-do-not-use-eval-or-the-function-constructor)
+    * [**6.2.** Do not use "var"](#62-do-not-use-var)
+    * [**6.3.** Prefer "const" to "let" when declaring variables](#63-prefer-const-to-let-when-declaring-variables)
+    * [**6.4.** Do not use undeclared variables](#64-do-not-use-undeclared-variables)
+    * [**6.5.** Use seperate declarations](#65-use-seperate-declarations)
+    * [**6.6.** Prefer "if" and "else if" over "switch" and "case"](#66-prefer-if-and-else-if-over-switch-and-case)
+    * [**6.7.** Do not nest ternary expressions](#67-do-not-nest-ternary-expressions)
+    * [**6.8.** Prefer strict equality over regular equality](#68-prefer-strict-equality-over-regular-equality)
+    * [**6.9.** Prefer "as" when writing type assertions](#69-prefer-as-when-writing-type-assertions)
+    * [**6.10.** Prefer Type[] to Array](#610-prefer-type-to-array)
+    * [**6.11.** Do not refer to the "arguments" object](#611-do-not-refer-to-the-arguments-object)
+    * [**6.12.** Prefer rest parameters over referring to the "arguments" object](#612-prefer-rest-parameters-over-referring-to-the-arguments-object)
+    * [**6.13.** Avoid the spread operator in array and object literals](#613-avoid-the-spread-operator-in-array-and-object-literals)
+    * [**6.14.** Do not mix full object properties with shorthand properties](#614-do-not-mix-full-object-properties-with-shorthand-properties)
+    * [**6.15.** Imports](#615-imports)
+        * [**6.15.1.** Imports belong at the beginning of a source file](#6151-imports-belong-at-the-beginning-of-a-source-file)
+        * [**6.15.2.** Prefer selective imports over default imports](#6152-prefer-selective-imports-over-default-imports)
+        * [**6.15.3.** Prefer absolute over relative imports](#6153-prefer-absolute-over-relative-imports)
+        * [**6.15.4.** Group and order imports logically, then alphabetically by filename](#6154-group-and-order-imports-logically-then-alphabetically-by-filename)
+        * [**6.15.5.** Do not include unused imports](#6155-do-not-include-unused-imports)
+        * [**6.15.6.** Avoid importing modules for side-effects only](#6156-avoid-importing-modules-for-side-effects-only)
+    * [**6.16.** Ordering of class members](#616-ordering-of-class-members)
+        * [**6.16.1.** Declare static attributes first](#6161-declare-static-attributes-first)
+        * [**6.16.2.** Declare instance attributes second](#6162-declare-instance-attributes-second)
+        * [**6.16.3.** Declare the constructor third](#6163-declare-the-constructor-third)
+        * [**6.16.4.** Declare static member functions fourth](#6164-declare-static-member-functions-fourth)
+        * [**6.16.5.** Declare instance methods last](#6165-declare-instance-methods-last)
+* [**7.** Program logic conventions](#7-program-logic-conventions)
+    * [**7.1.** Prefer local state over global state](#71-prefer-local-state-over-global-state)
+    * [**7.2.** Prefer immutable state over mutable state](#72-prefer-immutable-state-over-mutable-state)
+    * [**7.3.** Prefer pure functions over impure functions](#73-prefer-pure-functions-over-impure-functions)
+    * [**7.4.** Functions should not modify their inputs](#74-functions-should-not-modify-their-inputs)
+    * [**7.5.** Class getters should treat the instance as logically const](#75-class-getters-should-treat-the-instance-as-logically-const)
+    * [**7.6.** Prefer template strings over concatenation](#76-prefer-template-strings-over-concatenation)
+    * [**7.7.** Prefer joining over repeated concatenation](#77-prefer-joining-over-repeated-concatenation)   
 
 
-# Formatting
 
-## Indent using four spaces
+## 1. Whitespace
 
-Code in jsdoom is indented with four spaces. The line followed by an open brace `{` should be indented one level further than the line with the open brace. The line with the corresponding closing brace `}` should be indented one level less.
+The following guidelines mainly pertain to the use of whitespace in code.
+
+### 1.1. Indent using four spaces
+
+Code is indented using four space characters.
+Do not indent with tab characters.
 
 ``` ts
 // [Comment explaining the purpose of my function]
@@ -31,9 +153,18 @@ function myFunction(): void {
 }
 ```
 
-## No double indents or partial indents
+### 1.2. Do not use double indents
 
-Code should be styled in such a way that each line is indented at either the same level as the last line, one more level, or one less. There should never be a jump of two or more indentation levels between lines. There should never be a partial change in indentation, e.g. one line should not be indented three spaces further than the next.
+Indentation must be in such a way that each line is indented at either the
+same level as the last line, one more level, or one less.
+There should never be a jump of two or more indentation levels between lines.
+
+In general, longer expressions made up of chained function calls should be
+broken across lines by using several shorter statements with intermediate
+assignments, or by putting the code inside a pair of paretheses `()` etc.
+on a new, idented line.
+They should _not_ be broken across lines by starting each line with the
+right-hand part of a member access, e.g. having a line begin with `.map(...)`.
 
 ``` ts
 myArray.map((value) => {
@@ -43,9 +174,77 @@ myArray.map((value) => {
 });
 ```
 
-## Whitespace around braces
+### 1.3. Do not use partial indents
 
-Open braces `{` should always be followed by a newline and close braces `}` should always be preceded by a newline. Open braces `{` generally should _not_ be preceded by a newline.
+There should never be a partial change in indentation.
+All changes in indentation from one line to the next should always be
+in multiples of four space characters.
+
+### 1.4. Whitespace as it pertains to braces, brackets, and paretheses
+
+The following guidelines mainly pertain to how whitespace should be
+used around braces `{}`, square brackets `[]`, angle brackets `<>`, and
+parentheses `()`.
+
+#### 1.4.1. No characters inside empty literals, blocks, or expressions
+
+Where an open brace `{`, parenthese `(`, etc. is followed by a corresponding
+closing brace `}`, parenthese `)`, etc. with no code in between, there should
+not generally be any whitespace, comments, or other characters in between
+those open and closing characters.
+
+``` ts
+const myEmptyObject: Object = {};
+```
+
+``` ts
+const myEmptyArray: number[] = [];
+```
+
+``` ts
+myFunctionInvokedWithNoArguments();
+```
+
+``` ts
+// [Comment explaining the purpose of my unconventional loop with no body]
+while(myIndex++ < myMaximumIndex){}
+```
+
+#### 1.4.2. Nested code should be indented at one additional level
+
+Where a statement is spread across multiple lines, the lines between a
+corresponding pair of braces `{}`, paretheses `()`, square brackets `[]`,
+or angle brackets `<>` should be indented at one additional level.
+
+``` ts
+const myMultiLineObjectLiteral: Object = {
+    myFirstAttribute: 1,
+    mySecondAttribute: 2,
+};
+```
+
+``` ts
+const myMultiLineExpression: boolean = (
+    myFirstCondition &&
+    mySecondCondition
+);
+```
+
+``` ts
+const myMultiLineArrayLiteral: string[] = [
+    "Hello world",
+    "How are you?",
+];
+```
+
+#### 1.4.3. Code within braces should not be in-line
+
+Open braces `{` should always be followed by a newline and close braces `}`
+should always be preceded by a newline.
+The code in between corresponding braces should be indented at one level
+further than the lines containing those braces.
+In general, an open brace `{` should not be immediately followed by any
+character other than a corresponding closing brace `}` or a newline `\n`.
 
 ``` ts
 const myObject: Object = {
@@ -55,21 +254,19 @@ const myObject: Object = {
 };
 ```
 
-Open braces `{` should generally be on the same line as the statement they pertain to.
+#### 1.4.4. Do not put open braces on their own line
 
-``` ts
-while(myCondition){
-    if(myOtherCondition){
-        doStuff();
-    }else{
-        doOtherStuff();
-    }
-}
-```
+Open braces `{` generally should _not_ be preceded by a newline.
+Open braces `{` should generally be on the same line as the statement or
+expression that they are a part of.
 
-## Do not pad enclosed expressions with spaces
+#### 1.4.5. Do not pad code between paretheses or brackets
 
-Except for where an expression is distributed across several lines due to its length, expressions or blocks inside paretheses `()`, square brackets `[]`, or angle brackets `<>` should not have spaces in between the opening bracket or parenthese and the first character of the enclosed expression, nor in between the closing bracket or parenthese and the final character of the enclosed expression.
+Except for where an expression is distributed across several lines due to its
+length, expressions or blocks inside paretheses `()`, square brackets `[]`,
+or angle brackets `<>` should not have spaces in between the opening character
+and the first character of the enclosed expression, nor in between the closing
+character and the final character of the enclosed expression.
 
 ``` ts
 // No space in between `[` and `1`.
@@ -84,59 +281,270 @@ const myArrayTooLongToFitOnOneLine = [
 ];
 ```
 
-## Put a newline at the end of files
+### 1.5. Use a single space after colons but no whitespace before
 
-In general, source files should terminate with a newline character `\n`.
-
-## Keep lines at or under eighty characters
-
-In general, no one line of code should exceed 80 characters. Where it is at all possible, lines should absolutely not exceed 100 characters in length.
+In objects and in typed declarations, there should be a single space after each
+colon `:` and no space before it.
 
 ``` ts
-const myLongExpressionResult: string = (
-    "This code statement is written in such a way that the line length " +
-    "consistently stays under eighty characters long. " +
-    "This line length limit particularly helps to accomodate those who " +
-    "are limited to smaller screens, or who subscribe to the rather " +
-    "common practice of displaying code from different source locations " +
-    "in two or more columns across a larger screen."
-);
+const myObject: Object {
+    myAttribute: "hello world",
+};
 ```
 
-## Always use semicolons
+### 1.5. Use whitespace after commas but not before
 
-Always put a semicolon `;` at the end of each statement. There should not be any whitespace in between the last character on the line and its terminating semicolon.
+In comma-separated lists, there should be whitespace after each comma `,`
+and no space before it.
+
+If the next item in a list after a given comma appears on the same line,
+then there should be a single space in beween the comma and the following
+non-whitespace character.
+If the next item in the list appears on the following line, then there should
+be a newline immediately after the comma and the next list item should be
+indented at the appropriate level.
 
 ``` ts
-doStuff();
+const myArray: number[] = [1, 2, 3, 4];
 ```
 
-## Commas belong immediately after the left-hand expression
-
-Commas `,` belong on the same line as the left-hand expression, with no space in between the comma and the last character of the expression.
-The first non-whitespace character of any line of code should never be a comma.
-Commas belong at the end of a line, not at the beginning.
-
 ``` ts
-const myArray: string[] = ["Hello", "World"];
-```
-
-## Use trailing commas in multi-line lists
-
-Always put a trailing comma `,` at the end of multi-line lists, where they are syntactically valid.
-
-``` ts
-const myArray: number[] = [
-    0x1000,
-    0x2000,
-    0x4000,
-    0x8000,
+const myMultiLineArray: string[] = [
+    "Hello",
+    "World",
 ];
 ```
 
-## Always enclose block statements within braces
+### 1.6. Infix operators
 
-All block statements should be enclosed within braces `{}`, i.e. single-line conditionals or loops without braces around their bodies should not generally be used.
+The following guidelines mainly pertain to the use of whitespace around
+infix operators, e.g. `+` or `*`.
+
+### 1.6.1. Put a single space between an infix operator and its left operand
+
+Infix operators should appear on the same line as the last character of their
+left operand. They should be separated from the last non-whitespace character
+of that left operand by a single space character.
+
+### 1.6.2. Put whitespace between an infix operator and its right operand
+
+An infix operator should have either a single space separating it from the
+first non-whitespace character of its right operand, or it should be
+immediately followed by a newline with the right operand placed at the correct
+indentation level on the next line.
+
+``` ts
+const mySum: number = 100 + 200;
+```
+
+``` ts
+const myMultiLineExpression: boolean = (
+    myFirstCondition ||
+    mySecondCondition
+);
+```
+
+
+
+
+## 2. Newlines
+
+The following guidelines mainly pertain to the placement of new lines and
+blank lines in code.
+
+### 2.1. Lines should not exceed eighty characters
+
+In general, no one line of code should exceed 80 characters.
+Please consider eighty characters to be a soft limit and one hundred characters
+to be a hard length limit.
+
+### 2.4. Line breaks
+
+The following guidelines mainly pertain to where line breaks should appear
+in code.
+
+#### 2.4.1. Line breaks should always occur after a semicolon
+
+Semicolons terminating a statement should be immediately followed by a
+newline. Two statements should not appear on the same line.
+
+``` ts
+const myFirstDeclaration: number = 1;
+const mySecondDeclaration: number = 2;
+```
+
+#### 2.4.2. Line breaks may occur after a comma
+
+Long lists of arguments, parameters, attributes, or other comma-separated
+lists may be broken up by placing newlines after the commas.
+
+In general, either all of the commas in a list should be followed by
+newlines or none of them should be.
+
+``` ts
+const myMultiLineArray: number[] = [
+    0x0100,
+    0x0200,
+    0x0400,
+];
+```
+
+#### 2.4.3. Line breaks may occur after an open brace, bracket, or parethese
+
+The code in between braces, brackets, etc. may appear on separate lines
+and be indented at one additional level.
+
+#### 2.4.4. Line breaks may occur after an infix operator
+
+It is appropriate for a line break to appear after an infix operator and
+before its right operand.
+
+``` ts
+const myMultiLineExpression: boolean = (
+    myFirstCondition ||
+    mySecondCondition
+);
+```
+
+#### 2.4.5. Line breaks may occur after the last expression in a list
+
+The last character of a multi-line list should normally be a trailing comma.
+However, in the case that the list appears on one line yet not on the same
+line as the closing bracket `]` or other character, it is appropriate for
+a line break to appear after the last item in the list.
+
+``` ts
+const myValue: number = myMultiLineFunctionInvocation(
+    100, 200, 300, 400, 500, 600
+);
+```
+
+#### 2.4.6. Line breaks should not occur anywhere not mentioned in 2.4.
+
+In general, line breaks on lines containing code should not occur under
+circumstances other than the ones explicitly mentioned above.
+
+Comments may exceptionally appear in between a character that would normally
+precede a line break and the terminating newline.
+However, this style of comments is not encouraged.
+In general, comments should appear on their own lines and not at the end
+of a line of code. (See `4.3.`.)
+
+### 2.2. Blank lines
+
+The following guidelines mainly specifically to the placement of blank lines.
+A blank line is a line which contains no characters or which contains
+only whitespace characters.
+
+#### 2.2.1. Source files should not begin with a blank line
+
+The first line in a source file should not be a blank line.
+
+#### 2.2.2. Functions and methods should be padded by blank lines
+
+In general, function or method declarations should be padded on each side
+by a single blank line, except for where the immediately previous or following
+line is the first line of the class declaration containing a method, or the
+line containing a class declaration's closing brace `}`.
+
+This does _not_ apply to helper functions that are declared inside another
+function. In general, function blocks should not contain blank lines, not
+even to pad helper function declarations.
+
+``` ts
+// [Comment explaining the purpose of my function]
+function myFirstFunction(): void {
+    doStuff();
+}
+
+// [Comment explaining the purpose of my function]
+function mySecondFunction(): void {
+    doStuff();
+}
+
+// [Comment explaining the purpose of my function]
+function myThirdFunction(): void {
+    doStuff();
+}
+```
+
+``` ts
+class MyClass {
+    // [Comment explaining the purpose of my method]
+    myFirstMethod(): void {
+        doStuff();
+    }
+
+    // [Comment explaining the purpose of my method]
+    mySecondMethod(): void {
+        doStuff();
+    }
+    
+    // [Comment explaining the purpose of my method]
+    myThirdMethod(): void {
+        doStuff();
+    }
+}
+```
+
+#### 2.2.3. Function blocks should not contain blank lines
+
+In general, the implementation of a function or method should not contain
+blank lines.
+If a function is made up of several different conceptual units,
+then they should be separated by explanatory comments instead of separated
+by blank lines.
+If a function is too long or complex to be readable without those empty lines,
+then parts of the implementation should be moved into other helper functions.
+
+#### 2.2.4. Logical groups of imports should be padded by blank lines
+
+Logical groups of imports should be separated from each other by a single
+blank line.
+See `6.15.` for more information about how imports should be grouped.
+
+#### 2.2.5. Logical groups of class members should be padded by blank lines
+
+Logical groups of class members should be separated from each other by a single
+blank line.
+See `6.16.` for more information about how class members should be grouped.
+
+### 2.5. There should be a newline at the end of each source file
+
+TypeScript source files should terminate with a newline character `\n`.
+
+
+
+## 3. Punctuation
+
+The following guidelines mainly pertain to the use of punctuation characters
+in code.
+
+### 3.1. Always use semicolons at the end of statements
+
+Statements should always be terminated by a semicolon `;`.
+Do not trust JavaScript's automatic semicolon insertion to get it right.
+
+### 3.2. Use trailing commas in multi-line lists
+
+Where it is syntactically valid, the last item in a comma-separated list that
+spans more than one line should be followed by a comma `,`.
+
+``` ts
+const myMultiLineArray: number[] = [
+    0x0100,
+    0x0200,
+    0x0400,
+];
+```
+
+### 3.3. Always enclose block statements within braces
+
+Block statements such as the body of a loop or an `if` statement should
+always be enclosed within braces, even if it is syntactically valid to
+omit those braces.
+Single-line conditionals or loops without braces around their bodies should
+not generally be used.
 
 ``` ts
 if(myExitCondition){
@@ -150,60 +558,12 @@ while(myLoopCondition){
 }
 ```
 
-## Function blocks should not contain blank lines
+### 3.4. Use parentheses generously when mixing infix operators
 
-In general, the implementation of a function or method should not contain empty lines. If a function is made up of several different conceptual units, then they should be separated by explanatory comments instead of by empty lines. If a function is too long or complex to be readable without those empty lines, then parts of the implementation should be moved into other helper functions.
-
-``` ts
-// This is a helper function used by myVeryComplicatedProcedure.
-// [Comment explaining the first task]
-function doTheFirstTask(): void {
-    // Imagine this function body is 100 lines long!
-    doStuff();
-}
-
-// This is a helper function used by myVeryComplicatedProcedure.
-// [Comment explaining the second task]
-function doTheSecondTask(): void {
-    // Imagine this function body is 100 lines long!
-    doOtherStuff();
-}
-
-// This is a helper function used by myVeryComplicatedProcedure.
-// [Comment explaining the third task]
-function doTheThirdTask(): void {
-    // Imagine this function body is 100 lines long!
-    doYetMoreStuff();
-}
-
-// [Comment explaining the purpose of my very complicated function]
-// Imagine that this function body would be a dense, unreadable 300 lines
-// if it wasn't broken up into several helper function calls this way!
-function myVeryComplicatedProcedure(): void {
-    // [Comment briefly summarizing the first task]
-    doTheFirstTask();
-    // [Comment briefly summarizing the second task]
-    doTheSecondTask();
-    // [Comment briefly summarizing the third task]
-    doTheThirdTask();
-}
-```
-
-## Pad infix operators with spaces
-
-An infix operator should have whitespace separating it from both operands.
-
-``` ts
-const mySum: number = 100 + 200;
-```
-
-``` ts
-const myValue: number = myNumberArray[myIndex + 10];
-```
-
-## Use parentheses generously when mixing infix operators
-
-When a single expression contains several different infix operators, each group of identical operators should generally be enclosed within parentheses `()`. This helps to avoid any confusion or ambiguity regarding the intended order of operations.
+When a single expression contains several different infix operators, each group
+of identical operators should generally be enclosed within parentheses `()`.
+This helps to avoid any confusion or ambiguity regarding the intended order of
+operations.
 
 ``` ts
 const myValue: number = 10 * (20 + myOtherValue);
@@ -216,28 +576,55 @@ const myBoolean: boolean = (
 );
 ```
 
-## Use space after colons but not before
+### 3.5. Arrow functions
 
-In objects and in typed declarations, there should be a single space after each colon `:` and no space before it.
+The following guidelines mainly pertain to the use of punctuation characters
+as they apply to arrow functions.
+
+#### 3.5.1. Prefer parentheses around arrow function parameters
+
+In general, the parameter list of an arrow function should always be enclosed
+within paretheses `()`, even when there is only a single parameter.
 
 ``` ts
-const myObject: Object {
-    myAttribute: "hello world",
-};
+myArray.map((value) => {
+    return value + value;
+});
 ```
 
-## Prefer double-quoted strings
+#### 3.5.2. Prefer braces around arrow function bodies
 
-String literals should be double-quoted `""`. In general, they should not ever be single-quoted `''`.
-Template strings (enclosed within backticks ``` `` ```) should generally not be used for string literals that do not actually contain any interpolation.
+In general, the bodies of arrow functions should always be enclosed within
+braces `{}`, even when the function body contains only a `return` statement.
+
+``` ts
+myArray.filter((value) => {
+    return value > 0;
+});
+```
+
+### 3.6. Strings
+
+The following guidelines mainly pertain to the use of punctuation characters
+as they apply to string literals.
+
+#### 3.6.1. Prefer double-quoted strings
+
+String literals should be double-quoted `""`.
+In general, they should not ever be single-quoted `''`, even when the literal
+itself contains double quotes.
+
+Template strings (enclosed within backticks) should not be used for
+string literals that do not actually contain any interpolation.
 
 ``` ts
 const myString: string = "You say \"goodbye\" and I say \"hello\".";
 ```
 
-## Use concatenation when writing long string literals
+#### 3.6.2. Use concatenation when writing long string literals
 
-String literals that are too long to fit on a single line should be spread across multiple lines by concatenating many shorter string literals.
+String literals that are too long to fit on a single line should be spread
+across multiple lines by concatenating many shorter string literals.
 
 ``` ts
 const myLongStringLiteral = (
@@ -248,47 +635,26 @@ const myLongStringLiteral = (
 );
 ```
 
-## Prefer parentheses around arrow function parameters
 
-In general, the parameter list of an arrow function should always be enclosed within paretheses `()`.
 
-``` ts
-myArray.map((value) => {
-    return value + value;
-});
-```
+## 4. Comments
 
-## Prefer braces around arrow function bodies
+The following guidelines mainly pertain to what is expected of code comments.
 
-In general, the bodies of arrow functions should always be enclosed within
-braces `{}`.
+### 4.1. Begin all comments with a single space
 
-``` ts
-myArray.filter((value) => {
-    return value > 0;
-});
-```
-
-## Use seperate declarations
-
-Do not declare multiple variables together on the same line. Use separate declarations, with each declaration on its own line.
-
-``` ts
-const myFirstNumber: number = 0;
-const mySecondNumber: number = 0;
-```
-
-## Start all comments with a space
-
-In general, there should always be a single space character in between a comment's opening slashes `//` and the first character of the comment's text.
+There should be a single space character in between a comment's opening
+slashes `//` and the first character of the comment's text.
 
 ``` ts
 // Note the space at the beginning of this comment!
 ```
 
-## Prefer multiple single-line comments to multi-line block comments
+### 4.2. Prefer multiple single-line comments to multi-line block comments
 
-In general, long comments should be spread across multiple single line comments (i.e. `// comment`) rather than given in a single multi-line block comment (i.e. `/* comment */`).
+Long comments should be spread across multiple single line comments
+(i.e. `// comment`) rather than given in a single multi-line block comment
+(i.e. `/* comment */`).
 
 ``` ts
 // This is a longer comment providing a lot of information about a function.
@@ -299,39 +665,192 @@ function myFunction(value: number): number {
 }
 ```
 
-## Prefer comments on their own line to trailing comments
+### 4.3. Prefer comments on their own line to trailing comments
 
-In general, comments should be on their own line, preceding the code that they apply to, instead of on the same line, immediately after the code that they apply to.
+Comments should usually not be on the same line as code.
+Comments should be on their own line, preceding the code that they apply to.
 
 ``` ts
 // [Comment explaining the purpose of my variable]
 let myVariable: number = 0;
 ```
 
-## Prefer "as" to type assertions
+### 4.4. Trailing comments should have one space between "//" and the end of the line
 
-Prefer syntax such as `value as Type` over `<Type> value`.
-([Why?](https://stackoverflow.com/a/33503842/4099022))
+Note that `4.3.` discourages the use of trailing comments.
+When trailing comments _are_ used, there should always be exactly one space
+in between the last character of code and the first character `/` of the
+trailing comment.
 
 ``` ts
-const myValue: number = myOtherValue as number;
+doStuff(); // My trailing comment
 ```
 
-## Prefer Type[] to Array<Type>
-    
-Prefer type syntax such as `myArray: string[]` to `myArray: Array<string>`.
-    
+### 4.5. Documenting comments
+
+The following guidelines mainly pertain to when documenting comments are
+encouraged or required.
+
+#### 4.5.1. Document all classes and interfaces
+
+Every class and interface should have a comment explaining its purpose, even
+if it is only repeating information that should be self-evident.
+
 ``` ts
-const myStringArray: string[] = ["Hello", "World"];
+// This class stores the color channel information taken from a PLAYPAL
+// lump. Note that the color data is 24-bit. Color channel values should
+// always be in the range [0, 256] inclusive.
+class MyColorClass {
+    // The color's 8-bit red color channel.
+    red: number;
+    // The color's 8-bit green color channel.
+    green: number;
+    // The color's 8-bit blue color channel.
+    blue: number;
+}
+```
+
+#### 4.5.2. Document all functions and methods
+
+Every function or method should have a comment explaining its purpose, even
+if it is only repeating information that should be self-evident.
+
+``` ts
+// Log a friendly greeting to the console.
+function sayHello(): void {
+    console.log("Hello, world!");
+}
+```
+
+#### 4.5.3. Document the impure behavior of functions
+
+Functions and methods with impure behavior should have that impure behavior
+documented in comments to the greatest extent that is practical.
+
+Note that impure behavior includes modifying a function's inputs or
+reading or writing global state.
+
+``` ts
+// [Comment explaining the purpose of my function]
+// Calling this function will cause `myPreviouslyDeclaredGlobal`
+// to be modified.
+function myFunctionWithSideEffects(): void {
+    myPreviouslyDeclaredGlobal = doStuff();
+}
+```
+
+#### 4.5.4. Document all constants and enumerations
+
+Constants - defined as values set once and never reassigned, not necessarily
+any variable declared using `const` - should always be accompanied by a comment
+explaining their purpose and their value.
+
+``` ts
+// The Doom engine palette lump is always named "PLAYPAL".
+const PlaypalLumpName: string = "PLAYPAL";
+```
+
+Enumerations should be preceded by a documenting comment, and every member
+should have a comment explaining its purpose.
+
+``` ts
+// Enumeration of Doom linedef flags which pertain to texturing.
+enum LinedefTextureFlags {
+    // Unpegged upper texture
+    UpperUnpegged = 0x0008,
+    // Unpegged lower texture
+    LowerUnpegged = 0x0010,
+}
+```
+
+#### 4.5.6. Document variables or attributes that are not completely self-explanatory
+
+It is not necessary to write a comment explaining every variable or attribute,
+but those whose function is not immediately obvious from looking at the
+declaration should be accompanied by documentation comments.
+
+#### 4.5.6. Document statements or expressions that are not completely self-explanatory
+
+It is not necessary, and in fact discouraged, to write a comment explaining
+every statement and expression.
+However, those statements and expressions which are more complicated or with
+less obvious purpose should be accompanied by documentation comments.
+
+``` ts
+// Do stuff with the length of the vector described by (x, y).
+doStuffWith(Math.sqrt((x * x) + (y * y)));
+```
+
+### 4.6. Todos
+
+The following guidelines mainly pertain to how "TODO" comments should be used.
+
+#### 4.6.1. Todo comments should begin with "// TODO:"
+
+Comments recording future or unfinished tasks should consistently begin
+with the characters `// TODO: `.
+
+When a todo comment is too long to fit on a single line, only the first line
+explaining the task should be preceded by `TODO`.
+
+``` ts
+function myScaffoldingFunction(): void {
+    // TODO: Implement this function
+}
+```
+
+#### 4.6.2. Todo comments should include an explanation of the unfinished task
+
+It is not acceptable to write a todo comment without including some written
+explanation of the task that is not finished.
+Do not write a comment that says `// TODO` without being followed by more
+text explaining why the comment is present.
+
+#### 4.6.3. Todo comments should include the URL for a relevant issue or PR
+
+Where practical, todo comments should refer to an issue in the issue tracker,
+or to a relevant pull request.
+In general, if such a relevant issue or other link does not exist, then it
+should be created and referenced in the todo comment before the comment is
+included in the master branch of the code repository
+
+``` ts
+// TODO: Create a help page and assign the URL.
+// See https://github.com/pineapplemachine/jsdoom/issues/123456
+const myHelpUrl: string = "";
 ```
 
 
 
-# Naming
+## 5. Names
 
-## Characters allowed in identifiers
+The following guidelines mainly pertain to the naming of variables,
+classes, etc. and source file names.
 
-In general, dentifiers should be made up only of the characters `A` through `Z`, `a` through `z`, and `0` through `9`. Identifiers generally should not have an underscore `_` in their name, even if they identify private members.
+### 5.1. Use descriptive names
+
+All classes, functions, variables etc. should be assigned descriptive names
+that make their purpose as clear as possible.
+Avoid using vague or generic names that do not communicate purpose.
+
+### 5.2. Do not use needless or unconventional abbreviations
+
+Identifiers should generally not contain abbreviations unless those
+abbreviations are essentially universal and/or the text that they are
+abbreviating is impractically long to actually include in code.
+
+"HTML" abbreviating "HypertextMarkupLanguage" or "WAD" abbreviating
+"WheresAllTheData" is good and encouraged.
+However, "Idx" abbreviating "Index" or "Err" abbreviating "Error" is not
+acceptable. Please use common sense in judging whether an abbreviation is
+really necessary, and whether it might make the code more difficult to read.
+
+### 5.3. Names should contain only "A"-"Z", "a"-"z", and "0"-"9"
+
+Identifiers should be made up only of the characters `A` through `Z`,
+`a` through `z`, and `0` through `9`.
+Identifiers should not have an underscore `_` in their name, even if they
+identify private members.
 
 Do not use characters such as emoji or math symbols in variable names.
 
@@ -339,118 +858,26 @@ Do not use characters such as emoji or math symbols in variable names.
 const myAsciiVariableName: number = 0;
 ```
 
-## Use descriptive names
+### 5.4. Classes and constants should have PascalCase names
 
-Functions, classes, variables, and other named entities should have informative, descriptive names. Names should generally not contain abbreviations.
+Class and interface names names, constructors, enumerations, and the names of
+constants should be written in PascalCase.
 
-"HTML" abbreviating "HypertextMarkupLanguage" or "WAD" abbreviating "WheresAllTheData" is okay and encouraged, but "Idx" abbreviating "Index" or "Err" abbreviating "Error" is not okay. Please use common sense in judging whether an abbreviation is really necessary, and whether it might make the code more difficult to read.
+Note that constant in this case does not mean everything declared using `const`,
+but rather it refers to any variable that is initialized once and never changed
+during program execution.
+Constants are not a matter of syntax in TypeScript, but a matter of intent.
 
-Single-letter identifiers are strictly disallowed with the exception
-of `x`, `y`, `z`, `w`, `i`, `j`, and `k` where they are specifically used to
-describe position or vector components,
-`t` where used to name the [interpolant parameter of an interpolation function](https://en.wikipedia.org/wiki/Linear_interpolation),
-or `a`, `b`, `c`, etc. where they are used to name the parameters of a function
-with very clear inputs and purpose.
+### 5.5. Functions and variables should have camelCase names
 
-To summarize: Single-character identifiers should be used when it follows a long-standing mathematical convention (`x`, `y`, `t`, etc.), or when used to describe a sequence of parameters where sequential single-character identifiers represent a clear and prevalent naming convention (`a`, `b`, `c`, etc.). Single-character identifiers should not generally be used otherwise.
+Names of functions, methods, variables, attributes, function parameters,
+and anything else that is not mentioned by `5.4.` should be written
+using camelCase.
 
-``` ts
-// [Comment explaining the purpose of my vector class]
-class MyVector {
-    x: number;
-    y: number;
-    z: number;
-}
-```
+### 5.6. TypeScript source files should have camelCase names
 
-``` ts
-// Linearly interpolate between the numbers "a" and "b".
-// The value "t" should normally be in the inclusive range [0.0, 1.0].
-function lerp(a: number, b: number, t: number): Vector {
-    return (a * (1 - t)) + (b * t);
-}
-```
-
-``` ts
-// Note that `a` and `b` are acceptable parameter names for
-// comparator functions, even though single-character variable names
-// generally are not allowed.
-myArray.sort((a: number, b: number) => {
-    return a - b;
-});
-```
-
-Except for describing the ordering of color channels, e.g. `RGBA` or `ARGB`, do not abbreviate `red` as `r`, `green` as `g`, `blue` as `b`, or `alpha` as `a`.
-Instead, write out the full names of each color channel.
-
-``` ts
-// [Comment explaining the purpose of my interface]
-// Note that each channel attribute is fully written out and not abbreviated.
-interface MyColorInterface {
-    red: number;
-    green: number;
-    blue: number;
-    alpha: number;
-}
-```
-
-Do not assign loop variables single-character names such as `x` or `i` if
-the value does not literally correspond to a position or to a vector component.
-Use descriptive names for loop variables instead, and prefer more descriptive
-identifiers like `vectorIndex` over less descriptive identifiers like `index`.
-
-``` ts
-for(let vectorIndex: number = 0; vectorIndex < totalVectors; vectorIndex++){
-    const myVector: Vector = vectors[vectorIndex];
-    doStuffWithVector(myVector);
-}
-```
-
-## Use PascalCase for classes and constants
-
-Class names, constructors, and the names of constants should be written in PascalCase.
-Note that constant in this case does not mean everything declared using `const`, but rather it refers to any variable that is initialized once and never changed during program execution. (Constants are not a matter of syntax in TypeScript, but a matter of intent.)
-
-``` ts
-// [Comment explaining the purpose of my constant]
-const PlaypalLumpName = "PLAYPAL";
-```
-
-``` ts
-// [Comment explaining the purpose of my class]
-class MyClass {
-    // [Comment explaining the purpose of my attribute]
-    myAttribute: string;
-}
-```
-
-## Use camelCase for functions and variables
-
-Names of functions, methods, variables, attributes, and function parameters should be written in camelCase.
-
-``` ts
-// [Comment explaining the usage of this function]
-function getPaletteCount(): number {
-    return 100;
-}
-```
-
-``` ts
-// [Comment explaining the purpose of my class]
-class MyClass {
-    // [Comment explaining the purpose of my attribute]
-    myAttribute: string;
-    
-    // [Comment explaining why this class has a number-squaring helper]
-    mySquaringMethod(value: number): number {
-        return value * value;
-    }
-}
-```
-
-## Use camelCase for TypeScript source file names
-
-TypeScript source files should be assigned pascalCase names.
+TypeScript source files and directories containing TypeScript source files
+should be assigned pascalCase names.
 
 ``` text
 - file.ts
@@ -458,20 +885,120 @@ TypeScript source files should be assigned pascalCase names.
 - fileType.ts
 ```
 
+### 5.7. Single-character names
 
-# Conventions
+The following guidelines mainly pertain to the use of single-character names.
+Single-character names are mostly discouraged, but are still the most
+appropriate naming choice for some cases.
 
-## Do not use "eval" or the function constructor
+#### 5.7.1. Parameters with very clear purpose may be named "a", "b", "c", and so on
 
-Do not ever use the `eval` built-in function. Do not ever use the `Function` constructor to create a new function. These are inefficient and would make jsdoom vulnerable to arbitrary code execution.
+Sequential single-letter identifiers such as `a`, `b`, `c`, and so on are
+acceptable where they are used to name the parameters of a function with very
+clear inputs and purpose, where those inputs are mainly distinguished by
+the order in which they appear.
 
-## Do not use "var"
+``` ts
+// `a` and `b` are the preferred parameter names for comparator functions.
+myArray.sort((a: number, b: number) => {
+    return a - b;
+});
+```
 
-Do not declare variables using `var`. Use `let` or `const` instead.
+#### 5.7.2. The interpolant parameter should be named "t"
 
-## Prefer "if" and "else if" over "switch" and "case"
+Where a parameter or other named value is used as the
+[interpolant parameter of an interpolation function](https://en.wikipedia.org/wiki/Linear_interpolation),
+that value should be named `t`.
 
-In general, a series of `if` and `else if` statements should be used instead of a `switch` statement.
+``` ts
+// Linearly interpolate between the numbers `a` and `b`.
+// The value `t` should normally be in the inclusive range [0.0, 1.0].
+function lerp(a: number, b: number, t: number): Vector {
+    return (a * (1 - t)) + (b * t);
+}
+```
+
+#### 5.7.3. Extremely generic type parameters may be named "T"
+
+A generic function or class accepting a single type parameter may have
+that parameter named `T` if the purpose of the parameter is generic enough
+to not lend itself to a more descriptive name.
+
+#### 5.7.4. Coordinates should be named "x", "y", "z", and "w"
+
+The single-character names `x`, `y`, `z`, and `w` are acceptable and encouraged
+when they refer to spatial coordinates along the corresponding axes.
+
+#### 5.7.5. Vector components should be named "ijk" or "xyzw"
+
+The components of vectors or quaternions should normally be named
+either `i`, `j`, `k` or `x`, `y`, `z`, `w`.
+
+``` ts
+// [Comment explaining the purpose of my three-dimensional vector class]
+class MyVector {
+    x: number;
+    y: number;
+    z: number;
+}
+```
+
+#### 5.7.6. Single-character names should not be used except as mentioned in 5.7.
+
+Except as otherwise mentioned above in `5.7.`, single-character names should
+not normally be used.
+
+Here is a rule of thumb: Single-character identifiers should only be used when
+it follows a long-standing mathematical or programming convention, such that
+choosing any other name may make the purpose of the variable, etc. less clear.
+
+
+
+## 6. Syntax conventions
+
+The following guidelines mainly pertain to what TypeScript syntax options should
+be favored or avoided.
+
+### 6.1. Do not use "eval" or the function constructor
+
+Do not use the `eval` built-in function.
+Do not use the `Function` constructor to create a new function.
+This functionality is not efficient and it opens the door to security issues.
+
+### 6.2. Do not use "var"
+
+Do not use `var` when declaring variables. Use `let` or `const` instead.
+
+``` ts
+const myVariable: number = 0;
+```
+
+### 6.3. Prefer "const" to "let" when declaring variables
+
+Use `const` instead of `let` whenever it is syntactically valid, i.e. when the
+declared reference is never changed.
+
+### 6.4. Do not use undeclared variables
+
+Do not use variables without declaring them.
+Do not reference variables that have not yet been declared at the time
+that the code will be executed.
+
+### 6.5. Use seperate declarations
+
+Do not declare multiple variables together on the same line.
+Use separate declarations, with each declaration on its own line.
+
+``` ts
+const myFirstNumber: number = 0;
+const mySecondNumber: number = 0;
+```
+
+### 6.6. Prefer "if" and "else if" over "switch" and "case"
+
+Prefer using a series of `if` and `else if` statements instead of using a
+`switch` statement.
 
 ``` ts
 if(myVariable === 0){
@@ -485,37 +1012,263 @@ if(myVariable === 0){
 }
 ```
 
-## Do not nest ternary expressions
+### 6.7. Do not nest ternary expressions
 
-In general, ternary expressions `a ? b : c` should not be nested.
+Ternary expressions `a ? b : c` should not be nested.
 
-## Prefer strict equality over regular equality
+### 6.8. Prefer strict equality over regular equality
 
-The equality operator `==` and inequality operator `!=` should not generally be used. Prefer the strict equality operator `===` and strict inequality operator `!==` instead.
+The strict equality `===` and strict inequalty `!==` operators should be
+used instead of the regular equality `==` and inequality `!=` operators.
 
 ``` ts
 const myComparison: boolean = (myFirstValue === mySecondValue);
 ```
 
-## Prefer local state over global state
+### 6.9. Prefer "as" when writing type assertions
 
-Code which relies on local state is easier to understand and maintain than code which relies on global state.
-It is not possible to completely avoid global state, particularly in code that deals with the DOM. However, global state should be avoided when possible. State should instead be stored locally in scoped variables or class instances.
+When writing a type assertion, prefer syntax like `value as Type` over
+syntax like `<Type> value`. ([Why?](https://stackoverflow.com/a/33503842/4099022))
 
 ``` ts
-const myConstantVariable: number = 0;
-let myMutableVariable: number = 0;
+const myValue: number = myOtherValue as number;
 ```
 
-## Prefer immutable state over mutable state
+### 6.10. Prefer Type[] to Array<Type>
 
-Use `const` instead of `let` for references which are not changed.
+When describing an array type, prefer syntax like `Type[]` to syntax like
+`Array<Type>`.
+    
+``` ts
+const myStringArray: string[] = ["Hello", "World"];
+```
 
-Where it will not substantially impact performance in a negative way, treat variables and objects as immutable.
+### 6.11. Do not refer to the "arguments" object
 
-## Prefer pure functions over impure functions
+Functions should not refer to the `arguments` object.
 
-Pure functions are those which accept inputs and return an output without making any changes to the inputs and without producing any side-effects. In essence, a pure function is one which can be called at any time, any number of times, and the same inputs will always produce the same output.
+### 6.12. Prefer rest parameters over referring to the "arguments" object
+
+Functions which accept a variable number of arguments should do so using a
+rest parameter `...` and not by accessing the `arguments` object.
+
+``` ts
+// [Comment explaining the purpose of my function]
+function myVariadicFunction(...strings: string[]): void {
+    doStuffWithList(strings);
+}
+```
+
+### 6.13. Avoid the spread operator in array and object literals
+
+Prefer using functions like `Array.concat` or `Object.assign` over using
+the spread operator to construct arrays or objects.
+
+``` ts
+// Use `Array.concat` instead of the spread operator
+const myConcatenatedArray = (
+    myFirstArray.concat(mySecondArray)
+);
+```
+
+``` ts
+// Assign each key individually or, if the keys are numerous or not
+// necessarily known ahead of time, use `Object.assign` instead of
+// using the spread operator.
+const myComposedObject = {};
+Object.assign(myComposedObject, myFirstObject, mySecondObject);
+```
+
+### 6.14. Do not mix full object properties with shorthand properties
+
+An object should either use only shorthand properties or only full properties.
+A single object literal should not mix both types of properties.
+
+``` ts
+const myObjectWithFullProperties: Object = {
+    firstValue: firstValue,
+    secondValue: secondValue,
+};
+```
+
+``` ts
+const myObjectWithShortProperties: Object = {
+    firstValue,
+    secondValue,
+};
+```
+
+### 6.15. Imports
+
+The following guidelines mainly pertain to how imports should be written.
+
+#### 6.15.1. Imports belong at the beginning of a source file
+
+Import statements should be at the very top of a TypeScript source file.
+They should not appear anywhere else.
+
+#### 6.15.2. Prefer selective imports over default imports
+
+Prefer selective imports (imports with braces `{}`) over default imports
+(imports without braces).
+
+``` ts
+import {WADFile} from "@src/wad/file";
+```
+
+However, modules should still have a default export where it makes
+sense to choose a default.
+
+``` ts
+// Actual export from "@src/wad/file"
+export default WADFile;
+```
+
+#### 6.15.3. Prefer absolute over relative imports
+
+Absolute import paths (those starting with an "at" sign `@`) should be
+preferred over relative paths (those starting with a dot `.`).
+Note that the meaning of these absolute paths are defined by macros in the
+TypeScript config file `tsconfig.json` and the webpack config
+file `webpack.config.js`.
+
+``` ts
+import {WADFile} from "@src/wad/file";
+```
+
+#### 6.15.4. Group and order imports logically, then alphabetically by filename
+
+Imports should first be ordered by logical group, and then alphabetically by
+filename.
+Groups should generally be ordered from most general to most specialized.
+Here is a guideline for how to separate and order these groups:
+
+1. Native dependencies, such as Node.js imports.
+2. External dependencies, i.e. those listed in `package.json`.
+3. Jsdoom library dependencies, e.g. `@src/wad/` or `@src/lumps/`.
+4. Jsdoom UI or engine dependencies, e.g. `@web/`.
+
+``` ts
+import * as fs from "fs";
+import * as path from "path";
+
+import * as UPNG from "upng-js";
+
+import {WADFile} from "@src/wad/file";
+import {WADFileList} from "@src/wad/fileList";
+
+import {LumpTypeView} from "@web/lumpTypeView";
+```
+
+#### 6.15.5. Do not include unused imports
+
+Avoid importing unused symbols or modules.
+
+#### 6.15.6. Avoid importing modules for side-effects only
+
+Avoid writing side-effect-only import statements, i.e. statements
+such as `import "module";`.
+
+### 6.16. Ordering of class members
+
+The following guidelines mainly pertain to how class member declarations
+should be ordered.
+
+#### 6.16.1. Declare static attributes first
+
+Static attributes and constants should come before all other declarations
+in a class.
+
+``` ts
+class MyClass {
+    // [Comment explaining the purpose of my constant]
+    static readonly MyStaticConstant: number = 0x8000;
+}
+```
+
+#### 6.16.2. Declare instance attributes second
+
+Instance attributes should be declared after static attributes but before the
+constructor and any member functions or methods.
+
+``` ts
+class MyClass {
+    // [Comment explaining the purpose of my attribute]
+    myFirstAttribute: string;
+    // [Comment explaining the purpose of my attribute]
+    mySecondAttribute: string;
+}
+```
+
+#### 6.16.3. Declare the constructor third
+
+The class constructor should come after all static and instance attribute
+declarations but before all method and member function declarations.
+
+``` ts
+class MyClass {
+    constructor() {
+        this.myFirstAttribute = "hello";
+        this.mySecondAttribute = "world";
+    }
+}
+```
+
+#### 6.16.4. Declare static member functions fourth
+
+Static member functions should appear after attribute declarations and
+after the class constructor, but before instance method declarations.
+
+``` ts
+class MyClass {
+    // [Comment explaining the purpose of my function]
+    static myStaticFunction(): MyClass {
+        return new MyClass();
+    }
+}
+```
+
+#### 6.16.5. Declare instance methods last
+
+Instance methods should appear after all other declarations in a class.
+
+``` ts
+class MyClass {
+    // [Comment explaining the purpose of my method]
+    getTotalLength(): number {
+        return this.myFirstAttribute.length + this.mySecondAttribute.length;
+    }
+}
+```
+
+
+
+## 7. Program logic conventions
+
+The following guidelines mainly pertain to the use of consistent logic and design
+conventions in order to keep code modular and maintainable.
+
+### 7.1. Prefer local state over global state
+
+Code which relies on local state is normally easier to understand and maintain
+than code which relies on global state.
+It is not possible to completely avoid global state, particularly in code that
+deals with the DOM. However, global state should be avoided when possible.
+Whenever possible, state should be stored locally in scoped variables or
+in class instances.
+
+### 7.2. Prefer immutable state over mutable state
+
+Where it will not substantially impact performance in a negative way,
+treat variables and objects as though they were immutable.
+
+### 7.3. Prefer pure functions over impure functions
+
+[Pure functions](https://www.sitepoint.com/functional-programming-pure-functions/)
+are those which accept inputs and produce their output without making any
+changes to the inputs and without producing any side-effects.
+In essence, a pure function is one which can be called at any time,
+any number of times, and the same inputs will always produce the same output.
 
 ``` ts
 // [Comment explaining the purpose of my pure function]
@@ -524,33 +1277,19 @@ function myPureFunction(value: number): number {
 }
 ```
 
-## Document the impure behavior of functions
+### 7.4. Functions should not modify their inputs
 
-In general, functions with side-effects should be avoided. However, this is often not possible, especially in code that is meant to manipulate DOM state.
-Functions which do have side-effects should have those side-effects clearly documented in code comments.
+Avoid writing functions that modify their inputs.
+Ensure that where such functions do exist, their modification of the input
+is clearly documented.
 
-``` ts
-// [Comment explaining the purpose of my function]
-// [Comment explaining the function's side-effects]
-function myDomRelatedFunction(): void {
-    doStuffWithSideEffects();
-}
-```
+### 7.5. Class getters should treat the instance as logically const
 
-In general, functions should not modify their inputs. When they must, it is important that this behavior be documented.
-
-``` ts
-// This function will modify the input object.
-// In particular, it assigns a new value to the object's
-// "myAttribute" attribute.
-function myFunction(myObject: Object): void {
-    myObject.myAttribute = "hello world";
-}
-```
-
-## Class getters should treat the instance as logically const
-
-In general, getters (i.e. methods preceded by the `get` keyword) should treat the instance `this` as [logically const](http://wiki.c2.com/?LogicalConst). Logical const means that the object may technically be modified, but any modification should not affect or be visible to code which uses only the object's intended and documented API.
+In general, getters (i.e. methods preceded by the `get` keyword) should treat
+the instance `this` as [logically const](http://wiki.c2.com/?LogicalConst).
+Logical const means that the object may technically be modified,
+but any modification that does take place should not affect or be visible to
+code which uses only the object's intended and documented API.
 
 ``` ts
 class MyClass {
@@ -574,133 +1313,20 @@ class MyClass {
 }
 ```
 
-## Explicitly document types
+### 7.6. Prefer template strings over concatenation
 
-Typing can be a pain when working with the DOM, but an effort should still be made to include correct types for variables, parameters, and retun types. In general, such types should always be included for internal code that does not deal with the DOM or other complex APIs not designed with static types in mind.
-
-## Prefer selective imports over default imports
-
-In general, selective imports should be used instead of default imports. (A default import is one without braces `{}`, e.g. `import DefaultSymbol from "location";`.)
-
-``` ts
-import {WADFile} from "@src/wad/file";
-```
-
-However, modules should still export a default symbol where there is an obvious default.
-
-``` ts
-// Actual export declared in "@src/wad/file"
-export default WADFile;
-```
-
-## Prefer absolute over relative imports
-
-In general, absolute import paths (those starting with an "at" sign `@`) should be preferred over relative paths (those starting with a dot `.`). Note that the meaning of these absolute paths are defined by macros in the TypeScript config file `tsconfig.json` and the webpack config file `webpack.config.js`.
-
-``` ts
-import {WADFile} from "@src/wad/file";
-```
-
-## Order imports logically, then alphabetically by filename
-
-In general, imports should first be ordered by logical group, and then alphabetically by filename. Each group should be separated by a single empty line. Groups should generally be ordered from most general to most specialized. Here is a guideline for how to order these groups:
-
-1. Native dependencies, such as Node.js imports.
-2. External dependencies, i.e. those listed in `package.json`.
-3. Jsdoom library dependencies, e.g. `@src/wad/` or `@src/lumps/`.
-4. Jsdoom UI or engine dependencies, e.g. `@web/`.
-
-``` ts
-import * as fs from "fs";
-import * as path from "path";
-
-import * as UPNG from "upng-js";
-
-import {WADFile} from "@src/wad/file";
-import {WADFileList} from "@src/wad/fileList";
-
-import {LumpTypeView} from "@web/lumpTypeView";
-```
-
-## Order of class member declarations
-
-In classes or objects, attributes should generally be defined in the source in the following order. In general, a single empty line should separate each group of listed declarations from the next group, and single empty line should separate each function or method declaration.
-
-1. Static class attributes.
-2. Instance attributes.
-3. Constructor(s)
-4. Static class functions
-5. Instance methods
-
-``` ts
-// [Comment explaining the purpose of my class]
-class MyClass {
-    // [Comment explaining the purpose of my constant]
-    static readonly MyStaticConstant: number = 0x8000;
-    
-    // [Comment explaining the purpose of my attribute]
-    myFirstAttribute: string;
-    // [Comment explaining the purpose of my attribute]
-    mySecondAttribute: string;
-    
-    constructor() {
-        this.myFirstAttribute = "hello";
-        this.mySecondAttribute = "world";
-    }
-    
-    // [Comment explaining the purpose of my function]
-    static myStaticFunction(): MyClass {
-        return new MyClass();
-    }
-    
-    // [Comment explaining the purpose of my method]
-    getTotalLength(): number {
-        return this.myFirstAttribute.length + this.mySecondAttribute.length;
-    }
-}
-```
-
-## Prefer rest arguments over referring to the arguments object
-
-Functions which accept a variable number of arguments should do so using a rest parameter `...` and not by accessing the `arguments` object. In general, functions should never access or manipulate the `arguments` object.
-
-``` ts
-// [Comment explaining the purpose of my function]
-function myVariadicFunction(...strings: string[]): void {
-    doStuffWith(strings);
-}
-```
-
-## Avoid the spread operator
-
-The spread operator `...` should be avoided except for where it replaces an expression such as `myFunction.apply(null, myArgumentList)` with one such as `myFunction(...myArgumentList)`.
-
-``` ts
-// Use `Array.concat` instead of the spread operator
-const myConcatenatedArray = (
-    myFirstArray.concat(mySecondArray)
-);
-```
-
-``` ts
-// Assign each key individually or, if the keys are numerous or not
-// necessarily known ahead of time, use `Object.assign` instead of
-// using the spread operator.
-const myComposedObject = {};
-Object.assign(myComposedObject, myFirstObject, mySecondObject);
-```
-
-## Prefer template strings over concatenation
-
-In general, template strings should be used instead of string concatenation or joining.
+Prefer using template strings over string concatenation or joining.
 
 ``` ts
 const myString: string = `${helloString} ${worldString}!`;
 ```
 
-## Prefer joining over repeated concatenation
+### 7.7. Prefer joining over repeated concatenation
 
-Strings that are incrementally assembled, e.g. in a loop, should be pushed to an array and combined at the end of the loop with a single `join` statement. Generally, such strings should not be assembled via repeated concatenation.
+Strings that are incrementally assembled, e.g. in a loop, should have their
+substrings pushed to an array and combined at the end of the loop with a
+single `join` statement.
+Avoid assembling strings via repeated concatenation.
 
 ``` ts
 // Create a comma-separated list representing the vertexes in an array.
