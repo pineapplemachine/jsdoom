@@ -41,12 +41,13 @@ console.log("jsdoom is pretty neat");
 * [**2.** Newlines](#2-newlines)
     * [**2.1.** Lines should not exceed eighty characters](#21-lines-should-not-exceed-eighty-characters)
     * [**2.4.** Line breaks](#24-line-breaks)
-        * [**2.4.1.** Line breaks should always occur after a semicolon](#241-line-breaks-should-always-occur-after-a-semicolon)
-        * [**2.4.2.** Line breaks may occur after a comma](#242-line-breaks-may-occur-after-a-comma)
-        * [**2.4.3.** Line breaks may occur after an open brace, bracket, or parethese](#243-line-breaks-may-occur-after-an-open-brace-bracket-or-parethese)
-        * [**2.4.4.** Line breaks may occur after an infix operator](#244-line-breaks-may-occur-after-an-infix-operator)
-        * [**2.4.5.** Line breaks may occur after the last expression in a list](#245-line-breaks-may-occur-after-the-last-expression-in-a-list)
-        * [**2.4.6.** Line breaks should not occur anywhere not mentioned in **2.4.**](#246-line-breaks-should-not-occur-anywhere-not-mentioned-in-24)
+        * [**2.4.1.** Line breaks should not occur anywhere not mentioned in **2.4.**](#241-line-breaks-should-not-occur-anywhere-not-mentioned-in-24)
+        * [**2.4.2.** Line breaks should always occur after a semicolon](#242-line-breaks-should-always-occur-after-a-semicolon)
+        * [**2.4.3.** Line breaks may occur after a comma](#243-line-breaks-may-occur-after-a-comma)
+        * [**2.4.4.** Line breaks may occur after an open brace, bracket, or parethese](#244-line-breaks-may-occur-after-an-open-brace-bracket-or-parethese)
+        * [**2.4.5.** Line breaks may occur after an infix operator](#245-line-breaks-may-occur-after-an-infix-operator)
+        * [**2.4.6.** Line breaks may occur after the last expression in a list](#246-line-breaks-may-occur-after-the-last-expression-in-a-list)
+        * [**2.4.7.** Line breaks may occur after either symbol of a ternary expression](#247-line-breaks-may-occur-after-either-symbol-of-a-ternary-expression)
     * [**2.2.** Blank lines](#22-blank-lines)
         * [**2.2.1.** Source files should not begin with a blank line](#221-source-files-should-not-begin-with-a-blank-line)
         * [**2.2.2.** Functions and methods should be padded by blank lines](#222-functions-and-methods-should-be-padded-by-blank-lines)
@@ -89,12 +90,12 @@ console.log("jsdoom is pretty neat");
     * [**5.5.** Functions and variables should have camelCase names](#55-functions-and-variables-should-have-camelcase-names)
     * [**5.6.** TypeScript source files should have camelCase names](#56-typescript-source-files-should-have-camelcase-names)
     * [**5.7.** Single-character names](#57-single-character-names)
-        * [**5.7.1.** Parameters with very clear purpose may be named "a", "b", "c", and so on](#571-parameters-with-very-clear-purpose-may-be-named-a-b-c-and-so-on)
-        * [**5.7.2.** The interpolant parameter should be named "t"](#572-the-interpolant-parameter-should-be-named-t)
-        * [**5.7.3.** Extremely generic type parameters may be named "T"](#573-extremely-generic-type-parameters-may-be-named-t)
-        * [**5.7.4.** Coordinates should be named "x", "y", "z", and "w"](#574-coordinates-should-be-named-x-y-z-and-w)
-        * [**5.7.5.** Vector components should be named "ijk" or "xyzw"](#575-vector-components-should-be-named-ijk-or-xyzw)
-        * [**5.7.6.** Single-character names should not be used except as mentioned in **5.7.**](#576-single-character-names-should-not-be-used-except-as-mentioned-in-57)
+        * [**5.7.1.** Single-character names should not be used except as mentioned in **5.7.**](#571-single-character-names-should-not-be-used-except-as-mentioned-in-57)
+        * [**5.7.2.** Parameters with very clear purpose may be named "a", "b", "c", and so on](#572-parameters-with-very-clear-purpose-may-be-named-a-b-c-and-so-on)
+        * [**5.7.3.** The interpolant parameter should be named "t"](#573-the-interpolant-parameter-should-be-named-t)
+        * [**5.7.4.** Extremely generic type parameters may be named "T"](#574-extremely-generic-type-parameters-may-be-named-t)
+        * [**5.7.5.** Coordinates should be named "x", "y", "z", and "w"](#575-coordinates-should-be-named-x-y-z-and-w)
+        * [**5.7.6.** Vector components should be named "ijk" or "xyzw"](#576-vector-components-should-be-named-ijk-or-xyzw)
 * [**6.** Syntax conventions](#6-syntax-conventions)
     * [**6.1.** Do not use "eval" or the function constructor](#61-do-not-use-eval-or-the-function-constructor)
     * [**6.2.** Do not use "var"](#62-do-not-use-var)
@@ -363,7 +364,18 @@ to be a hard length limit.
 The following guidelines mainly pertain to where line breaks should appear
 in code.
 
-#### 2.4.1. Line breaks should always occur after a semicolon
+#### 2.4.6. Line breaks should not occur anywhere not mentioned in 2.4.
+
+In general, line breaks on lines containing code should not occur under
+circumstances other than the ones explicitly mentioned below.
+
+Comments may exceptionally appear in between a character that would normally
+precede a line break and the terminating newline.
+However, this style of comments is not encouraged.
+In general, comments should appear on their own lines and not at the end
+of a line of code. (See `4.3.`.)
+
+#### 2.4.2. Line breaks should always occur after a semicolon
 
 Semicolons terminating a statement should be immediately followed by a
 newline. Two statements should not appear on the same line.
@@ -373,7 +385,7 @@ const myFirstDeclaration: number = 1;
 const mySecondDeclaration: number = 2;
 ```
 
-#### 2.4.2. Line breaks may occur after a comma
+#### 2.4.3. Line breaks may occur after a comma
 
 Long lists of arguments, parameters, attributes, or other comma-separated
 lists may be broken up by placing newlines after the commas.
@@ -389,12 +401,12 @@ const myMultiLineArray: number[] = [
 ];
 ```
 
-#### 2.4.3. Line breaks may occur after an open brace, bracket, or parethese
+#### 2.4.4. Line breaks may occur after an open brace, bracket, or parethese
 
 The code in between braces, brackets, etc. may appear on separate lines
 and be indented at one additional level.
 
-#### 2.4.4. Line breaks may occur after an infix operator
+#### 2.4.5. Line breaks may occur after an infix operator
 
 It is appropriate for a line break to appear after an infix operator and
 before its right operand.
@@ -406,7 +418,7 @@ const myMultiLineExpression: boolean = (
 );
 ```
 
-#### 2.4.5. Line breaks may occur after the last expression in a list
+#### 2.4.6. Line breaks may occur after the last expression in a list
 
 The last character of a multi-line list should normally be a trailing comma.
 However, in the case that the list appears on one line yet not on the same
@@ -419,16 +431,18 @@ const myValue: number = myMultiLineFunctionInvocation(
 );
 ```
 
-#### 2.4.6. Line breaks should not occur anywhere not mentioned in 2.4.
+#### 2.4.7. Line breaks may occur after either symbol of a ternary expression
 
-In general, line breaks on lines containing code should not occur under
-circumstances other than the ones explicitly mentioned above.
+A line break may immediately follow the first `?` or second `:` symbol of
+a ternary expression, or both, when breaking the expression across several
+lines will improve readability.
 
-Comments may exceptionally appear in between a character that would normally
-precede a line break and the terminating newline.
-However, this style of comments is not encouraged.
-In general, comments should appear on their own lines and not at the end
-of a line of code. (See `4.3.`.)
+``` ts
+const myTernaryExpressionResult: string = (myCondition ?
+    "My first string literal" :
+    "My second string literal"
+);
+```
 
 ### 2.2. Blank lines
 
@@ -891,7 +905,16 @@ The following guidelines mainly pertain to the use of single-character names.
 Single-character names are mostly discouraged, but are still the most
 appropriate naming choice for some cases.
 
-#### 5.7.1. Parameters with very clear purpose may be named "a", "b", "c", and so on
+#### 5.7.1. Single-character names should not be used except as mentioned in 5.7.
+
+Except as otherwise mentioned below in `5.7.`, single-character names should
+not normally be used.
+
+Here is a rule of thumb: Single-character identifiers should only be used when
+it follows a long-standing mathematical or programming convention, such that
+choosing any other name may make the purpose of the variable, etc. less clear.
+
+#### 5.7.2. Parameters with very clear purpose may be named "a", "b", "c", and so on
 
 Sequential single-letter identifiers such as `a`, `b`, `c`, and so on are
 acceptable where they are used to name the parameters of a function with very
@@ -905,7 +928,7 @@ myArray.sort((a: number, b: number) => {
 });
 ```
 
-#### 5.7.2. The interpolant parameter should be named "t"
+#### 5.7.3. The interpolant parameter should be named "t"
 
 Where a parameter or other named value is used as the
 [interpolant parameter of an interpolation function](https://en.wikipedia.org/wiki/Linear_interpolation),
@@ -919,18 +942,18 @@ function lerp(a: number, b: number, t: number): Vector {
 }
 ```
 
-#### 5.7.3. Extremely generic type parameters may be named "T"
+#### 5.7.4. Extremely generic type parameters may be named "T"
 
 A generic function or class accepting a single type parameter may have
 that parameter named `T` if the purpose of the parameter is generic enough
 to not lend itself to a more descriptive name.
 
-#### 5.7.4. Coordinates should be named "x", "y", "z", and "w"
+#### 5.7.5. Coordinates should be named "x", "y", "z", and "w"
 
 The single-character names `x`, `y`, `z`, and `w` are acceptable and encouraged
 when they refer to spatial coordinates along the corresponding axes.
 
-#### 5.7.5. Vector components should be named "ijk" or "xyzw"
+#### 5.7.6. Vector components should be named "ijk" or "xyzw"
 
 The components of vectors or quaternions should normally be named
 either `i`, `j`, `k` or `x`, `y`, `z`, `w`.
@@ -943,15 +966,6 @@ class MyVector {
     z: number;
 }
 ```
-
-#### 5.7.6. Single-character names should not be used except as mentioned in 5.7.
-
-Except as otherwise mentioned above in `5.7.`, single-character names should
-not normally be used.
-
-Here is a rule of thumb: Single-character identifiers should only be used when
-it follows a long-standing mathematical or programming convention, such that
-choosing any other name may make the purpose of the variable, etc. less clear.
 
 
 
