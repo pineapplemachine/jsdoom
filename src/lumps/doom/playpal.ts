@@ -18,8 +18,19 @@ export interface WADPaletteColor {
 export class WADPalette {
     // Palette lumps are always named "PLAYPAL".
     static readonly LumpName: string = "PLAYPAL";
-    // Location of "playpal.lmp", relative to the root `jsdoom-tools` directory
+    // Contains data for a default PLAYPAL to use when no other is available.
     static readonly DefaultData: Buffer = DoomPlaypalData;
+    
+    // The number of colors contained in each palette in the PLAYPAL lump.
+    static readonly ColorsPerPalette: number = 256;
+    // The number of bytes per palette in the PLAYPAL lump.
+    // The total number of palettes in a lump is equal to the lump's length
+    // in bytes divided by this value.
+    static readonly BytesPerPalette: number = 768;
+    // The number of bytes per individual color.
+    // PLAYPAL lumps contain 24-bit RGB color values.
+    static readonly BytesPerColor: number = 3;
+    
     // The binary data representing this playpal.
     data: Buffer;
     
@@ -31,7 +42,7 @@ export class WADPalette {
     // Returns false otherwise.
     static match(lump: WADLump): boolean {
         return lump.name.toUpperCase() === WADPalette.LumpName && !!(
-            lump.length && (lump.length % 768 === 0)
+            lump.length && (lump.length % WADPalette.BytesPerPalette === 0)
         );
     }
     
@@ -50,20 +61,13 @@ export class WADPalette {
     
     // Get the number of palettes
     getPaletteCount(): number {
-        return Math.floor(this.data.length / 768);
+        return Math.floor(this.data.length / WADPalette.BytesPerPalette);
     }
     
-    // Get the total number of colors, i.e. number of palettes * 256 colors.
+    // Get the total number of colors,
+    // i.e. number of palettes * 256 colors.
     getColorCount(): number {
-        return Math.floor(this.data.length / 3);
-    }
-    
-    // Get the number of colors in one palette
-    get colorsPerPalette(): number {
-        return 256;
-    }
-    getColorPerPaletteCount(): number {
-        return Math.floor(this.data.length / this.getPaletteCount() / 3);
+        return Math.floor(this.data.length / WADPalette.BytesPerColor);
     }
     
     // Get the color at a palette and color index.
@@ -106,6 +110,24 @@ export class WADPalette {
         const green = this.data.readUInt8(byteIndex + 1);
         const blue = this.data.readUInt8(byteIndex + 2);
         return 0xff000000 + (red << 16) + (green << 8) + blue;
+    }
+    
+    // Get the color at a palette and color index.
+    // The color is represented as a seven-character hex color code string,
+    // for example "#000000" or "#ffffff".
+    getColorHex(palIndex: number, colorIndex: number): string {
+        const byteIndex: number = (3 * colorIndex) + (768 * palIndex);
+        if(byteIndex < 0 || byteIndex >= this.data.length){
+            throw new Error("Index out of range.");
+        }
+        const red = this.data.readUInt8(byteIndex).toString(16);
+        const green = this.data.readUInt8(byteIndex + 1).toString(16);
+        const blue = this.data.readUInt8(byteIndex + 2).toString(16);
+        return "#" + (
+            (red.length === 1 ? "0" + red : red) +
+            (green.length === 1 ? "0" + green : green) +
+            (blue.length === 1 ? "0" + blue : blue)
+        );
     }
     
     // Set the color at a palette and color index.
