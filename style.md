@@ -169,8 +169,8 @@ Indentation must be in such a way that each line is indented at either the
 same level as the last line, one more level, or one less.
 There should never be a jump of two or more indentation levels between lines.
 
-In general, longer expressions made up of chained function calls should be
-broken across lines by using several shorter statements with intermediate
+Longer expressions made up of chained function calls should be broken across
+multiple lines by using several shorter statements with intermediate
 assignments, or by putting the code inside a pair of paretheses `()` etc.
 on a new, idented line.
 They should _not_ be broken across lines by starting each line with the
@@ -200,8 +200,8 @@ parentheses `()`.
 
 Where an open brace `{`, parenthese `(`, etc. is followed by a corresponding
 closing brace `}`, parenthese `)`, etc. with no code in between, there should
-not generally be any whitespace, comments, or other characters in between
-those open and closing characters.
+not be any whitespace, comments, or other characters in between those open and
+closing characters.
 
 ``` ts
 const myEmptyObject: Object = {};
@@ -253,7 +253,7 @@ Open braces `{` should always be followed by a newline and close braces `}`
 should always be preceded by a newline.
 The code in between corresponding braces should be indented at one level
 further than the lines containing those braces.
-In general, an open brace `{` should not be immediately followed by any
+Normally, an open brace `{` should not be immediately followed by any
 character other than a corresponding closing brace `}` or a newline `\n`.
 
 ``` ts
@@ -266,8 +266,8 @@ const myObject: Object = {
 
 #### <a id="1.4.4."></a> 1.4.4. Do not put open braces on their own line
 
-Open braces `{` generally should _not_ be preceded by a newline.
-Open braces `{` should generally be on the same line as the statement or
+Open braces `{` should _not_ be preceded by a newline.
+Open braces `{` should be on the same line as the statement or
 expression that they are a part of.
 
 #### <a id="1.4.5."></a> 1.4.5. Do not pad code between paretheses or brackets
@@ -375,8 +375,8 @@ in code.
 
 #### <a id="2.4.6."></a> 2.4.6. Line breaks should not occur anywhere not mentioned in 2.4.
 
-In general, line breaks on lines containing code should not occur under
-circumstances other than the ones explicitly mentioned below.
+Line breaks on lines containing code should not occur under circumstances
+other than the ones explicitly mentioned below.
 
 Comments may exceptionally appear in between a character that would normally
 precede a line break and the terminating newline.
@@ -398,9 +398,6 @@ const mySecondDeclaration: number = 2;
 
 Long lists of arguments, parameters, attributes, or other comma-separated
 lists may be broken up by placing newlines after the commas.
-
-In general, either all of the commas in a list should be followed by
-newlines or none of them should be.
 
 ``` ts
 const myMultiLineArray: number[] = [
@@ -465,14 +462,14 @@ The first line in a source file should not be a blank line.
 
 #### <a id="2.2.2."></a> 2.2.2. Functions and methods should be padded by blank lines
 
-In general, function or method declarations should be padded on each side
-by a single blank line, except for where the immediately previous or following
+Function or method declarations should be padded on each side by a single
+blank line, except for where the immediately previous or following
 line is the first line of the class declaration containing a method, or the
 line containing a class declaration's closing brace `}`.
 
 This does _not_ apply to helper functions that are declared inside another
 function. In general, function blocks should not contain blank lines, not
-even to pad helper function declarations.
+even to pad helper function declarations. (See `2.2.3.`.)
 
 ``` ts
 // [Comment explaining the purpose of my function]
@@ -512,8 +509,7 @@ class MyClass {
 
 #### <a id="2.2.3."></a> 2.2.3. Function blocks should not contain blank lines
 
-In general, the implementation of a function or method should not contain
-blank lines.
+The implementation of a function or method should not contain blank lines.
 If a function is made up of several different conceptual units,
 then they should be separated by explanatory comments instead of separated
 by blank lines.
@@ -567,7 +563,7 @@ Block statements such as the body of a loop or an `if` statement should
 always be enclosed within braces, even if it is syntactically valid to
 omit those braces.
 Single-line conditionals or loops without braces around their bodies should
-not generally be used.
+not be used.
 
 ``` ts
 if(myExitCondition){
@@ -606,7 +602,7 @@ as they apply to arrow functions.
 
 #### <a id="3.5.1."></a> 3.5.1. Prefer parentheses around arrow function parameters
 
-In general, the parameter list of an arrow function should always be enclosed
+The parameter list of an arrow function should always be enclosed
 within paretheses `()`, even when there is only a single parameter.
 
 ``` ts
@@ -617,8 +613,8 @@ myArray.map((value) => {
 
 #### <a id="3.5.2."></a> 3.5.2. Prefer braces around arrow function bodies
 
-In general, the bodies of arrow functions should always be enclosed within
-braces `{}`, even when the function body contains only a `return` statement.
+The bodies of arrow functions should always be enclosed within braces `{}`,
+even when the function body contains only a `return` statement.
 
 ``` ts
 myArray.filter((value) => {
@@ -634,7 +630,7 @@ as they apply to string literals.
 #### <a id="3.6.1."></a> 3.6.1. Prefer double-quoted strings
 
 String literals should be double-quoted `""`.
-In general, they should not ever be single-quoted `''`, even when the literal
+String literals should not ever be single-quoted `''`, even when the literal
 itself contains double quotes.
 
 Template strings (enclosed within backticks) should not be used for
@@ -1163,8 +1159,8 @@ import {WADFile} from "@src/wad/file";
 
 Imports should first be ordered by logical group, and then alphabetically by
 filename.
-Groups should generally be ordered from most general to most specialized.
-Here is a guideline for how to separate and order these groups:
+Groups of similar imports should be ordered from most general to most
+specialized. Here is a guideline for how to separate and order these groups:
 
 1. Native dependencies, such as Node.js imports.
 2. External dependencies, i.e. those listed in `package.json`.
@@ -1308,7 +1304,7 @@ is clearly documented.
 
 ### <a id="7.5."></a> 7.5. Class getters should treat the instance as logically const
 
-In general, getters (i.e. methods preceded by the `get` keyword) should treat
+Getter methods (i.e. methods preceded by the `get` keyword) should treat
 the instance `this` as [logically const](http://wiki.c2.com/?LogicalConst).
 Logical const means that the object may technically be modified,
 but any modification that does take place should not affect or be visible to
