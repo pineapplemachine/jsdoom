@@ -87,3 +87,7 @@ may be different depending on your server settings.
 You can also make the web views available by hosting them on a remote
 web server. There is one simple example currently hosted at
 https://pineapplemachine.com/demos/jsdoom/inspect-2018-10-23/web/inspector.html.
+
+## Contributing
+
+Contributions are very welcome! This is a big project and it needs as much help as it can get. Before you contribute to jsdoom, though, please take a few minutes to read through the project's [Code of Conduct](https://github.com/pineapplemachine/jsdoom/blob/master/conduct.md) and [Style Guide](https://github.com/pineapplemachine/jsdoom/blob/master/style.md).
