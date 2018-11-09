@@ -7,6 +7,7 @@ body {
     height: 100vh;
     font-family: sans-serif;
     color: #fff;
+    font-size: 16px;
     background-color: #111;
 }
 
@@ -376,29 +377,48 @@ body {
     background-color: #181818;
 }
 
-.lump-view-playpal {
+/* Used by PLAYPAL and COLORMAP views */
+.lump-view-sequential {
     display: block;
     text-align: center;
 }
-
-.lump-view-playpal-inner {
+.lump-view-sequential .inner-container {
+    position: relative;
     display: inline-block;
     margin: 0 auto;
+    margin-top: 64px;
 }
-
-.lump-view-playpal-nav {
-    display: flex;
-    justify-content: center;
+.lump-view-sequential .counter,
+.lump-view-sequential .description {
+    display: block;
+    width: 100%;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
 }
-
-.lump-view-playpal-navbtn {
-    padding: 12px;
-    border-radius: 9px;
-    margin: 8px;
+.lump-view-sequential .description {
+    font-size: 14px;
+    line-height: 18px;
+    color: #bbb;
+}
+.lump-view-sequential .arrow-button {
+    display: inline-block;
+    box-sizing: border-box;
+    font-weight: bold;
+    text-align: center;
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    margin: 0 4px;
+    border-radius: 4px;
+    cursor: pointer;
     user-select: none;
 }
-
-.lump-view-playpal-navbtn:hover,
-.lump-view-playpal-navbtn:active {
+.lump-view-sequential .arrow-button:hover,
+.lump-view-sequential .arrow-button:active {
     background-color: #222;
+}
+.lump-view-sequential canvas {
+    display: block;
+    margin: 8px auto;
 }

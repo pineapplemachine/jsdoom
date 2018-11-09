@@ -2,28 +2,25 @@ import {WADLump} from "@src/wad/lump";
 import {WADPalette} from "@src/lumps/doom/playpal";
 
 import {DoomColormapData} from "@src/lumps/doom/defaultColormap";
+import {DoomColormapNames} from "@src/lumps/doom/colormapNames";
 
 // Represents a color map, e.g. as read from a COLORMAP lump.
 // A Doom COLORMAP lump normally contains 34 maps.
 // The color map describes what palette color graphics should use under
 // given circumstances.
-// Doom has a map for each light level (32 total), one for the megasphere,
+// Doom has a map for each light level (32 total), one for the godsphere,
 // and one unused all-black map.
 // See: http://doom.wikia.com/wiki/COLORMAP
 export class WADColorMap {
     // Color map lumps are always named "COLORMAP".
     static readonly LumpName: string = "COLORMAP";
-    // Location of "colormap.lmp", relative to the root `jsdoom-tools` directory
+    // Contains data for a default COLORMAP to use when no other is available.
     static readonly DefaultData: Buffer = DoomColormapData;
-    // Special colormaps and their purposes
-    static readonly ColorMapNames:{[index: number]: string} = {
-        0: "Light amplification goggles", // Torch in Heretic/Hexen
-        6: "Partial invisibility/Spectre", // Doom only
-        32: "Invulnerability", // Not Hexen
-        33: "Unused/Beta Invulnerability"
-    };
     // Index of the megasphere (invulnerability) color map.
     static readonly Invulnerable: number = 32;
+    // A list of human-readable descriptions for each colormap's purpose
+    // as it pertains to Doom.
+    static readonly DoomColormapNames: string[] = DoomColormapNames;
     
     // The binary data representing this colormap.
     data: Buffer;
@@ -84,7 +81,7 @@ export class WADColorMap {
         // Create the pixel data: 16 * 16 pixels * N maps * 4 color channels
         const maps: number = this.getMapCount();
         const data: Buffer = Buffer.alloc(1024 * maps);
-        // Fill the array. TODO: Optimize (after revising Buffer use)
+        // Fill the array. TODO: Can this be optimized?
         const total: number = this.data.length;
         for(let colorIndex: number = 0; colorIndex < total; colorIndex++){
             const index: number = this.data.readUInt8(colorIndex);

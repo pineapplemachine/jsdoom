@@ -55,6 +55,15 @@ export class WADColors {
             this.palIndex, this.colormap.getColor(this.mapIndex, index)
         );
     }
+    
+    // Get the color corresponding to an index.
+    // The color is represented as a seven-character hex color code string,
+    // for example "#000000" or "#ffffff".
+    getColorHex(index: number): string {
+        return this.playpal.getColorHex(
+            this.palIndex, this.colormap.getColor(this.mapIndex, index)
+        );
+    }
 }
 
 export default WADColors;
