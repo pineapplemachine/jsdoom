@@ -84,7 +84,7 @@ win.onSearchInput = function(): void {
     const value: string = search ? search.value.trim().toUpperCase() : "";
     if(!search || !search.value){
         filterLumpList((item: any) => {
-            return item.itemIndex + 1;
+            return +item.itemIndex + 1;
         });
     }else{
         filterLumpList((item: any) => {
@@ -144,8 +144,7 @@ function selectListItem(item: any): void {
     );
     if(item.lumpType !== LumpTypeGeneric){
         util.id("lump-view-type")!.innerText = (
-            item.lumpType.name + " — " +
-            getSizeText(item.lump.length, false)
+            `${item.lumpType.name} — ${getSizeText(item.lump.length, false)}`
         );
     }else{
         util.id("lump-view-type")!.innerText = (
