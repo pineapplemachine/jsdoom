@@ -27,7 +27,6 @@
       "options": [
         "check-catch",
         "check-finally",
-        "check-else",
         "check-open-brace"
       ]
     },
