@@ -5,11 +5,6 @@ import {WADLump} from "@src/wad/lump";
 // See: http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp
 // See: https://en.wikipedia.org/wiki/GIF
 export class WADGif {
-    // The name of the GIF image.
-    name: string;
-    // The GIF pixel data.
-    data: Buffer;
-    
     // All well-formed GIF data starts with one of these two six-byte
     // headers, representing "GIF87a" and "GIF89a" in ASCII text.
     static readonly HeaderData87: Buffer = Buffer.from([
@@ -18,6 +13,11 @@ export class WADGif {
     static readonly HeaderData89: Buffer = Buffer.from([
         0x47, 0x49, 0x46, 0x38, 0x39, 0x61,
     ]);
+    
+    // The name of the GIF image.
+    name: string;
+    // The GIF pixel data.
+    data: Buffer;
     
     constructor(name: string, data: Buffer) {
         this.name = name;

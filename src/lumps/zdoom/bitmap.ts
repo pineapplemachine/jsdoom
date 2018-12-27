@@ -49,11 +49,6 @@ export const DIBHeaderTypeList: DIBHeaderType[] = [
 // Represents a bitmap (BMP) image read from a WAD lump.
 // See: https://en.wikipedia.org/wiki/BMP_file_format
 export class WADBitmap {
-    // The name of the bitmap graphic.
-    name: string;
-    // The bitmap pixel data.
-    data: Buffer;
-    
     // Most well-formed BMP data begins with these two bytes ("BM") followed
     // by a 4-byte little-endian count of the number of bytes in the bitmap.
     // Only OS/2 bitmaps have a different header, and it is probably more
@@ -69,6 +64,11 @@ export class WADBitmap {
     static readonly BitmapInfoHeaderSize = 40;
     static readonly BitmapV4HeaderSize = 108;
     static readonly BitmapV5HeaderSize = 124;
+    
+    // The name of the bitmap graphic.
+    name: string;
+    // The bitmap pixel data.
+    data: Buffer;
     
     constructor(name: string, data: Buffer) {
         this.name = name;

@@ -5,16 +5,6 @@ import {WADLump} from "@src/wad/lump";
 // See: https://en.wikipedia.org/wiki/JPEG_File_Interchange_Format
 // See: https://www.w3.org/Graphics/JPEG/jfif3.pdf
 export class WADJpeg {
-    // The name of the JPEG image.
-    name: string;
-    // The JPEG pixel data.
-    data: Buffer;
-    
-    constructor(name: string, data: Buffer) {
-        this.name = name;
-        this.data = data;
-    }
-    
     // Most well-formed JPEG data has set bytes at offsets 0x00 until 0x04 and
     // 0x06 until 0x0B, and another two set bytes at the end of the file.
     // EXIF JPEG files notably do not always follow this format.
@@ -30,6 +20,16 @@ export class WADJpeg {
     static readonly FooterData: Buffer = Buffer.from([
         0xFF, 0xD9,
     ]);
+    
+    // The name of the JPEG image.
+    name: string;
+    // The JPEG pixel data.
+    data: Buffer;
+    
+    constructor(name: string, data: Buffer) {
+        this.name = name;
+        this.data = data;
+    }
     
     // Returns true when a WADLump can be read as a JPEG.
     // Returns false otherwise.
