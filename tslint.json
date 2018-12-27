@@ -27,7 +27,6 @@
       "options": [
         "check-catch",
         "check-finally",
-        "check-else",
         "check-open-brace"
       ]
     },
@@ -64,7 +63,8 @@
     "no-var-keyword": true,
     "no-empty": {
       "options": [
-        "allow-empty-catch"
+        "allow-empty-catch",
+        "allow-empty-functions"
       ]
     },
     "prefer-const": true,
@@ -74,19 +74,7 @@
       "options": [{
         "import-sources-order": "case-insensitive",
         "named-imports-order": "any",
-        "grouped-imports": true
-      }]
-    },
-    "member-ordering": {
-      "options": [{
-        "order": [
-          "static-field",
-          "instance-field",
-          "constructor",
-          "static-method",
-          "instance-method"
-        ],
-        "alphabetize": false
+        "grouped-imports": false
       }]
     }
   }

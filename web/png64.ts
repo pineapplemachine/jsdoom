@@ -29,7 +29,7 @@ function btoa24(bits: number): string {
 
 // Convert the data in a buffer to base64-encoded data represented in a string.
 export function bufferbtoa(buffer: Buffer): string {
-    let parts: string[] = [];
+    const parts: string[] = [];
     let index: number = 0;
     // Process in 3-byte chunks
     while(index + 4 <= buffer.length){

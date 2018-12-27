@@ -2,15 +2,15 @@ import {WADLump} from "@src/wad/lump";
 
 // Represents a PNG image read from a WAD lump.
 export class WADPng {
-    // The name of the PNG graphic.
-    name: string;
-    // The PNG pixel data.
-    data: Buffer;
-    
     // All well-formed PNG data begins with these eight bytes.
     static readonly HeaderData: Buffer = Buffer.from([
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
     ]);
+    
+    // The name of the PNG graphic.
+    name: string;
+    // The PNG pixel data.
+    data: Buffer;
     
     constructor(name: string, data: Buffer) {
         this.name = name;

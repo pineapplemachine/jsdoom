@@ -2,20 +2,19 @@ import {WADLump} from "@src/wad/lump";
 
 // Represents WAV audio read from a WAD lump.
 export class WADWave {
-    // The name of the WAV audio.
-    name: string;
-    // The audio data.
-    data: Buffer;
-    
     // All well-formed WAV data begins with these four bytes. ("RIFF")
     static readonly HeaderData: Buffer = Buffer.from([
         0x52, 0x49, 0x46, 0x46,
     ]);
-    
     // All well-formed WAV data has these bytes starting at 0x08. ("WAVE")
     static readonly WaveData: Buffer = Buffer.from([
         0x57, 0x41, 0x56, 0x45,
     ]);
+    
+    // The name of the WAV audio.
+    name: string;
+    // The audio data.
+    data: Buffer;
     
     constructor(name: string, data: Buffer) {
         this.name = name;

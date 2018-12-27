@@ -1,5 +1,5 @@
-import {WADLump} from "./lump";
 import {WADFileType} from "./fileType";
+import {WADLump} from "./lump";
 
 import {writePaddedString, readPaddedString, readPaddedString8} from "./string";
 
@@ -64,15 +64,17 @@ export class WADFile {
             const lumpName: string = readPaddedString8(data, dirPosition + 8);
             const lumpEnd: number = lumpStart + lumpSize;
             // Make sure the lump metadata makes sense
-            if(lumpEnd > data.length) throw new Error(
-                `Malformed lump in WAD directory at offset ${dirPosition}.`
-            );
+            if(lumpEnd > data.length) {
+                throw new Error(
+                    `Malformed lump in WAD directory at offset ${dirPosition}.`
+                );
+            }
             // Get a buffer representing the lump data
             const lumpData: (Buffer | null) = (
                 lumpStart === lumpEnd ? null : data.slice(lumpStart, lumpEnd)
             );
             // Read the next lump and add it to the list
-            let lump: WADLump = new WADLump({
+            const lump: WADLump = new WADLump({
                 file: this,
                 name: lumpName,
                 data: lumpData,

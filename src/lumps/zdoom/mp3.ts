@@ -2,16 +2,16 @@ import {WADLump} from "@src/wad/lump";
 
 // Represents MP3 audio read from a WAD lump.
 export class WADMp3 {
-    // The name of the MP3 audio.
-    name: string;
-    // The audio data.
-    data: Buffer;
-    
     // Most well-formed MP3 data begins with these bytes. ("ID3")
     // TODO: Detect MP3 lumps more reliably!
     static readonly HeaderData: Buffer = Buffer.from([
         0x49, 0x44, 0x33,
     ]);
+    
+    // The name of the MP3 audio.
+    name: string;
+    // The audio data.
+    data: Buffer;
     
     constructor(name: string, data: Buffer) {
         this.name = name;

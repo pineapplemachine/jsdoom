@@ -1,7 +1,7 @@
+import * as lumps from "@src/lumps/index";
 import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
-import * as lumps from "@src/lumps/index";
 
 import {getPng64, bufferbtoa} from "@web/png64";
 import * as util from "@web/util";
@@ -100,7 +100,7 @@ export const LumpTypeViewHex = new LumpTypeView({
             if(lump.data){
                 for(let index: number = 0; index < lump.length; index++){
                     const byte: number = lump.data.readUInt8(index);
-                    let byteString: string = byte.toString(16);
+                    const byteString: string = byte.toString(16);
                     if(byteString.length > 1){
                         bytes.push("0x" + byteString);
                     }else{
@@ -308,15 +308,15 @@ export const LumpTypeViewMapThings = new LumpTypeView({
 
 export interface MapGeometryOptions {
     // Draw dots at each vertex
-    drawVertexes?: boolean,
+    drawVertexes?: boolean;
     // Draw lines for each linedef
-    drawLines?: boolean,
+    drawLines?: boolean;
     // Draw circles for each thing
-    drawThings?: boolean,
+    drawThings?: boolean;
     // Leave at least this many pixels of blank space between the map
     // geometry and the canvas border. (Defaults to 50px)
-    margin?: number,
-};
+    margin?: number;
+}
 
 export const LumpTypeViewMapGeometry = function(
     drawOptions: MapGeometryOptions
@@ -480,13 +480,13 @@ function drawMapGeometry(
 
 // Options used by makeSequentialView
 interface SequentialViewOptions {
-    root: HTMLElement,
-    initialIndex?: number,
-    getMaxIndex: () => number,
-    getPositionText?: (index: number) => string,
-    getDescriptionText?: (index: number) => string,
-    onReady?: (container: HTMLElement, index: number) => void,
-    onChangeIndex?: (index: number) => void,
+    root: HTMLElement;
+    initialIndex?: number;
+    getMaxIndex: () => number;
+    getPositionText?: (index: number) => string;
+    getDescriptionText?: (index: number) => string;
+    onReady?: (container: HTMLElement, index: number) => void;
+    onChangeIndex?: (index: number) => void;
 }
 
 // Helper to construct DOM elements for viewing items individually in a
@@ -611,7 +611,7 @@ export function LumpTypeViewPlaypal(
     });
 }
 
-export function LumpTypeViewColormapAll(scaleX:number = 2, scaleY:number = 2) {
+export function LumpTypeViewColormapAll(scaleX: number = 2, scaleY: number = 2) {
     return new LumpTypeView({
         name: "Image",
         icon: "assets/icons/view-image.png",
@@ -701,5 +701,5 @@ export function LumpTypeViewColormapByMap(
                 },
             });
         }
-    })
+    });
 }

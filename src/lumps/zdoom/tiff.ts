@@ -4,16 +4,6 @@ import {WADLump} from "@src/wad/lump";
 // TIFF images may be either static or animated.
 // See: http://www.fileformat.info/format/tiff/corion.htm
 export class WADTiff {
-    // The name of the TIFF image.
-    name: string;
-    // The TIFF pixel data.
-    data: Buffer;
-    
-    constructor(name: string, data: Buffer) {
-        this.name = name;
-        this.data = data;
-    }
-    
     // All well-formed TIFF data begins with these one of two two-byte
     // headers, "II" or "MM". "II" indicates that data in the file is stored
     // in little-endian format (Intel byte order). "MM" indicates that data
@@ -25,6 +15,16 @@ export class WADTiff {
     static readonly HeaderDataBE: Buffer = Buffer.from([
         0x4D, 0x4D, 0x2A,
     ]);
+    
+    // The name of the TIFF image.
+    name: string;
+    // The TIFF pixel data.
+    data: Buffer;
+    
+    constructor(name: string, data: Buffer) {
+        this.name = name;
+        this.data = data;
+    }
     
     // Returns true when a WADLump can be read as a TIFF.
     // Returns false otherwise.
