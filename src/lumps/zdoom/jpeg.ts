@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represents a JPEG image read from a WAD lump.
@@ -8,9 +9,9 @@ export class WADJpeg {
     // The name of the JPEG image.
     name: string;
     // The JPEG pixel data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -19,15 +20,15 @@ export class WADJpeg {
     // 0x06 until 0x0B, and another two set bytes at the end of the file.
     // EXIF JPEG files notably do not always follow this format.
     // Start of Image (SOI) (0xFF 0xD8) then Start of JFIF-APP0 (0xFF 0xE0)
-    static readonly HeaderData: Buffer = Buffer.from([
+    static readonly HeaderData: DataBuffer = DataBuffer.from([
         0xFF, 0xD8, 0xFF, 0xE0,
     ]);
     // Null-terminated "JFIF" APP0 identifier. Always appears at offset 0x06.
-    static readonly App0Identifier: Buffer = Buffer.from([
+    static readonly App0Identifier: DataBuffer = DataBuffer.from([
         0x4A, 0x46, 0x49, 0x46, 0x00,
     ]);
     // End of Image (EOI) (0xFF 0xD9). Always appears at the end of the file.
-    static readonly FooterData: Buffer = Buffer.from([
+    static readonly FooterData: DataBuffer = DataBuffer.from([
         0xFF, 0xD9,
     ]);
     
@@ -47,7 +48,7 @@ export class WADJpeg {
         if(!this.match(lump)){
             throw new Error("Not a valid JPEG lump.");
         }
-        return new WADJpeg(lump.name, lump.data as Buffer);
+        return new WADJpeg(lump.name, lump.data as DataBuffer);
     }
     
     // Get JPEG density units.
@@ -66,9 +67,9 @@ export class WADJpeg {
     
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(): Buffer {
+    getPixelDataRGBA(): DataBuffer {
         // TODO: Implement this
-        return Buffer.alloc(0);
+        return DataBuffer.alloc(0);
     }
 }
 

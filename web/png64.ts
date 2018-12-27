@@ -1,5 +1,7 @@
 import * as UPNG from "upng-js";
 
+import {DataBuffer} from "@src/types/dataBuffer";
+
 import {WADFileList} from "@src/wad/fileList";
 
 import {WADColors} from "@src/lumps/doom/colors";
@@ -28,7 +30,7 @@ function btoa24(bits: number): string {
 }
 
 // Convert the data in a buffer to base64-encoded data represented in a string.
-export function bufferbtoa(buffer: Buffer): string {
+export function bufferbtoa(buffer: DataBuffer): string {
     let parts: string[] = [];
     let index: number = 0;
     // Process in 3-byte chunks
@@ -72,14 +74,14 @@ export function bufferbtoa(buffer: Buffer): string {
 export function getPng64(files: WADFileList, graphic: WADGraphic): string {
     if(graphic instanceof WADFlat){
         const colors: WADColors = files.getColors();
-        const pixels: Buffer = graphic.getPixelDataRGBA(colors);
+        const pixels: DataBuffer = graphic.getPixelDataRGBA(colors);
         return getPng64FromPixelData(pixels, graphic.width, graphic.height);
     }else if(graphic instanceof WADPicture){
         const colors: WADColors = files.getColors();
-        const pixels: Buffer = graphic.getPixelDataRGBA(colors);
+        const pixels: DataBuffer = graphic.getPixelDataRGBA(colors);
         return getPng64FromPixelData(pixels, graphic.width, graphic.height);
     }else if(graphic instanceof WADTexture){
-        const pixels: Buffer = graphic.getPixelDataRGBA(files);
+        const pixels: DataBuffer = graphic.getPixelDataRGBA(files);
         return getPng64FromPixelData(pixels, graphic.width, graphic.height);
     }else if(graphic instanceof WADPng){
         // const pngString: string = String.fromCharCode(...graphic.data);
@@ -95,12 +97,12 @@ export function getPng64(files: WADFileList, graphic: WADGraphic): string {
 // Accepts an RGBA pixels buffer and the image dimensions.
 // Outputs base-64 encoded PNG data for display e.g. in an `img` DOM element.
 function getPng64FromPixelData(
-    pixels: Buffer, width: number, height: number
+    pixels: DataBuffer, width: number, height: number
 ): string {
     const png: ArrayBuffer = UPNG.encode([pixels.buffer as ArrayBuffer], width, height, 0);
     // TODO: Is this *really* the best way to do this?
     // const data64: string = btoa(String.fromCharCode(...new Uint8Array(png)));
-    const data64: string = bufferbtoa(Buffer.from(png));
+    const data64: string = bufferbtoa(DataBuffer.from(png));
     return `data:image/png;base64,${data64}`;
 }
 

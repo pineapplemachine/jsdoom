@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 import {readPaddedString8} from "@src/wad/string";
@@ -92,9 +93,9 @@ export class WADMapSectors {
     // The number of bytes which make up each sector in the lump.
     static readonly ItemSize: number = 26;
     // The sector data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.data = data;
     }
     
@@ -108,7 +109,7 @@ export class WADMapSectors {
     
     // Create a WADMapSectors given a WADLump object.
     static from(lump: WADLump): WADMapSectors {
-        return new WADMapSectors(lump.name, lump.data as Buffer);
+        return new WADMapSectors(lump.name, lump.data as DataBuffer);
     }
     
     // Get the number of sectors represented in the lump.

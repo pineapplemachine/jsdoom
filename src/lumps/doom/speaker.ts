@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represents a PC speaker sound effect read from a WAD lump.
@@ -5,9 +6,9 @@ export class WADSpeakerEffect {
     // The name of the sound effect lump.
     name: string;
     // The audio data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -27,7 +28,7 @@ export class WADSpeakerEffect {
         if(!this.match(lump)){
             throw new Error("Not a valid DMX lump.");
         }
-        return new WADSpeakerEffect(lump.name, lump.data as Buffer);
+        return new WADSpeakerEffect(lump.name, lump.data as DataBuffer);
     }
 }
 

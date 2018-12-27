@@ -1,4 +1,6 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
+
 import {readPaddedString8} from "@src/wad/string";
 
 // Represents the patch table ("PNAMES") lump.
@@ -10,9 +12,9 @@ export class WADPatches {
     static readonly LumpName: string = "PNAMES";
     
     // The binary data representing this patch table.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(data: Buffer) {
+    constructor(data: DataBuffer) {
         this.data = data;
     }
     
@@ -29,7 +31,7 @@ export class WADPatches {
         if(!this.match(lump)){
             throw new Error("Not a valid PNAMES lump.");
         }
-        return new WADPatches(lump.data as Buffer);
+        return new WADPatches(lump.data as DataBuffer);
     }
     
     // Get the number of patches in the table.

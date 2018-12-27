@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 import {WADPalette} from "@src/lumps/doom/playpal";
 
@@ -15,7 +16,7 @@ export class WADColorMap {
     // Color map lumps are always named "COLORMAP".
     static readonly LumpName: string = "COLORMAP";
     // Contains data for a default COLORMAP to use when no other is available.
-    static readonly DefaultData: Buffer = DoomColormapData;
+    static readonly DefaultData: DataBuffer = DoomColormapData;
     // Index of the megasphere (invulnerability) color map.
     static readonly Invulnerable: number = 32;
     // A list of human-readable descriptions for each colormap's purpose
@@ -23,9 +24,9 @@ export class WADColorMap {
     static readonly DoomColormapNames: string[] = DoomColormapNames;
     
     // The binary data representing this colormap.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(data: Buffer) {
+    constructor(data: DataBuffer) {
         this.data = data;
     }
     
@@ -42,7 +43,7 @@ export class WADColorMap {
         if(!this.match(lump)){
             throw new Error("Not a valid COLORMAP lump.");
         }
-        return new WADColorMap(lump.data as Buffer);
+        return new WADColorMap(lump.data as DataBuffer);
     }
     
     // Load the Doom 1 color map.
@@ -77,10 +78,10 @@ export class WADColorMap {
     
     // Get the color maps as pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(playpal: WADPalette, palIndex: number = 0): Buffer {
+    getPixelDataRGBA(playpal: WADPalette, palIndex: number = 0): DataBuffer {
         // Create the pixel data: 16 * 16 pixels * N maps * 4 color channels
         const maps: number = this.getMapCount();
-        const data: Buffer = Buffer.alloc(1024 * maps);
+        const data: DataBuffer = DataBuffer.alloc(1024 * maps);
         // Fill the array. TODO: Can this be optimized?
         const total: number = this.data.length;
         for(let colorIndex: number = 0; colorIndex < total; colorIndex++){

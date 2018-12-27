@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADColorMap} from "@src/lumps/doom/colormap";
 import {WADFlat} from "@src/lumps/doom/flat";
 import {WADPalette} from "@src/lumps/doom/playpal";
@@ -10,7 +11,7 @@ export function getFlatBitmap(options: {
     palIndex?: number,
     colormap: WADColorMap,
     mapIndex?: number,
-}): Buffer {
+}): DataBuffer {
     // Verify input
     if(!options.flat.data){
         throw new Error("Flat has no pixel data.");
@@ -27,7 +28,7 @@ export function getFlatBitmap(options: {
     // Image data: 4,096 bytes
     // Total: 5,194 bytes
     const fileSize: number = 5194;
-    const bmp: Buffer = Buffer.alloc(fileSize);
+    const bmp: DataBuffer = DataBuffer.alloc(fileSize);
     // Bitmap header
     bmp.writeUInt16LE(0x4D42, 0); // "BM" file header
     bmp.writeUInt32LE(fileSize, 2); // File size

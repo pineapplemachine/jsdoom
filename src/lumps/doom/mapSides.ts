@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 import {readPaddedString8} from "@src/wad/string";
@@ -42,9 +43,9 @@ export class WADMapSides {
     // The number of bytes which make up each sidedef in the lump.
     static readonly ItemSize: number = 30;
     // The sidedefs data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.data = data;
     }
     
@@ -58,7 +59,7 @@ export class WADMapSides {
     
     // Create a WADMapSides given a WADLump object.
     static from(lump: WADLump): WADMapSides {
-        return new WADMapSides(lump.name, lump.data as Buffer);
+        return new WADMapSides(lump.name, lump.data as DataBuffer);
     }
     
     // Get the number of sidedefs represented in the lump.

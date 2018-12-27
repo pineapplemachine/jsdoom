@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represents OGG Vorbis audio read from a WAD lump.
@@ -5,14 +6,14 @@ export class WADVorbis {
     // The name of the Vorbis audio.
     name: string;
     // The audio data.
-    data: Buffer;
+    data: DataBuffer;
     
     // All well-formed OGG data begins with these four bytes. ("OggS")
-    static readonly HeaderData: Buffer = Buffer.from([
+    static readonly HeaderData: DataBuffer = DataBuffer.from([
         0x4F, 0x67, 0x67, 0x53,
     ]);
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -31,7 +32,7 @@ export class WADVorbis {
         if(!this.match(lump)){
             throw new Error("Not a valid PNG lump.");
         }
-        return new WADVorbis(lump.name, lump.data as Buffer);
+        return new WADVorbis(lump.name, lump.data as DataBuffer);
     }
 }
 

@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADFile} from "@src/wad/file";
 
 // Represents a WAD lump.
@@ -8,7 +9,7 @@ export class WADLump {
     // Names should be treated as case-insensitive.
     name: string;
     // The lump's data buffer, or null for marker lumps.
-    data: (Buffer | null);
+    data: (DataBuffer | null);
     // Offset of the lump's header information.
     directoryOffset: number;
     // Offset of the lump's binary data content.
@@ -23,7 +24,7 @@ export class WADLump {
     constructor(options: {
         file: (WADFile | null),
         name: string,
-        data: (Buffer | null),
+        data: (DataBuffer | null),
         directoryOffset?: number,
         dataOffset?: number,
         dataLength?: number,
@@ -49,10 +50,10 @@ export class WADLump {
         return this.data ? this.data.length : 0;
     }
     
-    setData(data: (Buffer | null)) {
+    setData(data: (DataBuffer | null)) {
         this.data = data;
     }
-    getData(): (Buffer | null) {
+    getData(): (DataBuffer | null) {
         return this.data;
     }
     

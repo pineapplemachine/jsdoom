@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represents DMX-format audio read from a WAD lump.
@@ -5,14 +6,14 @@ export class WADSound {
     // The name of the music lump.
     name: string;
     // The audio data.
-    data: Buffer;
+    data: DataBuffer;
     
     // All well-formed DMX data begins with these two bytes.
-    static readonly HeaderData: Buffer = Buffer.from([
+    static readonly HeaderData: DataBuffer = DataBuffer.from([
         0x03, 0x00,
     ]);
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -31,7 +32,7 @@ export class WADSound {
         if(!this.match(lump)){
             throw new Error("Not a valid DMX lump.");
         }
-        return new WADSound(lump.name, lump.data as Buffer);
+        return new WADSound(lump.name, lump.data as DataBuffer);
     }
 }
 

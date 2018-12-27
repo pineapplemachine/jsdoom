@@ -1,5 +1,6 @@
 import * as fs from "fs";
 
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADFile} from "@src/wad/file";
 import {openTestWad} from "@test/open";
 
@@ -14,8 +15,8 @@ export async function testWriteIdentical(
     // Save the WAD file
     const saveFilePath = wad.path + ".copy";
     console.log(`Writing a copy to path "${saveFilePath}"...`);
-    const saveData: Buffer = wad.getData();
-    fs.writeFileSync(saveFilePath, saveData);
+    const saveDBuf: DataBuffer = wad.getData();
+    fs.writeFileSync(saveFilePath, saveDBuf.nodeBuffer);
     console.log("Finished writing WAD file.");
     // Make sure the input and output files are identical
     // Fail the test if the files are different

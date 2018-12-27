@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
 import {readPaddedString8} from "@src/wad/string";
@@ -43,10 +44,10 @@ export class WADTexture {
     
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(files: WADFileList, colors?: WADColors): Buffer {
+    getPixelDataRGBA(files: WADFileList, colors?: WADColors): DataBuffer {
         const useColors: WADColors = colors || files.getColors();
         // Create the pixel data: size in pixels * 4 color channels
-        const data: Buffer = Buffer.alloc(this.width * this.height * 4, 0);
+        const data: DataBuffer = DataBuffer.alloc(this.width * this.height * 4, 0);
         // Get texture patches as WADPicture objects.
         const pictures: (WADPicture | null)[] = this.getPatchPictures(files);
         // Store patch posts in memory so that they don't have to be
@@ -203,9 +204,9 @@ export class WADTextures {
     static readonly LumpNamePrefix: string = "TEXTURE";
     
     // The binary data representing this textures lump.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(data: Buffer) {
+    constructor(data: DataBuffer) {
         this.data = data;
     }
     
@@ -224,7 +225,7 @@ export class WADTextures {
         if(!this.match(lump)){
             throw new Error("Not a valid TEXTURE lump.");
         }
-        return new WADTextures(lump.data as Buffer);
+        return new WADTextures(lump.data as DataBuffer);
     }
     
     // Get the number of textures represented in the lump.

@@ -1,7 +1,8 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 // Read a null-padded ASCII string from a data buffer at an offset
 // of arbitrary length.
 export function readPaddedString(
-    data: Buffer, offset: number, length: number
+    data: DataBuffer, offset: number, length: number
 ): string {
     let text: string = "";
     let i: number = offset;
@@ -19,7 +20,7 @@ export function readPaddedString(
 
 // Read an 8-character null-padded ASCII string from a data buffer
 // at an offset.
-export function readPaddedString8(data: Buffer, offset: number): string {
+export function readPaddedString8(data: DataBuffer, offset: number): string {
     const low: number = data.readUInt32LE(offset);
     const high: number = data.readUInt32LE(offset + 4);
     const text: string = (
@@ -42,7 +43,7 @@ export function readPaddedString8(data: Buffer, offset: number): string {
 
 // Write a null-padded ASCII string to a data buffer.
 export function writePaddedString(
-    data: Buffer, offset: number, length: number, text: string
+    data: DataBuffer, offset: number, length: number, text: string
 ): void {
     let i: number = 0;
     while(i < text.length && i < length){

@@ -59,9 +59,12 @@ export const LumpTypeViewText = new LumpTypeView({
             util.createElement({
                 tag: "pre",
                 class: "lump-view-text",
-                innerText: lump.data ? lump.data.toString("utf-8") : "",
+                innerText: lump.data ? getLumpText() : "",
                 appendTo: root,
             });
+            function getLumpText() {
+                return String.fromCharCode.apply(null, lump.data);
+            }
         }
         if(!lump.data){
             return;

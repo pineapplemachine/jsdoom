@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Used to structure information about the possible DIB headers
@@ -7,9 +8,9 @@ export interface DIBHeaderType {
     // All documented DIB headers have unique sizes.
     headerSize: number;
     // Read image width from a buffer with a matching DIB header.
-    getWidth: (data: Buffer) => number;
+    getWidth: (data: DataBuffer) => number;
     // Read image height from a buffer with a matching DIB header.
-    getHeight: (data: Buffer) => number;
+    getHeight: (data: DataBuffer) => number;
 }
 
 // An enumeration of supported DIB header types.
@@ -20,29 +21,29 @@ export const DIBHeaderTypeList: DIBHeaderType[] = [
     // https://docs.microsoft.com/en-us/windows/desktop/api/wingdi/ns-wingdi-tagbitmapcoreheader
     {
         headerSize: 12,
-        getWidth: (data: Buffer) => data.readUInt16LE(18),
-        getHeight: (data: Buffer) => data.readUInt16LE(20),
+        getWidth: (data: DataBuffer) => data.readUInt16LE(18),
+        getHeight: (data: DataBuffer) => data.readUInt16LE(20),
     },
     // BITMAPINFOHEADER
     // https://msdn.microsoft.com/en-us/library/windows/desktop/dd183376(v=vs.85).aspx
     {
         headerSize: 40,
-        getWidth: (data: Buffer) => data.readInt32LE(18),
-        getHeight: (data: Buffer) => data.readInt32LE(22),
+        getWidth: (data: DataBuffer) => data.readInt32LE(18),
+        getHeight: (data: DataBuffer) => data.readInt32LE(22),
     },
     // BITMAPV4HEADER
     // https://docs.microsoft.com/en-us/windows/desktop/api/wingdi/ns-wingdi-bitmapv4header
     {
         headerSize: 108,
-        getWidth: (data: Buffer) => data.readInt32LE(18),
-        getHeight: (data: Buffer) => data.readInt32LE(22),
+        getWidth: (data: DataBuffer) => data.readInt32LE(18),
+        getHeight: (data: DataBuffer) => data.readInt32LE(22),
     },
     // BITMAPV5HEADER
     // https://docs.microsoft.com/en-us/windows/desktop/api/wingdi/ns-wingdi-bitmapv5header
     {
         headerSize: 124,
-        getWidth: (data: Buffer) => data.readInt32LE(18),
-        getHeight: (data: Buffer) => data.readInt32LE(22),
+        getWidth: (data: DataBuffer) => data.readInt32LE(18),
+        getHeight: (data: DataBuffer) => data.readInt32LE(22),
     },
 ];
 
@@ -52,13 +53,13 @@ export class WADBitmap {
     // The name of the bitmap graphic.
     name: string;
     // The bitmap pixel data.
-    data: Buffer;
+    data: DataBuffer;
     
     // Most well-formed BMP data begins with these two bytes ("BM") followed
     // by a 4-byte little-endian count of the number of bytes in the bitmap.
     // Only OS/2 bitmaps have a different header, and it is probably more
     // effort than it's worth to support OS/2 bitmap formats.
-    static readonly HeaderData: Buffer = Buffer.from([
+    static readonly HeaderData: DataBuffer = DataBuffer.from([
         0x42, 0x4D,
     ]);
     
@@ -70,7 +71,7 @@ export class WADBitmap {
     static readonly BitmapV4HeaderSize = 108;
     static readonly BitmapV5HeaderSize = 124;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -89,7 +90,7 @@ export class WADBitmap {
         if(!this.match(lump)){
             throw new Error("Not a valid bitmap lump.");
         }
-        return new WADBitmap(lump.name, lump.data as Buffer);
+        return new WADBitmap(lump.name, lump.data as DataBuffer);
     }
     
     // Get the size in bytes of the DIB header.
@@ -121,9 +122,9 @@ export class WADBitmap {
     
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(): Buffer {
+    getPixelDataRGBA(): DataBuffer {
         // TODO: Implement this
-        return Buffer.alloc(0);
+        return DataBuffer.alloc(0);
     }
 }
 

@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represents a TIFF image read from a WAD lump.
@@ -7,9 +8,9 @@ export class WADTiff {
     // The name of the TIFF image.
     name: string;
     // The TIFF pixel data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -19,10 +20,10 @@ export class WADTiff {
     // in little-endian format (Intel byte order). "MM" indicates that data
     // is stored in big-endian format (Motorola byte order).
     // The third byte in a TIFF image is always the number 42 (0x2A).
-    static readonly HeaderDataLE: Buffer = Buffer.from([
+    static readonly HeaderDataLE: DataBuffer = DataBuffer.from([
         0x49, 0x49, 0x2A,
     ]);
-    static readonly HeaderDataBE: Buffer = Buffer.from([
+    static readonly HeaderDataBE: DataBuffer = DataBuffer.from([
         0x4D, 0x4D, 0x2A,
     ]);
     
@@ -40,7 +41,7 @@ export class WADTiff {
         if(!this.match(lump)){
             throw new Error("Not a valid TIFF lump.");
         }
-        return new WADTiff(lump.name, lump.data as Buffer);
+        return new WADTiff(lump.name, lump.data as DataBuffer);
     }
     
     // Get the width of the TIFF image in pixels.
@@ -57,9 +58,9 @@ export class WADTiff {
     
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(): Buffer {
+    getPixelDataRGBA(): DataBuffer {
         // TODO: Implement this
-        return Buffer.alloc(0);
+        return DataBuffer.alloc(0);
     }
 }
 

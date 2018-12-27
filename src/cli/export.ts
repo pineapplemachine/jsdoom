@@ -5,6 +5,7 @@ import * as UPNG from "upng-js";
 
 import {Parser} from "@src/cli/options";
 
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADColors} from "@src/lumps/doom/colors";
 import {WADColorMap} from "@src/lumps/doom/colormap";
 import {WADFile} from "@src/wad/file";
@@ -105,7 +106,7 @@ export function exportLump(options: {
     // Export playpal as PNG
     else if(WADPalette.match(lump) && (!format || format === "PNG")){
         const playpal: WADPalette = WADPalette.from(lump);
-        const data: Buffer = playpal.getPixelDataRGBA();
+        const data: DataBuffer = playpal.getPixelDataRGBA();
         const png = UPNG.encode(
             [data.buffer as ArrayBuffer], 16, 16 * playpal.getPaletteCount(), 0
         );
@@ -116,7 +117,7 @@ export function exportLump(options: {
     // Export colormap as PNG
     else if(WADColorMap.match(lump) && (!format || format === "PNG")){
         const colormap: WADColorMap = WADColorMap.from(lump);
-        const data: Buffer = colormap.getPixelDataRGBA(files.getPlaypal());
+        const data: DataBuffer = colormap.getPixelDataRGBA(files.getPlaypal());
         const png = UPNG.encode(
             [data.buffer as ArrayBuffer], 16, 16 * colormap.getMapCount(), 256
         );
@@ -127,7 +128,7 @@ export function exportLump(options: {
     // Export patch, sprite, or menu graphic as PNG
     else if(WADPicture.match(lump) && (!format || format === "PNG")){
         const graphic: WADPicture = WADPicture.from(lump);
-        const data: Buffer = graphic.getPixelDataRGBA(files.getColors());
+        const data: DataBuffer = graphic.getPixelDataRGBA(files.getColors());
         const colors = graphic.countColors() <= 256 ? 256 : 0;
         const png = UPNG.encode(
             [data.buffer as ArrayBuffer], graphic.width, graphic.height, colors
@@ -139,7 +140,7 @@ export function exportLump(options: {
     // Export flat as PNG
     else if(WADFlat.match(lump) && (!format || format === "PNG")){
         const graphic: WADFlat = WADFlat.from(lump);
-        const data: Buffer = graphic.getPixelDataRGBA(files.getColors());
+        const data: DataBuffer = graphic.getPixelDataRGBA(files.getColors());
         const png = UPNG.encode(
             [data.buffer as ArrayBuffer], graphic.width, graphic.height, 256
         );
@@ -179,7 +180,8 @@ async function main(): Promise<void> {
         for(const path of paths){
             console.log(`Loading "${path}".`);
             const data: Buffer = fs.readFileSync(path);
-            const file: WADFile = new WADFile(path, data);
+            const dbuf: DataBuffer = DataBuffer.from(data);
+            const file: WADFile = new WADFile(path, dbuf);
             files.addFile(file);
         }
         console.log("Finished loading WADs.");

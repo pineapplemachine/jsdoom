@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represents MIDI-format audio read from a WAD lump.
@@ -5,14 +6,14 @@ export class WADMidi {
     // The name of the MIDI lump.
     name: string;
     // The audio data.
-    data: Buffer;
+    data: DataBuffer;
     
     // All well-formed MIDI data begins with these eight bytes.
-    static readonly HeaderData: Buffer = Buffer.from([
+    static readonly HeaderData: DataBuffer = DataBuffer.from([
         0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06,
     ]);
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -30,7 +31,7 @@ export class WADMidi {
         if(!this.match(lump)){
             throw new Error("Not a valid MUS lump.");
         }
-        return new WADMidi(lump.name, lump.data as Buffer);
+        return new WADMidi(lump.name, lump.data as DataBuffer);
     }
 }
 

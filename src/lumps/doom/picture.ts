@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 import {WADColors} from "@src/lumps/doom/colors";
@@ -13,7 +14,7 @@ export interface WADPicturePost {
     y: number;
     // The pixel data for this post.
     // Each pixel is represented as an 8-bit color index.
-    data: Buffer;
+    data: DataBuffer;
 }
 
 // Represents a patch, sprite, or interface graphic using the vanilla Doom
@@ -28,9 +29,9 @@ export class WADPicture {
     // Each post represents a run of pixels in that column.
     // Gaps in between posts indicate transparent regions.
     // Each pixel is given as an 8-bit color map index.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -79,7 +80,7 @@ export class WADPicture {
         if(!this.match(lump)){
             throw new Error("Not a valid picture lump.");
         }
-        return new WADPicture(lump.name,lump.data as Buffer);
+        return new WADPicture(lump.name,lump.data as DataBuffer);
     }
     
     // Get the width of the picture in pixels.
@@ -155,11 +156,11 @@ export class WADPicture {
     
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(colors: WADColors): Buffer {
+    getPixelDataRGBA(colors: WADColors): DataBuffer {
         // Create the pixel data: size in pixels * 4 color channels
         const width: number = this.width;
         const height: number = this.height;
-        const data: Buffer = Buffer.alloc(width * height * 4, 0);
+        const data: DataBuffer = DataBuffer.alloc(width * height * 4, 0);
         // Fill the array from post data
         // Pixels in between posts will be skipped; it will remain 0x00000000,
         // i.e. correctly transparent.

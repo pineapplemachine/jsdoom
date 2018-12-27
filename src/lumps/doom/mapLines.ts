@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 import {WADMapLineSpecial, WADMapLineSpecialList} from "./mapLineSpecial";
@@ -119,9 +120,9 @@ export class WADMapLines {
     // The number of bytes which make up each linedef in the lump.
     static readonly ItemSize: number = 14;
     // The linedefs data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.data = data;
     }
     
@@ -135,7 +136,7 @@ export class WADMapLines {
     
     // Create a WADMapLines given a WADLump object.
     static from(lump: WADLump): WADMapLines {
-        return new WADMapLines(lump.name, lump.data as Buffer);
+        return new WADMapLines(lump.name, lump.data as DataBuffer);
     }
     
     // Get the number of linedefs represented in the lump.

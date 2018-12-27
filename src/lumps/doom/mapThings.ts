@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 import {WADMapThingType, WADMapThingTypeList} from "./mapThingType";
@@ -95,9 +96,9 @@ export class WADMapThings {
     // The number of bytes which make up each thing in the lump.
     static readonly ItemSize: number = 10;
     // The thing data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.data = data;
     }
     
@@ -111,7 +112,7 @@ export class WADMapThings {
     
     // Create a WADMapThings given a WADLump object.
     static from(lump: WADLump): WADMapThings {
-        return new WADMapThings(lump.name, lump.data as Buffer);
+        return new WADMapThings(lump.name, lump.data as DataBuffer);
     }
     
     // Get the number of things represented in the lump.

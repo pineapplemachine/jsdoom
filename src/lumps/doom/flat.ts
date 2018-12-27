@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 import {WADColors} from "@src/lumps/doom/colors";
@@ -15,9 +16,9 @@ export class WADFlat {
     // The pixels are stored by ascending order on the X axis and then by
     // ascending order on the Y axis. Each pixel is a byte indicating the
     // color map index that should be used when displaying that pixel.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -33,7 +34,7 @@ export class WADFlat {
         if(!this.match(lump)){
             throw new Error("Not a valid flat lump.");
         }
-        return new WADFlat(lump.name, lump.data as Buffer);
+        return new WADFlat(lump.name, lump.data as DataBuffer);
     }
     
     // Get the width of the flat in pixels.
@@ -58,9 +59,9 @@ export class WADFlat {
     
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(colors: WADColors): Buffer {
+    getPixelDataRGBA(colors: WADColors): DataBuffer {
         // Create the pixel data: 64 * 64 pixels * 4 color channels
-        const data: Buffer = Buffer.alloc(16384);
+        const data: DataBuffer = DataBuffer.alloc(16384);
         // Fill the array
         for(let pixelIndex: number = 0; pixelIndex < 4096; pixelIndex++){
             const colorIndex: number = this.data.readUInt8(pixelIndex);

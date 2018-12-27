@@ -17,10 +17,13 @@ export class DataBuffer {
     
     // Allocates a new DataBuffer with the given length in bytes.
     // The data is zero-initialized.
-    static alloc(size: number): DataBuffer {
+    static alloc(size: number, fill: number = 0): DataBuffer {
         const array: Uint8Array = new Uint8Array(
             new ArrayBuffer(size), 0, size
         );
+        for(let i = 0; i < size; i++){
+            array[i] = fill;
+        }
         return new DataBuffer(array);
     }
     
@@ -51,7 +54,10 @@ export class DataBuffer {
     }
     
     // Create a DataBuffer from an array of unsigned bytes.
-    static from(array: number[]): DataBuffer {
+    static from(array: ArrayLike<number> | ArrayBuffer): DataBuffer {
+        if(array instanceof ArrayBuffer){
+            array = new Uint8Array(array);
+        }
         const buffer: DataBuffer = DataBuffer.alloc(array.length);
         buffer.array.set(array);
         return buffer;
@@ -68,6 +74,11 @@ export class DataBuffer {
     // Get the length of the buffer in bytes.
     get length(): number {
         return this.array.byteLength;
+    }
+    
+    // Get this DataBuffer as a Node buffer
+    get nodeBuffer(): Buffer {
+        return new Buffer(this.buffer);
     }
     
     // Fills the entire buffer with a singlebyte value.
@@ -93,8 +104,28 @@ export class DataBuffer {
     
     // Copy data from one buffer into this one.
     // The buffer is completely copied and stored at the given byte offset.
-    copy(source: DataBuffer, offset: number): void {
-        this.array.set(source.array, offset);
+    copy(source: DataBuffer, offset: number, srcOffset: number = 0, srcEnd: number = source.length): void {
+        this.array.set(source.array.slice(srcOffset, srcEnd), offset);
+    }
+    
+    // Compare the data in this buffer with the data in another one.
+    // Return true if both buffers have the same contents
+    equals(other: DataBuffer): boolean {
+        if(other.array.length !== this.array.length){
+            return false;
+        }
+        for(let i = 0; i < this.array.length; i++){
+            const thisByte = this.array[i];
+            const otherByte = other.array[i];
+            if(thisByte !== otherByte){
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    some(predicate: (byte: number) => boolean): boolean {
+        return this.array.some(predicate);
     }
     
     // Get the signed 8-bit number at a byte offset.

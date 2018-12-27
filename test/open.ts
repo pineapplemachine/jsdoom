@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADFile} from "@src/wad/file";
 import {downloadTestWad} from "@test/download";
 
@@ -18,7 +19,8 @@ export async function openTestWad(
     // Read the WAD file
     console.log(`Loading WAD from path "${filePath}"...`);
     const fileData: Buffer = fs.readFileSync(filePath);
-    const file: WADFile = new WADFile(filePath, fileData);
+    const fileDBuf: DataBuffer = DataBuffer.from(fileData);
+    const file: WADFile = new WADFile(filePath, fileDBuf);
     // Log data about the WAD file (more if the "verbose" flag is set)
     console.log(`Finished loading WAD file. (Found ${file.lumps.length} lumps.)`);
     console.log(`Lumps in the WAD were padded? ${file.padLumps}`);

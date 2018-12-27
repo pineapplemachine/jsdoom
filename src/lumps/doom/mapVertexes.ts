@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represets an axis-aligned box with left, right, top,
@@ -51,9 +52,9 @@ export class WADMapVertexes {
     // The number of bytes which make up each vertex in the lump.
     static readonly ItemSize: number = 4;
     // The vertex data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.data = data;
     }
     
@@ -67,7 +68,7 @@ export class WADMapVertexes {
     
     // Create a WADMapVertexes given a WADLump object.
     static from(lump: WADLump): WADMapVertexes {
-        return new WADMapVertexes(lump.name, lump.data as Buffer);
+        return new WADMapVertexes(lump.name, lump.data as DataBuffer);
     }
     
     // Get the number of vertexes represented in the lump.

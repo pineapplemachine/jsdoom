@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "./lump";
 import {WADFileType} from "./fileType";
 
@@ -18,7 +19,7 @@ export class WADFile {
     // omit the padding.
     padLumps: boolean;
     
-    constructor(path: string = "", data?: Buffer) {
+    constructor(path: string = "", data?: DataBuffer) {
         this.path = path;
         this.type = WADFileType.Invalid;
         this.lumps = [];
@@ -35,7 +36,7 @@ export class WADFile {
     
     // Synchronously read a WAD file from a data buffer.
     // The function will throw an error if there is a problem reading the WAD.
-    loadData(data: Buffer): void {
+    loadData(data: DataBuffer): void {
         // Make sure the buffer is long enough to even contain a file header.
         if(data.length < 12){
             throw new Error("File is too small to be a valid WAD.");
@@ -68,7 +69,7 @@ export class WADFile {
                 `Malformed lump in WAD directory at offset ${dirPosition}.`
             );
             // Get a buffer representing the lump data
-            const lumpData: (Buffer | null) = (
+            const lumpData: (DataBuffer | null) = (
                 lumpStart === lumpEnd ? null : data.slice(lumpStart, lumpEnd)
             );
             // Read the next lump and add it to the list
@@ -93,21 +94,21 @@ export class WADFile {
         return;
     }
     
-    // Synchronously get a Buffer representing the WAD's binary file content.
-    getData(): Buffer {
+    // Synchronously get a DataBuffer representing the WAD's binary file content.
+    getData(): DataBuffer {
         // Get binary data for all lumps
-        const lumpDataList: Buffer[] = [];
+        const lumpDataList: DataBuffer[] = [];
         for(const lump of this.lumps){
             if(lump.data){
                 lumpDataList.push(lump.data);
             }
         }
         // Write the header
-        const headerData: Buffer = Buffer.alloc(12);
+        const headerData: DataBuffer = DataBuffer.alloc(12);
         writePaddedString(headerData, 0, 4, WADFileType.getName(this.type));
         headerData.writeUInt32LE(this.lumps.length, 4);
         // Write the lump directory
-        const directoryData: Buffer = Buffer.alloc(16 * this.lumps.length);
+        const directoryData: DataBuffer = DataBuffer.alloc(16 * this.lumps.length);
         let directoryIndex = 0;
         let lumpPosition = 0;
         for(let lumpIndex: number = 0; lumpIndex < this.lumps.length; lumpIndex++){
@@ -141,12 +142,12 @@ export class WADFile {
                 let bufferIndex: number = lumpDataList.length - 1;
                 bufferIndex >= 0; bufferIndex--
             ){
-                const dataBuffer: Buffer = lumpDataList[bufferIndex];
+                const dataBuffer: DataBuffer = lumpDataList[bufferIndex];
                 const remBytes = dataBuffer.length % 4;
                 if(remBytes !== 0){
                     const padLength: number = 4 - remBytes;
                     const padByte: number = dataBuffer.readUInt8(0);
-                    const padBuffer: Buffer = Buffer.alloc(padLength, padByte);
+                    const padBuffer: DataBuffer = DataBuffer.alloc(padLength, padByte);
                     lumpDataList.splice(bufferIndex + 1, 0, padBuffer);
                 }
             }
@@ -161,7 +162,7 @@ export class WADFile {
         // Concatenate all the buffers and return.
         const buffers = [headerData, ...lumpDataList, directoryData];
         const dataLength = 12 + 16 * this.lumps.length + lumpDataTotalLength;
-        return Buffer.concat(buffers, dataLength);
+        return DataBuffer.concat(buffers, dataLength);
     }
     
     // Get the first lump with a given name.

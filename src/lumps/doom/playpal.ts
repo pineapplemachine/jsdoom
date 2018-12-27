@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 import {DoomPlaypalData} from "@src/lumps/doom/defaultPlaypal";
@@ -19,7 +20,7 @@ export class WADPalette {
     // Palette lumps are always named "PLAYPAL".
     static readonly LumpName: string = "PLAYPAL";
     // Contains data for a default PLAYPAL to use when no other is available.
-    static readonly DefaultData: Buffer = DoomPlaypalData;
+    static readonly DefaultData: DataBuffer = DoomPlaypalData;
     
     // The number of colors contained in each palette in the PLAYPAL lump.
     static readonly ColorsPerPalette: number = 256;
@@ -32,9 +33,9 @@ export class WADPalette {
     static readonly BytesPerColor: number = 3;
     
     // The binary data representing this playpal.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(data: Buffer) {
+    constructor(data: DataBuffer) {
         this.data = data;
     }
     
@@ -51,7 +52,7 @@ export class WADPalette {
         if(!this.match(lump)){
             throw new Error("Not a valid PLAYPAL lump.");
         }
-        return new WADPalette(lump.data as Buffer);
+        return new WADPalette(lump.data as DataBuffer);
     }
     
     // Load the Doom 1 palette.
@@ -145,10 +146,10 @@ export class WADPalette {
     
     // Get the palettes as pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(): Buffer {
+    getPixelDataRGBA(): DataBuffer {
         // Create the pixel data: 16 * 16 pixels * N palettes * 4 color channels
-        const data: Buffer = Buffer.alloc(1024 * this.getPaletteCount());
-        // Fill the array. TODO: Optimize (after revising Buffer use)
+        const data: DataBuffer = DataBuffer.alloc(1024 * this.getPaletteCount());
+        // Fill the array. TODO: Optimize (after revising DataBuffer use)
         const total: number = this.getColorCount();
         for(let colorIndex: number = 0; colorIndex < total; colorIndex++){
             data.writeUInt8(

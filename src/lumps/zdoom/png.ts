@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represents a PNG image read from a WAD lump.
@@ -5,14 +6,14 @@ export class WADPng {
     // The name of the PNG graphic.
     name: string;
     // The PNG pixel data.
-    data: Buffer;
+    data: DataBuffer;
     
     // All well-formed PNG data begins with these eight bytes.
-    static readonly HeaderData: Buffer = Buffer.from([
+    static readonly HeaderData: DataBuffer = DataBuffer.from([
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
     ]);
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -30,7 +31,7 @@ export class WADPng {
         if(!this.match(lump)){
             throw new Error("Not a valid PNG lump.");
         }
-        return new WADPng(lump.name, lump.data as Buffer);
+        return new WADPng(lump.name, lump.data as DataBuffer);
     }
     
     // Get the width of the PNG in pixels.
@@ -47,9 +48,9 @@ export class WADPng {
     
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(): Buffer {
+    getPixelDataRGBA(): DataBuffer {
         // TODO: Implement this
-        return Buffer.alloc(0);
+        return DataBuffer.alloc(0);
     }
 }
 

@@ -1,3 +1,4 @@
+import {DataBuffer} from "@src/types/dataBuffer";
 import {WADLump} from "@src/wad/lump";
 
 // Represents a TGA image read from a WAD lump.
@@ -7,9 +8,9 @@ export class WADTarga {
     // The name of the TGA image.
     name: string;
     // The TGA pixel data.
-    data: Buffer;
+    data: DataBuffer;
     
-    constructor(name: string, data: Buffer) {
+    constructor(name: string, data: DataBuffer) {
         this.name = name;
         this.data = data;
     }
@@ -37,7 +38,7 @@ export class WADTarga {
         if(!this.match(lump)){
             throw new Error("Not a valid TGA lump.");
         }
-        return new WADTarga(lump.name, lump.data as Buffer);
+        return new WADTarga(lump.name, lump.data as DataBuffer);
     }
     
     // Get the width of the TGA image in pixels.
@@ -52,9 +53,9 @@ export class WADTarga {
     
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
-    getPixelDataRGBA(): Buffer {
+    getPixelDataRGBA(): DataBuffer {
         // TODO: Implement this
-        return Buffer.alloc(0);
+        return DataBuffer.alloc(0);
     }
 }
 

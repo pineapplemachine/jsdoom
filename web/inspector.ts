@@ -1,3 +1,5 @@
+import {DataBuffer} from "@src/types/dataBuffer";
+
 import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
@@ -72,7 +74,7 @@ function onLoadNewFile(): void {
     reader.readAsArrayBuffer(localFile)
     reader.onload = function() {
         if(reader.result){
-            wad.loadData(Buffer.from(reader.result as ArrayBuffer));
+            wad.loadData(DataBuffer.from(reader.result as ArrayBuffer));
             win.onWadLoaded();
         }
     };
