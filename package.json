@@ -47,6 +47,7 @@
   "scripts": {
     "build": "npm run tsc && npm run tscpaths",
     "test": "npm run build && node ./dist/test/test.js",
+    "lint": "wotan -c tslint.json -p tsconfig.json -t stylish",
     "prepare": "npm test",
     "tsc": "./node_modules/typescript/bin/tsc",
     "tscpaths": "tscpaths -p tsconfig.json -s src -o dist/src && tscpaths -p tsconfig.json -s test -o dist/test",
