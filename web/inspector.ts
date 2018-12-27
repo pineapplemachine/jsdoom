@@ -42,8 +42,9 @@ function getSizeText(bytes: number, fixed: boolean): string {
 win.onInspectorLoad = function(): void {
     fileInput = document.getElementById("main-file-input");
     fileInput.addEventListener("change", function(event: any) {
-        if(!event.target.files[0]) return;
-        if(event.target.files[0] === localFile) return;
+        if(!event.target.files[0] || event.target.files[0] === localFile) {
+            return;
+        }
         localFile = event.target.files[0];
         onLoadNewFile();
     });
@@ -69,14 +70,14 @@ win.onClickOpenWad = function(): void {
 function onLoadNewFile(): void {
     wad = new WADFile(localFile.name);
     const reader: FileReader = new FileReader();
-    reader.readAsArrayBuffer(localFile)
+    reader.readAsArrayBuffer(localFile);
     reader.onload = function() {
         if(reader.result){
             wad.loadData(Buffer.from(reader.result as ArrayBuffer));
             win.onWadLoaded();
         }
     };
-};
+}
 
 win.onSearchInput = function(): void {
     const search = util.id("lump-list-search");
@@ -92,7 +93,7 @@ win.onSearchInput = function(): void {
             return index >= 0 ? index + 1 : 0;
         });
     }
-}
+};
 
 function filterLumpList(filter: (lump: any) => any): void {
     const listElement = util.id("lump-list-content");
@@ -123,7 +124,7 @@ function updateLumpListCount(shown: number, total: number): void {
         }else if(shown){
             count.innerText = `${shown} Lumps`;
         }else{
-            count.innerText = `No Lumps`;
+            count.innerText = "No Lumps";
         }
     }
 }
@@ -232,7 +233,7 @@ win.onWadLoaded = function(): void {
             appendTo: listElement,
             lump: lump,
             lumpType: lumpType,
-            itemIndex: itemIndex,
+            itemIndex: itemIndex++,
             onleftclick: () => {
                 selectListItem(item);
             },

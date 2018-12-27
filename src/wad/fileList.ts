@@ -1,6 +1,6 @@
+import {WADFile} from "@src/wad/file";
 import {WADLump} from "@src/wad/lump";
 import {WADLumpMap} from "@src/wad/lumpMap";
-import {WADFile} from "@src/wad/file";
 
 import {WADColorMap} from "@src/lumps/doom/colormap";
 import {WADColors} from "@src/lumps/doom/colors";

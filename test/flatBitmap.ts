@@ -12,8 +12,8 @@ import * as UPNG from "upng-js";
 
 import {getFlatBitmap} from "@src/convert/flatToBitmap";
 import {WADColors} from "@src/lumps/doom/colors";
-import {WADFile} from "@src/wad/file";
 import {WADFlat} from "@src/lumps/doom/flat";
+import {WADFile} from "@src/wad/file";
 import {WADLump} from "@src/wad/lump";
 
 import {WADPicture} from "@src/lumps/doom/picture";
