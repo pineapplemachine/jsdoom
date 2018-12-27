@@ -75,18 +75,6 @@
         "named-imports-order": "any",
         "grouped-imports": true
       }]
-    },
-    "member-ordering": {
-      "options": [{
-        "order": [
-          "static-field",
-          "instance-field",
-          "constructor",
-          "static-method",
-          "instance-method"
-        ],
-        "alphabetize": false
-      }]
     }
   }
 }
