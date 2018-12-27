@@ -1,8 +1,8 @@
-import {WADLump} from "@src/wad/lump";
 import {WADPalette} from "@src/lumps/doom/playpal";
+import {WADLump} from "@src/wad/lump";
 
-import {DoomColormapData} from "@src/lumps/doom/defaultColormap";
 import {DoomColormapNames} from "@src/lumps/doom/colormapNames";
+import {DoomColormapData} from "@src/lumps/doom/defaultColormap";
 
 // Represents a color map, e.g. as read from a COLORMAP lump.
 // A Doom COLORMAP lump normally contains 34 maps.

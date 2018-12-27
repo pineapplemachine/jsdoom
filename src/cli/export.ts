@@ -5,14 +5,14 @@ import * as UPNG from "upng-js";
 
 import {Parser} from "@src/cli/options";
 
-import {WADColors} from "@src/lumps/doom/colors";
 import {WADColorMap} from "@src/lumps/doom/colormap";
+import {WADColors} from "@src/lumps/doom/colors";
+import {WADFlat} from "@src/lumps/doom/flat";
+import {WADPicture} from "@src/lumps/doom/picture";
+import {WADPalette} from "@src/lumps/doom/playpal";
 import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
-import {WADFlat} from "@src/lumps/doom/flat";
 import {WADLump} from "@src/wad/lump";
-import {WADPalette} from "@src/lumps/doom/playpal";
-import {WADPicture} from "@src/lumps/doom/picture";
 
 export const helpText = `
 This is the jsdoom lump export utility.
@@ -24,28 +24,28 @@ Example usage:
 export const cliParser = new Parser([
     {
         name: "iwad",
-        help: `Path to the IWAD file. Same as most Doom ports.`,
+        help: "Path to the IWAD file. Same as most Doom ports.",
         type: String,
     },
     {
         name: "file",
-        help: `Paths to one or more PWADs. Same as most Doom ports.`,
+        help: "Paths to one or more PWADs. Same as most Doom ports.",
         type: String,
         list: true,
     },
     {
         name: "lump",
-        help: `The name of the lump to export, for example "FLAT10".`,
+        help: "The name of the lump to export, for example \"FLAT10\".",
         type: String,
     },
     {
         name: "path",
-        help: `The path to write the exported file to.`,
+        help: "The path to write the exported file to.",
         type: String,
     },
     {
         name: "format",
-        help: `The file format to write, for example "LMP" or "PNG".`,
+        help: "The file format to write, for example \"LMP\" or \"PNG\".",
         type: String,
     },
     {
@@ -194,7 +194,7 @@ async function main(): Promise<void> {
     }
 }
 
-if(typeof(require) !== 'undefined' && require.main === module){
+if(typeof(require) !== "undefined" && require.main === module){
     main().then(() => {}).catch((error: Error) => {
         console.log(error.message);
         process.exit(1);

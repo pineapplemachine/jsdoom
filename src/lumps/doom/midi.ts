@@ -2,15 +2,15 @@ import {WADLump} from "@src/wad/lump";
 
 // Represents MIDI-format audio read from a WAD lump.
 export class WADMidi {
-    // The name of the MIDI lump.
-    name: string;
-    // The audio data.
-    data: Buffer;
-    
     // All well-formed MIDI data begins with these eight bytes.
     static readonly HeaderData: Buffer = Buffer.from([
         0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06,
     ]);
+    
+    // The name of the MIDI lump.
+    name: string;
+    // The audio data.
+    data: Buffer;
     
     constructor(name: string, data: Buffer) {
         this.name = name;
