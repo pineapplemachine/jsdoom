@@ -74,7 +74,7 @@
       "options": [{
         "import-sources-order": "case-insensitive",
         "named-imports-order": "any",
-        "grouped-imports": true
+        "grouped-imports": false
       }]
     }
   }
