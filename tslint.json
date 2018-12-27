@@ -63,7 +63,8 @@
     "no-var-keyword": true,
     "no-empty": {
       "options": [
-        "allow-empty-catch"
+        "allow-empty-catch",
+        "allow-empty-functions"
       ]
     },
     "prefer-const": true,
