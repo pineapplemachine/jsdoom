@@ -174,6 +174,10 @@ export class WADTexture {
         }
         return posts;
     }
+    
+    get worldPanning(): boolean {
+        return (this.flags & 0x8000) > 0;
+    }
 }
 
 // Represents a single patch in a single texture in a TEXTURE lump.

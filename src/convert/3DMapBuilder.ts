@@ -71,6 +71,14 @@ interface Mappable {
     yScale?: number;
 }
 
+enum TextureAlignment {
+    Normal,
+    LowerUnpegged,
+    UpperUnpegged,
+    None,
+    World,
+}
+
 interface Quad extends Mappable {
     // The X offset of the texture on the quad
     xOffset: number;
@@ -79,7 +87,9 @@ interface Quad extends Mappable {
     // The index of the material for this quad
     materialIndex: number;
     // If the texture on the quad is unpegged
-    unpegged: boolean;
+    alignment: TextureAlignment;
+    // Whether scaled texture offsets are applied in world space or texel space
+    worldPanning: boolean;
 }
 
 // A quad on a line or side
@@ -135,19 +145,24 @@ export class MapGeometryBuilder {
         // 1 = Upper right
         // 2 = Lower left
         // 3 = Lower right
-        const uvFactorX = [1, 0, 1, 0]; // Textures seem to be flipped horizontally
+        const uvFactorX = [0, 1, 0, 1];
         const uvFactorY = [0, 0, 1, 1];
         if(texture == null){
             return [uvFactorX[vertexIndex], uvFactorY[vertexIndex]];
         }
         const xScale = (texture.xScale || 1) * (quad.xScale || 1);
         const yScale = (texture.yScale || 1) * (quad.yScale || 1);
-        const texelX = 1 / texture.width;
+        const texelX = -1 / texture.width;
         const texelY = 1 / texture.height;
         let uvX = texelX * uvFactorX[vertexIndex] * quad.width * xScale;
         let uvY = texelY * uvFactorY[vertexIndex] * quad.height * yScale;
         uvX += (quad.xOffset * texelX);
-        uvY += (quad.yOffset * texelY);
+        if(quad.alignment !== TextureAlignment.None){
+            if(quad.alignment === TextureAlignment.LowerUnpegged){
+                uvY -= quad.height * texelY;
+            }
+            uvY += quad.yOffset * texelY;
+        }
         return [uvX, uvY];
     }
     protected optionalTexture(texName: string): WADTexture | ImageData {
@@ -167,9 +182,10 @@ export class MapGeometryBuilder {
         return true;
     }
     protected getMaterialIndex(texName: string): number {
-        // Get texture, or add it if it is not already added.
+        // Get texture, or add it if it has not already been added.
         let matIndex = 0;
         if(this._materials[texName] == null){
+            // Texture has not been added. Add it.
             const wadTex = this.optionalTexture(texName);
             let threeTexture: THREE.Texture;
             if(this.isWadTexture(wadTex)){
@@ -180,19 +196,19 @@ export class MapGeometryBuilder {
                     THREE.RepeatWrapping, THREE.RepeatWrapping, THREE.LinearFilter,
                     THREE.LinearFilter, 1
                 );
-                threeTexture.name = wadTex.name;
             }else{
+                // TODO: Implement support for other types of textures
                 threeTexture = new THREE.DataTexture(
                     wadTex.data, wadTex.width, wadTex.height, THREE.RGBAFormat,
                     THREE.UnsignedByteType, THREE.UVMapping, THREE.RepeatWrapping,
                     THREE.RepeatWrapping, THREE.LinearFilter, THREE.LinearFilter,
                     1
                 );
-                threeTexture.name = "-";
             }
+            threeTexture.name = texName;
             threeTexture.needsUpdate = true;
             const material = new THREE.MeshBasicMaterial({
-                name: threeTexture.name,
+                name: texName,
                 // color: Math.floor(Math.random() * 0xffffff),
                 map: threeTexture,
                 side: THREE.DoubleSide,
@@ -244,7 +260,8 @@ export class MapGeometryBuilder {
                     endY: vertices[line.endVertex].y,
                     bottomHeight: frontSector.floorHeight,
                     topHeight: frontSector.ceilingHeight,
-                    unpegged: line.lowerUnpeggedFlag,
+                    alignment: line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
+                    worldPanning: true,
                 });
             }else{
                 back = this.map.sides.getSide(line.backSidedef);
@@ -273,7 +290,8 @@ export class MapGeometryBuilder {
                             endY: vertices[line.endVertex].y,
                             bottomHeight: midQuadBottom,
                             topHeight: midQuadTop,
-                            unpegged: false,
+                            alignment: TextureAlignment.None,
+                            worldPanning: frontMidtex.worldPanning,
                         });
                     }
                     if(backMidtex != null){
@@ -296,7 +314,8 @@ export class MapGeometryBuilder {
                             endY: vertices[line.endVertex].y,
                             bottomHeight: midQuadBottom,
                             topHeight: midQuadTop,
-                            unpegged: false,
+                            alignment: TextureAlignment.None,
+                            worldPanning: backMidtex.worldPanning,
                         });
                     }
                 }
@@ -314,7 +333,8 @@ export class MapGeometryBuilder {
                         endY: vertices[line.endVertex].y,
                         bottomHeight: heights.front.upperBottom,
                         topHeight: heights.front.upperTop,
-                        unpegged: line.upperUnpeggedFlag,
+                        alignment: line.upperUnpeggedFlag ? TextureAlignment.UpperUnpegged : TextureAlignment.Normal,
+                        worldPanning: true,
                     });
                 }
                 if(heights.front.lowerTop > heights.front.lowerBottom){
@@ -331,7 +351,8 @@ export class MapGeometryBuilder {
                         endY: vertices[line.endVertex].y,
                         bottomHeight: heights.front.lowerBottom,
                         topHeight: heights.front.lowerTop,
-                        unpegged: line.lowerUnpeggedFlag,
+                        alignment: line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
+                        worldPanning: true,
                     });
                 }
                 if(heights.back.upperTop > heights.back.upperBottom){
@@ -354,7 +375,8 @@ export class MapGeometryBuilder {
                         */
                         bottomHeight: heights.back.upperBottom,
                         topHeight: heights.back.upperTop,
-                        unpegged: line.upperUnpeggedFlag,
+                        alignment: line.upperUnpeggedFlag ? TextureAlignment.UpperUnpegged : TextureAlignment.Normal,
+                        worldPanning: true,
                     });
                 }
                 if(heights.back.lowerTop > heights.back.lowerBottom){
@@ -377,7 +399,8 @@ export class MapGeometryBuilder {
                         */
                         bottomHeight: heights.back.lowerBottom,
                         topHeight: heights.back.lowerTop,
-                        unpegged: line.lowerUnpeggedFlag,
+                        alignment: line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
+                        worldPanning: true,
                     });
                 }
             }
