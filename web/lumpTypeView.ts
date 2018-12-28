@@ -1,3 +1,7 @@
+import * as THREE from "three";
+import {KeyboardListener} from './KeyboardListener';
+import {MapGeometryBuilder} from "@src/convert/3DMapBuilder";
+
 import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
@@ -476,6 +480,79 @@ function drawMapGeometry(
             );
         }
     }
+}
+
+interface Map3DOptions {
+    // The vertical FOV to use
+    fov?: number;
+}
+
+export const LumpTypeViewMap3D = function(
+    options: Map3DOptions
+): LumpTypeView {
+    const fov: number = options.fov || 90;
+    return new LumpTypeView({
+        name: "Map (3D)",
+        icon: "assets/icons/lump-map.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
+            if(!mapLump){
+                return;
+            }
+            const map = lumps.WADMap.from(mapLump);
+            const textureLibrary = new lumps.TextureLibrary(getWadFileList(mapLump));
+            const canvas = util.createElement({
+                tag: "canvas",
+                class: "lump-view-map-geometry",
+                appendTo: root,
+            });
+            const scene = new THREE.Scene();
+            const renderer = new THREE.WebGLRenderer({canvas, alpha: true});
+            renderer.setSize(root.clientWidth, root.clientHeight);
+            const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
+            camera.position.set(0, 0, 0);
+            camera.lookAt(0, 0, 100);
+            camera.updateProjectionMatrix();
+            const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
+            const mesh = mapBuilder.rebuild();
+            if(mesh != null){
+                scene.add(mesh);
+            }
+            const controls = new KeyboardListener();
+            const render = () => {
+                if(controls.keyState["ArrowUp"]){
+                    camera.rotateX(2 / (180 / Math.PI));
+                }
+                if(controls.keyState["ArrowDown"]){
+                    camera.rotateX(-2 / (180 / Math.PI));
+                }
+                if(controls.keyState["ArrowLeft"]){
+                    camera.rotateY(2 / (180 / Math.PI));
+                }
+                if(controls.keyState["ArrowRight"]){
+                    camera.rotateY(-2 / (180 / Math.PI));
+                }
+                if(controls.keyState["w"]){
+                    camera.translateZ(-10);
+                }
+                if(controls.keyState["s"]){
+                    camera.translateZ(10);
+                }
+                if(controls.keyState["a"]){
+                    camera.translateX(-10);
+                }
+                if(controls.keyState["d"]){
+                    camera.translateX(10);
+                }
+                camera.updateProjectionMatrix();
+                renderer.render(scene, camera);
+            }
+            setInterval(render, (1/35) * 1000);
+        },
+        clear: (lump: WADLump, root: HTMLElement) => {
+            //
+        }
+    })
 }
 
 // Options used by makeSequentialView
