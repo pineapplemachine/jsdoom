@@ -146,7 +146,7 @@ export class MapGeometryBuilder {
         }
         const xScale = (texture.xScale || 1) * (quad.xScale || 1);
         const yScale = (texture.yScale || 1) * (quad.yScale || 1);
-        const texelX = -1 / texture.width;
+        const texelX = 1 / texture.width;
         const texelY = 1 / texture.height;
         let uvX = texelX * uvFactorX[vertexIndex] * quad.width * xScale;
         let uvY = texelY * uvFactorY[vertexIndex] * quad.height * yScale;
@@ -272,9 +272,9 @@ export class MapGeometryBuilder {
                     yOffset: front.y,
                     materialIndex: lineTexture,
                     startX: vertices[line.startVertex].x,
-                    startY: vertices[line.startVertex].y,
+                    startY: -vertices[line.startVertex].y,
                     endX: vertices[line.endVertex].x,
-                    endY: vertices[line.endVertex].y,
+                    endY: -vertices[line.endVertex].y,
                     bottomHeight: frontSector.floorHeight,
                     topHeight: frontSector.ceilingHeight,
                     alignment: line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
@@ -303,9 +303,9 @@ export class MapGeometryBuilder {
                             yOffset: front.y,
                             materialIndex: this.getMaterialIndex(front.middle),
                             startX: vertices[line.startVertex].x,
-                            startY: vertices[line.startVertex].y,
+                            startY: -vertices[line.startVertex].y,
                             endX: vertices[line.endVertex].x,
-                            endY: vertices[line.endVertex].y,
+                            endY: -vertices[line.endVertex].y,
                             bottomHeight: midQuadBottom,
                             topHeight: midQuadTop,
                             alignment: TextureAlignment.None,
@@ -328,9 +328,9 @@ export class MapGeometryBuilder {
                             yOffset: back.y,
                             materialIndex: this.getMaterialIndex(back.middle),
                             startX: vertices[line.startVertex].x,
-                            startY: vertices[line.startVertex].y,
+                            startY: -vertices[line.startVertex].y,
                             endX: vertices[line.endVertex].x,
-                            endY: vertices[line.endVertex].y,
+                            endY: -vertices[line.endVertex].y,
                             bottomHeight: midQuadBottom,
                             topHeight: midQuadTop,
                             alignment: TextureAlignment.None,
@@ -347,9 +347,9 @@ export class MapGeometryBuilder {
                         yOffset: front.y,
                         materialIndex: this.getMaterialIndex(front.upper),
                         startX: vertices[line.startVertex].x,
-                        startY: vertices[line.startVertex].y,
+                        startY: -vertices[line.startVertex].y,
                         endX: vertices[line.endVertex].x,
-                        endY: vertices[line.endVertex].y,
+                        endY: -vertices[line.endVertex].y,
                         bottomHeight: heights.front.upperBottom,
                         topHeight: heights.front.upperTop,
                         alignment: line.upperUnpeggedFlag ?
@@ -366,9 +366,9 @@ export class MapGeometryBuilder {
                         yOffset: front.y,
                         materialIndex: this.getMaterialIndex(front.lower),
                         startX: vertices[line.startVertex].x,
-                        startY: vertices[line.startVertex].y,
+                        startY: -vertices[line.startVertex].y,
                         endX: vertices[line.endVertex].x,
-                        endY: vertices[line.endVertex].y,
+                        endY: -vertices[line.endVertex].y,
                         bottomHeight: heights.front.lowerBottom,
                         topHeight: heights.front.lowerTop,
                         alignment: line.lowerUnpeggedFlag ?
@@ -385,14 +385,14 @@ export class MapGeometryBuilder {
                         yOffset: back.y,
                         materialIndex: this.getMaterialIndex(back.upper),
                         startX: vertices[line.startVertex].x,
-                        startY: vertices[line.startVertex].y,
+                        startY: -vertices[line.startVertex].y,
                         endX: vertices[line.endVertex].x,
-                        endY: vertices[line.endVertex].y,
+                        endY: -vertices[line.endVertex].y,
                         /*
                         startX: vertices[line.endVertex].x,
-                        startY: vertices[line.endVertex].y,
+                        startY: -vertices[line.endVertex].y,
                         endX: vertices[line.startVertex].x,
-                        endY: vertices[line.startVertex].y,
+                        endY: -vertices[line.startVertex].y,
                         */
                         bottomHeight: heights.back.upperBottom,
                         topHeight: heights.back.upperTop,
@@ -410,14 +410,14 @@ export class MapGeometryBuilder {
                         yOffset: back.y,
                         materialIndex: this.getMaterialIndex(back.lower),
                         startX: vertices[line.startVertex].x,
-                        startY: vertices[line.startVertex].y,
+                        startY: -vertices[line.startVertex].y,
                         endX: vertices[line.endVertex].x,
-                        endY: vertices[line.endVertex].y,
+                        endY: -vertices[line.endVertex].y,
                         /*
                         startX: vertices[line.endVertex].x,
-                        startY: vertices[line.endVertex].y,
+                        startY: -vertices[line.endVertex].y,
                         endX: vertices[line.startVertex].x,
-                        endY: vertices[line.startVertex].y,
+                        endY: -vertices[line.startVertex].y,
                         */
                         bottomHeight: heights.back.lowerBottom,
                         topHeight: heights.back.lowerTop,
@@ -473,8 +473,8 @@ export class MapGeometryBuilder {
                 quad.startX, quad.bottomHeight, quad.startY, // Lower left
                 quad.endX, quad.topHeight, quad.endY, // Upper right
             ], quadIndex * 18);
-            const normal = new THREE.Vector2(quad.endX, quad.endY);
-            normal.sub(new THREE.Vector2(quad.startX, quad.startY));
+            const normal = new THREE.Vector2(quad.startX, quad.startY);
+            normal.sub(new THREE.Vector2(quad.endX, quad.endY));
             normal.normalize();
             normal.rotateAround(new THREE.Vector2(0, 0), -90 / (180 / Math.PI));
             normalBuffer.set([
