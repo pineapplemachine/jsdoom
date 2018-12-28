@@ -198,6 +198,7 @@ export class MapGeometryBuilder {
                 side: THREE.DoubleSide,
                 vertexColors: THREE.VertexColors,
             });
+            material.transparent = true;
             material.needsUpdate = true;
             matIndex = this._materialArray.length;
             this._materials[texName] = matIndex;

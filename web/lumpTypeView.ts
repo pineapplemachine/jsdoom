@@ -512,9 +512,7 @@ export const LumpTypeViewMap3D = function(
             const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
             camera.position.set(0, 0, 0);
             camera.lookAt(0, 0, 100);
-            camera.updateProjectionMatrix();
-            const light = new THREE.PointLight(0xffffff, 1, 256);
-            scene.add(light);
+            const directionSphere = new THREE.Spherical(1, 90 / (180 / Math.PI));
             const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
             const mesh = mapBuilder.rebuild();
             if(mesh != null){
@@ -525,16 +523,16 @@ export const LumpTypeViewMap3D = function(
             const controls = new KeyboardListener();
             const render = () => {
                 if(controls.keyState["ArrowUp"]){
-                    camera.rotateX(2 / (180 / Math.PI));
+                    directionSphere.phi -= 2 / (180 / Math.PI);
                 }
                 if(controls.keyState["ArrowDown"]){
-                    camera.rotateX(-2 / (180 / Math.PI));
+                    directionSphere.phi += 2 / (180 / Math.PI);
                 }
                 if(controls.keyState["ArrowLeft"]){
-                    camera.rotateY(2 / (180 / Math.PI));
+                    directionSphere.theta += 2 / (180 / Math.PI);
                 }
                 if(controls.keyState["ArrowRight"]){
-                    camera.rotateY(-2 / (180 / Math.PI));
+                    directionSphere.theta -= 2 / (180 / Math.PI);
                 }
                 if(controls.keyState["w"]){
                     camera.translateZ(-10);
@@ -548,8 +546,11 @@ export const LumpTypeViewMap3D = function(
                 if(controls.keyState["d"]){
                     camera.translateX(10);
                 }
+                directionSphere.makeSafe();
+                const lookAtMe = new THREE.Vector3();
+                lookAtMe.setFromSpherical(directionSphere).add(camera.position);
+                camera.lookAt(lookAtMe);
                 camera.updateProjectionMatrix();
-                light.position.copy(camera.position);
                 renderer.render(scene, camera);
             }
             setInterval(render, (1/35) * 1000);
