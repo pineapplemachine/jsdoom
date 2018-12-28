@@ -384,16 +384,16 @@ export class MapGeometryBuilder {
                         xOffset: back.x,
                         yOffset: back.y,
                         materialIndex: this.getMaterialIndex(back.upper),
+                        /*
                         startX: vertices[line.startVertex].x,
                         startY: -vertices[line.startVertex].y,
                         endX: vertices[line.endVertex].x,
                         endY: -vertices[line.endVertex].y,
-                        /*
+                        */
                         startX: vertices[line.endVertex].x,
                         startY: -vertices[line.endVertex].y,
                         endX: vertices[line.startVertex].x,
                         endY: -vertices[line.startVertex].y,
-                        */
                         bottomHeight: heights.back.upperBottom,
                         topHeight: heights.back.upperTop,
                         alignment: line.upperUnpeggedFlag ?
@@ -409,16 +409,16 @@ export class MapGeometryBuilder {
                         xOffset: back.x,
                         yOffset: back.y,
                         materialIndex: this.getMaterialIndex(back.lower),
+                        /*
                         startX: vertices[line.startVertex].x,
                         startY: -vertices[line.startVertex].y,
                         endX: vertices[line.endVertex].x,
                         endY: -vertices[line.endVertex].y,
-                        /*
+                        */
                         startX: vertices[line.endVertex].x,
                         startY: -vertices[line.endVertex].y,
                         endX: vertices[line.startVertex].x,
                         endY: -vertices[line.startVertex].y,
-                        */
                         bottomHeight: heights.back.lowerBottom,
                         topHeight: heights.back.lowerTop,
                         alignment: line.lowerUnpeggedFlag ?
