@@ -513,10 +513,14 @@ export const LumpTypeViewMap3D = function(
             camera.position.set(0, 0, 0);
             camera.lookAt(0, 0, 100);
             camera.updateProjectionMatrix();
+            const light = new THREE.PointLight(0xffffff, 1, 256);
+            scene.add(light);
             const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
             const mesh = mapBuilder.rebuild();
             if(mesh != null){
+                const vnh = new THREE.VertexNormalsHelper(mesh, 5, 0x3884fa, 2);
                 scene.add(mesh);
+                scene.add(vnh);
             }
             const controls = new KeyboardListener();
             const render = () => {
@@ -545,6 +549,7 @@ export const LumpTypeViewMap3D = function(
                     camera.translateX(10);
                 }
                 camera.updateProjectionMatrix();
+                light.position.copy(camera.position);
                 renderer.render(scene, camera);
             }
             setInterval(render, (1/35) * 1000);
