@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@types/node": "10.11.4",
-    "@types/three": "^0.93.13",
+    "@types/three": "^0.93.14",
     "@types/unzip": "0.1.1",
     "@types/upng-js": "2.1.1",
     "three": "^0.99.0",
