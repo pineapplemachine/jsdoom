@@ -178,3 +178,13 @@ export const WADMapThingTypeList: WADMapThingType[] = [
     {id: 0x057, sprite: "", radius: 0, name: "Spawn spot", class: WADMapThingClass.Spawner},
     {id: 0x00E, sprite: "", radius: 20, name: "Teleport landing", class: WADMapThingClass.Teleport},
 ];
+
+// Similar to the list above, but uses the thing IDs as the keys.
+// Getting values from a hash map (Object) is faster than iterating through an array.
+export const WADMapThingTypeMap: {[type: number]:WADMapThingType} = (() => {
+    const map: {[type: number]:WADMapThingType} = {};
+    for(const thingType of WADMapThingTypeList){
+        map[thingType.id] = thingType;
+    }
+    return map;
+})();

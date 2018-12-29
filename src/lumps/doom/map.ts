@@ -4,6 +4,7 @@ import {WADMapLines, WADMapLine} from "./mapLines";
 import {WADMapSectors, WADMapSector} from "./mapSectors";
 import {WADMapSides, WADMapSide} from "./mapSides";
 import {WADMapThings, WADMapThing} from "./mapThings";
+import {WADMapThingClass, WADMapThingTypeMap} from "./mapThingType";
 import {WADMapVertexes, WADMapVertex, WADMapBoundingBox} from "./mapVertexes";
 
 // Data structure which wraps several lumps together
@@ -167,4 +168,20 @@ export class WADMap {
         }
     }
     
+    // Get the start position for the given player
+    getPlayerStart(player: number): WADMapThing | null {
+        let playerStart: WADMapThing | null = null;
+        for(const thing of this.enumerateThings()){
+            if(!WADMapThingTypeMap[thing.type]){
+                continue;
+            }
+            if(WADMapThingTypeMap[thing.type].class === WADMapThingClass.PlayerStart &&
+                thing.type === player){ // Doom player starts have the same DoomEdNum as the player
+                playerStart = thing;
+            }
+        }
+        // Use the last player start.
+        // Other player starts for the same player are voodoo dolls.
+        return playerStart;
+    }
 }

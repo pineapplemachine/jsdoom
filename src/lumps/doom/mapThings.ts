@@ -1,6 +1,6 @@
 import {WADLump} from "@src/wad/lump";
 
-import {WADMapThingType, WADMapThingTypeList} from "./mapThingType";
+import {WADMapThingType, WADMapThingTypeMap} from "./mapThingType";
 
 // Enumeration of recognized flags for Doom/Heretic things.
 // Includes Boom and MBF extensions.
@@ -53,12 +53,11 @@ export class WADMapThing {
     // Get a WADMapThingType object corresponding to the thing's type number.
     // Returns null if there was no matching thing type.
     getTypeObject(): (WADMapThingType | null) {
-        for(const thingType of WADMapThingTypeList){
-            if(this.type === thingType.id){
-                return thingType;
-            }
+        let type: WADMapThingType | null = WADMapThingTypeMap[this.type];
+        if(type === undefined){
+            type = null;
         }
-        return null;
+        return type;
     }
     
     get easyFlag(): boolean {

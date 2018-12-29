@@ -510,9 +510,11 @@ export const LumpTypeViewMap3D = function(
             const renderer = new THREE.WebGLRenderer({canvas, alpha: true});
             renderer.setSize(root.clientWidth, root.clientHeight);
             const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
-            camera.position.set(0, 0, 0);
-            camera.lookAt(0, 0, 100);
-            const directionSphere = new THREE.Spherical(1, 90 / (180 / Math.PI));
+            const playerStart = map.getPlayerStart(1);
+            const playerAngle = playerStart ? playerStart.angle / (180 / Math.PI) : 0;
+            camera.position.set(playerStart ? playerStart.x : 0, 0, playerStart ? playerStart.y : 0);
+            camera.rotation.y = playerAngle;
+            const directionSphere = new THREE.Spherical(1, 90 / (180 / Math.PI), playerAngle);
             const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
             const mesh = mapBuilder.rebuild();
             if(mesh != null){
