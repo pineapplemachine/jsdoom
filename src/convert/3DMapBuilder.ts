@@ -111,6 +111,11 @@ interface LineQuad extends Quad {
     lowerColor?: number;
 }
 
+interface TransparentTexture {
+    texture: THREE.Texture;
+    transparent: boolean;
+}
+
 // This class takes map data, and creates a 3D mesh from it.
 export class MapGeometryBuilder {
     // The map data
@@ -121,7 +126,7 @@ export class MapGeometryBuilder {
     private static _missingTexture: THREE.Texture | nil;
     protected _materials:{[name: string]: number};
     protected _materialArray: THREE.MeshBasicMaterial[];
-    protected _materialPromises: Promise<THREE.Texture>[];
+    protected _materialPromises: Promise<TransparentTexture>[];
     constructor(map: WADMap, textures: TextureLibrary){
         this.map = map;
         this.textureLibrary = textures;
@@ -159,8 +164,8 @@ export class MapGeometryBuilder {
         }
         return [uvX, uvY];
     }
-    protected optionalTexture(texName: string): Promise<THREE.Texture> {
-        const promise = new Promise<THREE.Texture>((res, rej) => {
+    protected optionalTexture(texName: string): Promise<TransparentTexture> {
+        const promise = new Promise<TransparentTexture>((res, rej) => {
             let wadTexture: WADTexture | nil = this.textureLibrary.textures[texName];
             if(wadTexture == null){
                 const threeTexture = MapGeometryBuilder._missingTexture;
@@ -174,12 +179,12 @@ export class MapGeometryBuilder {
                             THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
                         texture.flipY = false;
                         texture.needsUpdate = true;
-                        res(texture);
+                        res({texture, transparent: false});
                     }, (progress: ProgressEvent) => console.log(progress), (error) => {
                         rej(error);
                     });
                 }else{
-                    res(threeTexture);
+                    res({texture: threeTexture, transparent: false});
                 }
             }else{
                 const threeTexture = new THREE.DataTexture(
@@ -195,7 +200,10 @@ export class MapGeometryBuilder {
                 if(!Number.isInteger(Math.log2(threeTexture.image.height))){
                     threeTexture.wrapT = THREE.ClampToEdgeWrapping;
                 }
-                res(threeTexture);
+                res({
+                    texture: threeTexture,
+                    transparent: wadTexture.isTransparent(this.textureLibrary.fileList)
+                });
             }
         });
         return promise;
@@ -225,10 +233,11 @@ export class MapGeometryBuilder {
             // Asynchronously get texture. Missing textures will use an external image file.
             const texPromise = this.optionalTexture(texName);
             this._materialPromises.push(texPromise);
-            texPromise.then((threeTexture) => {
-                threeTexture.name = texName;
-                threeTexture.needsUpdate = true;
-                material.map = threeTexture;
+            texPromise.then((transparentTexture) => {
+                transparentTexture.texture.name = texName;
+                transparentTexture.texture.needsUpdate = true;
+                material.map = transparentTexture.texture;
+                material.transparent = transparentTexture.transparent;
                 material.needsUpdate = true;
             });
             // Add the material to the index map and array.
@@ -437,17 +446,9 @@ export class MapGeometryBuilder {
         const quadTriVerts = [0, 1, 2, 3, 2, 1];
         // Sort quads by material number so that it is easy to group them
         quads = quads.sort((a, b) => a.materialIndex - b.materialIndex);
-        // Set up group data - used by GeometryBuffer to assign multiple materials
-        let lastIndex = 0;
-        let lastCount = 0;
-        let lastMaterialIndex = 0;
-        const groups:{
-            lastIndex: number;
-            lastCount: number;
-            lastMaterialIndex: number;
-        }[] = [];
         // Set up buffers
-        // 6 vertices per face (3 per triangle)
+        const bufferGeometry = new THREE.BufferGeometry();
+        // 6 vertices per quad (3 per triangle)
         // 3 numbers per vertex (XYZ coordinates)
         // 2 numbers per UV coordinate (XY coordinates)
         // 3 numbers per color (RGB channel values)
@@ -455,16 +456,59 @@ export class MapGeometryBuilder {
         const normalBuffer = new Float32Array(quads.length * 3 * 6);
         const uvBuffer = new Float32Array(quads.length * 2 * 6);
         const colorBuffer = new Float32Array(quads.length * 3 * 6);
-        // Add quads to buffers
+        // Once all of the textures for the materials have been loaded, recalculate the UV coordinates.
+        Promise.all(this._materialPromises).then(() => {
+            // Set up group data - used by GeometryBuffer to assign multiple materials
+            let lastIndex = 0;
+            let lastCount = 0;
+            let lastMaterialIndex = 0;
+            const groups:{
+                lastIndex: number;
+                lastCount: number;
+                lastMaterialIndex: number;
+            }[] = [];
+            {
+                // Sort material array so that transparent textures are rendered last
+                const materialArray = this._materialArray.slice();
+                this._materialArray.sort((material) => material.transparent ? -1 : 1);
+                const newMaterialIndices: {[old: number]: number} = {};
+                for (let mtlIndex = 0; mtlIndex < materialArray.length; mtlIndex++) {
+                    newMaterialIndices[mtlIndex] = this._materialArray.findIndex(
+                        (v) => v === materialArray[mtlIndex]);
+                }
+                // Assign new material indices to quads
+                for(let quadIndex = 0; quadIndex < quads.length; quadIndex++){
+                    const oldMaterialIndex = quads[quadIndex].materialIndex;
+                    quads[quadIndex].materialIndex = newMaterialIndices[oldMaterialIndex];
+                }
+            }
+            for(let quadIndex = 0; quadIndex < quads.length; quadIndex++){
+                const quad = quads[quadIndex];
+                if(quad.materialIndex !== lastMaterialIndex){
+                    // Add another group, since the material index changed
+                    groups.push({lastIndex, lastCount, lastMaterialIndex});
+                    lastIndex = lastIndex + lastCount;
+                    lastCount = 0;
+                    lastMaterialIndex = quad.materialIndex;
+                }
+                for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++) {
+                    const vertexIndex = quadTriVerts[vertexIterIndex];
+                    const texture = this._materialArray[quad.materialIndex].map;
+                    if(texture != null){
+                        uvBuffer.set(this.getQuadUVs(texture.image, vertexIndex, quad), quadIndex * 12 + 2 * vertexIterIndex);
+                    }
+                }
+                lastCount += 6;
+            }
+            // Add the last group
+            groups.push({lastIndex, lastCount, lastMaterialIndex});
+            for(const group of groups){
+                bufferGeometry.addGroup(group.lastIndex, group.lastCount, group.lastMaterialIndex);
+            }
+        });
+        // Add quad positions, normals, and colors to buffers
         for(let quadIndex = 0; quadIndex < quads.length; quadIndex++){
             const quad = quads[quadIndex];
-            // Add another group, since the material index changed
-            if(quad.materialIndex !== lastMaterialIndex){
-                groups.push({lastIndex, lastCount, lastMaterialIndex});
-                lastIndex = lastIndex + lastCount;
-                lastCount = 0;
-                lastMaterialIndex = quad.materialIndex;
-            }
             vertexBuffer.set([
                 quad.startX, quad.topHeight, quad.startY, // Upper left
                 quad.endX, quad.topHeight, quad.endY, // Upper right
@@ -493,24 +537,7 @@ export class MapGeometryBuilder {
                 1, 1, 1, // Lower left
                 1, 1, 1, // Upper right
             ], quadIndex * 18);
-            lastCount += 6;
         }
-        // Once all of the textures for the materials have been loaded, recalculate the UV coordinates.
-        Promise.all(this._materialPromises).then(() => {
-            for(let quadIndex = 0; quadIndex < quads.length; quadIndex++){
-                const quad = quads[quadIndex];
-                for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++) {
-                    const vertexIndex = quadTriVerts[vertexIterIndex];
-                    const texture = this._materialArray[quad.materialIndex].map;
-                    if(texture != null){
-                        uvBuffer.set(this.getQuadUVs(texture.image, vertexIndex, quad), quadIndex * 12 + 2 * vertexIterIndex);
-                    }
-                }
-            }
-        });
-        // Add the last group
-        groups.push({lastIndex, lastCount, lastMaterialIndex});
-        const bufferGeometry = new THREE.BufferGeometry();
         // Create buffer attributes from the arrays
         const vertexAttribute = new THREE.BufferAttribute(vertexBuffer, 3);
         const normalAttribute = new THREE.BufferAttribute(normalBuffer, 3);
@@ -521,9 +548,6 @@ export class MapGeometryBuilder {
         bufferGeometry.addAttribute("normal", normalAttribute);
         bufferGeometry.addAttribute("uv", uvAttribute);
         bufferGeometry.addAttribute("color", colorAttribute);
-        for(const group of groups){
-            bufferGeometry.addGroup(group.lastIndex, group.lastCount, group.lastMaterialIndex);
-        }
         // const tmpMaterial = new THREE.MeshBasicMaterial({color: Math.floor(Math.random() * 0xffffff)});
         const mesh = new THREE.Mesh(bufferGeometry, this._materialArray);
         return mesh;

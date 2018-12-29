@@ -512,7 +512,7 @@ export const LumpTypeViewMap3D = function(
             const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
             const playerStart = map.getPlayerStart(1);
             const playerAngle = playerStart ? playerStart.angle / (180 / Math.PI) : 0;
-            camera.position.set(playerStart ? playerStart.x : 0, 0, playerStart ? playerStart.y : 0);
+            camera.position.set(playerStart ? playerStart.x : 0, 0, playerStart ? -playerStart.y : 0);
             camera.rotation.y = playerAngle;
             const directionSphere = new THREE.Spherical(1, 90 / (180 / Math.PI), playerAngle);
             const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
@@ -555,7 +555,7 @@ export const LumpTypeViewMap3D = function(
                 camera.updateProjectionMatrix();
                 renderer.render(scene, camera);
             }
-            setInterval(render, (1/35) * 1000);
+            setInterval(() => requestAnimationFrame(render), (1/35) * 1000);
         },
         clear: (lump: WADLump, root: HTMLElement) => {
             //

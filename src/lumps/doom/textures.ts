@@ -175,6 +175,17 @@ export class WADTexture {
         return posts;
     }
     
+    isTransparent(files: WADFileList, colors?: WADColors): boolean {
+        const data = this.getPixelDataRGBA(files, colors);
+        for(let pixel = 0; pixel < data.byteLength / 4; pixel++){
+            const alpha = (data.readUInt32LE(pixel * 4) & 0xff000000) >> 24;
+            if(alpha < 255){
+                return true;
+            }
+        }
+        return false;
+    }
+    
     get worldPanning(): boolean {
         return (this.flags & 0x8000) > 0;
     }
