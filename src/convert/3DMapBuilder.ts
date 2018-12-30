@@ -2,9 +2,9 @@ import * as THREE from "three";
 
 type nil = null | undefined;
 
-import {WADMap} from '@src/lumps/doom/map';
-import {WADTexture,TextureLibrary} from '@src/lumps/doom/textures';
+import {WADMap} from "@src/lumps/doom/map";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
+import {WADTexture, TextureLibrary} from "@src/lumps/doom/textures";
 
 // Absolute heights of each part of a side
 interface SidePartHeights {
@@ -57,7 +57,7 @@ function getSideHeights(frontSector: WADMapSector, backSector: WADMapSector): Si
             lowerTop: middleBottom,
             lowerBottom: backSector.floorHeight
         }
-    }
+    };
 }
 
 interface Mappable {
@@ -112,7 +112,9 @@ interface LineQuad extends Quad {
 }
 
 interface TransparentTexture {
+    // The texture to use
     texture: THREE.Texture;
+    // Whether or not this texture is transparent
     transparent: boolean;
 }
 
@@ -124,7 +126,7 @@ export class MapGeometryBuilder {
     protected textureLibrary: TextureLibrary;
     // Texture for walls and flats with missing textures. Temporary.
     private static _missingTexture: THREE.Texture | nil;
-    protected _materials:{[name: string]: number};
+    protected _materials: {[name: string]: number};
     protected _materialArray: THREE.MeshBasicMaterial[];
     protected _materialPromises: Promise<TransparentTexture>[];
     constructor(map: WADMap, textures: TextureLibrary){
@@ -138,7 +140,7 @@ export class MapGeometryBuilder {
             texture: Mappable, // UV coordinates depend on texture size
             vertexIndex: number, // Index of vertex in quad
             quad: Quad // The data representing the quad
-            ){
+        ){
         // For the following 2 arrays:
         // 0 = Upper left
         // 1 = Upper right
@@ -166,7 +168,7 @@ export class MapGeometryBuilder {
     }
     protected optionalTexture(texName: string): Promise<TransparentTexture> {
         const promise = new Promise<TransparentTexture>((res, rej) => {
-            let wadTexture: WADTexture | nil = this.textureLibrary.textures[texName];
+            const wadTexture: WADTexture | nil = this.textureLibrary.textures[texName];
             if(wadTexture == null){
                 const threeTexture = MapGeometryBuilder._missingTexture;
                 if(threeTexture == null){
@@ -254,13 +256,10 @@ export class MapGeometryBuilder {
         return rgb.map((c) => c / 255);
     }
     public rebuild(): THREE.Mesh | null {
-        if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){return null;}
-        // let vertexArray: number[] = [];
-        // let normalArray: number[] = [];
-        // let uvArray: number[] = [];
-        // let colorArray: number[] = [];
+        if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){ return null; }
+        // Array of quads - used for rendering walls
         let quads: LineQuad[] = [];
-        // const txMtls:{[name: string]:IndexedMaterial} = {};
+        // Vertices
         const vertices = Array.from(this.map.enumerateVertexes());
         // Construct array of quads from lines and sides
         for(const line of this.map.enumerateLines()){ // All lines are made of 1-3 quads
@@ -462,7 +461,7 @@ export class MapGeometryBuilder {
             let lastIndex = 0;
             let lastCount = 0;
             let lastMaterialIndex = 0;
-            const groups:{
+            const groups: {
                 lastIndex: number;
                 lastCount: number;
                 lastMaterialIndex: number;

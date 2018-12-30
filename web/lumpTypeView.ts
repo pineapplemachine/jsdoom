@@ -1,6 +1,7 @@
 import * as THREE from "three";
-import {KeyboardListener} from './KeyboardListener';
+
 import {MapGeometryBuilder} from "@src/convert/3DMapBuilder";
+import {KeyboardListener} from "./keyboardListener";
 
 import * as lumps from "@src/lumps/index";
 import {WADFile} from "@src/wad/file";
@@ -554,14 +555,14 @@ export const LumpTypeViewMap3D = function(
                 camera.lookAt(lookAtMe);
                 camera.updateProjectionMatrix();
                 renderer.render(scene, camera);
-            }
-            setInterval(() => requestAnimationFrame(render), (1/35) * 1000);
+            };
+            setInterval(() => requestAnimationFrame(render), (1 / 35) * 1000);
         },
         clear: (lump: WADLump, root: HTMLElement) => {
             //
         }
-    })
-}
+    });
+};
 
 // Options used by makeSequentialView
 interface SequentialViewOptions {

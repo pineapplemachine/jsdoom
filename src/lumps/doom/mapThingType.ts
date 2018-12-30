@@ -181,8 +181,8 @@ export const WADMapThingTypeList: WADMapThingType[] = [
 
 // Similar to the list above, but uses the thing IDs as the keys.
 // Getting values from a hash map (Object) is faster than iterating through an array.
-export const WADMapThingTypeMap: {[type: number]:WADMapThingType} = (() => {
-    const map: {[type: number]:WADMapThingType} = {};
+export const WADMapThingTypeMap: {[type: number]: WADMapThingType} = (() => {
+    const map: {[type: number]: WADMapThingType} = {};
     for(const thingType of WADMapThingTypeList){
         map[thingType.id] = thingType;
     }
