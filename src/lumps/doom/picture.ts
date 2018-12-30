@@ -64,10 +64,14 @@ export class WADPicture {
             let dataOffset: number = lump.data.readUInt32LE(8 + (4 * colIndex));
             while(true){
                 const postOffset: number = lump.data.readUInt8(dataOffset);
-                if(postOffset === 0xff) break;
+                if(postOffset === 0xff) {
+                    break;
+                }
                 const length: number = lump.data.readUInt8(dataOffset + 1);
                 dataOffset += length + 4;
-                if(dataOffset >= lump.data.length) return false;
+                if(dataOffset >= lump.data.length) {
+                    return false;
+                }
             }
         }
         // This is (probably) a valid picture lump
@@ -79,7 +83,7 @@ export class WADPicture {
         if(!this.match(lump)){
             throw new Error("Not a valid picture lump.");
         }
-        return new WADPicture(lump.name,lump.data as Buffer);
+        return new WADPicture(lump.name, lump.data as Buffer);
     }
     
     // Get the width of the picture in pixels.

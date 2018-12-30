@@ -86,7 +86,7 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Marker",
         icon: "assets/icons/lump-marker.png",
-        filter: (lump: WADLump) => {return lump.length === 0;},
+        filter: (lump: WADLump) => {return lump.length === 0; },
     }),
     new LumpType({
         name: "Palette",

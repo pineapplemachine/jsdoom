@@ -81,7 +81,7 @@ export class WADPalette {
             red: this.data.readUInt8(byteIndex),
             green: this.data.readUInt8(byteIndex + 1),
             blue: this.data.readUInt8(byteIndex + 2),
-        }
+        };
     }
     
     // Get the color at a palette and color index.

@@ -24,7 +24,7 @@ export interface Option {
 export const DefaultOption: Option = {
     name: "_",
     help: "Capture options not matching any listed.",
-    type: (i: any) => {return i;},
+    type: (i: any) => {return i; },
     list: true,
 };
 

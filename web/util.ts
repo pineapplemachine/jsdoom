@@ -34,7 +34,7 @@ export function removeChildren(element: any): void {
 
 export function styleElement(element: any, style: any): void {
     if(element && style){
-        for(let key in style){
+        for(const key in style){
             element.style[key] = style[key];
         }
     }
@@ -54,7 +54,7 @@ export function createElement(options: any): any {
         },
         classList: (options: any) => {
             if(options.classList){
-                for(let cls of options.classList){
+                for(const cls of options.classList){
                     element.classList.add(cls);
                 }
             }
@@ -73,7 +73,7 @@ export function createElement(options: any): any {
         },
         children: (options: any) => {
             if(options.children){
-                for(let child of options.children){
+                for(const child of options.children){
                     if(!child){
                         // pass
                     }else if(child instanceof Element){
@@ -99,13 +99,15 @@ export function createElement(options: any): any {
             };
         },
         listener: (options: any) => {
-            if(typeof(options.listener) !== "object") return;
-            for(let key in options.listener){
+            if(typeof(options.listener) !== "object") {
+                return;
+            }
+            for(const key in options.listener){
                 element.addEventListener(key, options.listener[key]);
             }
         },
     };
-    for(let key in options){
+    for(const key in options){
         if(options[key] !== undefined){
             if(indirectProperties[key]){
                 indirectProperties[key](options);

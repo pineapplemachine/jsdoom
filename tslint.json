@@ -1,0 +1,81 @@
+{
+  "rules": {
+    "indent": {
+      "options": ["spaces", 4]
+    },
+    "whitespace": {
+      "options": [
+        "check-type",
+        "check-operator",
+        "check-separator",
+        "check-decl"
+      ]
+    },
+    "space-before-function-paren": {
+      "options": [{
+        "anonymous": "never",
+        "named": "never",
+        "asyncArrow": "never",
+        "method": "never",
+        "constructor": "never"
+      }]
+    },
+    "space-within-parens": {
+      "options": [0]
+    },
+    "one-line": {
+      "options": [
+        "check-catch",
+        "check-finally",
+        "check-open-brace"
+      ]
+    },
+    "eofline": {
+      "options": [true]
+    },
+    "semicolon": {
+      "options": ["always"]
+    },
+    "radix": true,
+    "curly": true,
+    "quotemark": {
+      "options": [
+        "double", "jsx-double", "avoid-template"
+      ]
+    },
+    "comment-format": {
+      "options": [
+        "check-space"
+      ]
+    },
+    "array-type": {
+      "options": [
+        "array"
+      ]
+    },
+    "no-irregular-whitespace": true,
+    "file-name-casing": {
+      "options": [
+        "camel-case"
+      ]
+    },
+    "no-eval": true,
+    "no-var-keyword": true,
+    "no-empty": {
+      "options": [
+        "allow-empty-catch",
+        "allow-empty-functions"
+      ]
+    },
+    "prefer-const": true,
+    "restrict-plus-operands": true,
+    "no-arg": true,
+    "ordered-imports": {
+      "options": [{
+        "import-sources-order": "case-insensitive",
+        "named-imports-order": "any",
+        "grouped-imports": false
+      }]
+    }
+  }
+}
