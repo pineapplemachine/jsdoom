@@ -290,7 +290,7 @@ export class MapGeometryBuilder {
             });
             // Add the material to the index map and array. Texture map is added asynchronously.
             matIndex = this._materialArray.length;
-            this._materials[texName] = matIndex;
+            this._materials[matName] = matIndex;
             this._materialArray.push(material);
         }else{
             // Material already has been added, so just use it.
