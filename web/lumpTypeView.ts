@@ -28,16 +28,6 @@ function getWadFileList(lump: WADLump): WADFileList {
     return wadFileList;
 }
 
-let textureLibrary: TextureLibrary | null | undefined;
-
-function getTextureLibrary(wadList: WADFileList): TextureLibrary {
-    if(!textureLibrary || textureLibrary.fileList !== wadList){
-        console.log("Loading new texture library...");
-        textureLibrary = new TextureLibrary(wadList);
-    }
-    return textureLibrary;
-}
-
 // Warn the user before previewing lumps this big
 export const BigLumpThreshold: number = 10000;
 
@@ -520,7 +510,7 @@ export const LumpTypeViewMap3D = function(
                 return;
             }
             const map = lumps.WADMap.from(mapLump);
-            const textureLibrary = getTextureLibrary(getWadFileList(mapLump));
+            const textureLibrary = new TextureLibrary(getWadFileList(mapLump));
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",
