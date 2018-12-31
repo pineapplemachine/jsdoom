@@ -8,15 +8,34 @@ import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
 
+import {TextureLibrary} from "@src/lumps/index";
+
 import {getPng64, bufferbtoa} from "@web/png64";
 import * as util from "@web/util";
 
 const win: any = window as any;
 
+let lastWadFile: WADFile | null = null;
+let wadFileList: WADFileList;
+
 // Get WAD file list
 // Makes this file easier to maintain when the proper implementation is added
 function getWadFileList(lump: WADLump): WADFileList {
-    return new WADFileList([lump.file as WADFile]);
+    if(lump.file !== lastWadFile){
+        lastWadFile = lump.file;
+        wadFileList = new WADFileList([lump.file as WADFile]);
+    }
+    return wadFileList;
+}
+
+let textureLibrary: TextureLibrary | null | undefined;
+
+function getTextureLibrary(wadList: WADFileList): TextureLibrary {
+    if(!textureLibrary || textureLibrary.fileList !== wadList){
+        console.log("Loading new texture library...");
+        textureLibrary = new TextureLibrary(wadList);
+    }
+    return textureLibrary;
 }
 
 // Warn the user before previewing lumps this big
@@ -501,7 +520,7 @@ export const LumpTypeViewMap3D = function(
                 return;
             }
             const map = lumps.WADMap.from(mapLump);
-            const textureLibrary = new lumps.TextureLibrary(getWadFileList(mapLump));
+            const textureLibrary = getTextureLibrary(getWadFileList(mapLump));
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",

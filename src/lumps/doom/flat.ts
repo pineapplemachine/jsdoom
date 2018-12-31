@@ -70,6 +70,12 @@ export class WADFlat {
         // All done
         return data;
     }
+    
+    // Tell whether or not this flat has transparent pixels in it.
+    isTransparent() {
+        // Flats are just 4096 bytes, each byte mapping to a palette index, so no pixels are transparent.
+        return false;
+    }
 }
 
 export default WADFlat;

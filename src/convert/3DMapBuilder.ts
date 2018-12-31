@@ -2,9 +2,13 @@ import * as THREE from "three";
 
 type nil = null | undefined;
 
+import {WADColors} from "@src/lumps/doom";
+import {WADFlat} from "@src/lumps/doom/flat";
 import {WADMap} from "@src/lumps/doom/map";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
-import {WADTexture, TextureLibrary} from "@src/lumps/doom/textures";
+import {WADTexture} from "@src/lumps/doom/textures";
+import {TextureSet, TextureLibrary} from "@src/lumps/textureLibrary";
+import {WADFileList} from "@src/wad/fileList";
 
 // Absolute heights of each part of a side
 interface SidePartHeights {
@@ -60,6 +64,7 @@ function getSideHeights(frontSector: WADMapSector, backSector: WADMapSector): Si
     };
 }
 
+// Mappable thing - image or quad
 interface Mappable {
     // The width of the quad/texture in map units
     width: number;
@@ -71,29 +76,25 @@ interface Mappable {
     yScale?: number;
 }
 
+// Different alignment types for textures
 enum TextureAlignment {
     Normal,
     LowerUnpegged,
     UpperUnpegged,
     None,
-    World,
+    World, // Doom 64
 }
 
+// Generic 4-sided polygon
 interface Quad extends Mappable {
-    // The X offset of the texture on the quad
-    xOffset: number;
-    // The Y offset of the texture on the quad
-    yOffset: number;
     // The index of the material for this quad
     materialIndex: number;
-    // If the texture on the quad is unpegged
-    alignment: TextureAlignment;
-    // Whether scaled texture offsets are applied in world space or texel space
-    worldPanning: boolean;
 }
 
 // A quad on a line or side
 interface LineQuad extends Quad {
+    // If the texture on the quad is unpegged
+    alignment: TextureAlignment;
     // X of start vertex
     startX: number;
     // Y of start vertex
@@ -109,13 +110,32 @@ interface LineQuad extends Quad {
     // Upper and lower vertex colors (for Doom 64 style lighting)
     upperColor?: number;
     lowerColor?: number;
+    // Whether scaled texture offsets are applied in world space or texel space
+    worldPanning: boolean;
+    // The X offset of the texture on the quad
+    xOffset: number;
+    // The Y offset of the texture on the quad
+    yOffset: number;
 }
 
+// A texture that may or may not be transparent. Transparent textures are rendered last.
 interface TransparentTexture {
     // The texture to use
     texture: THREE.Texture;
     // Whether or not this texture is transparent
     transparent: boolean;
+}
+
+// Used to construct 3D geometry for sector floors and ceilings
+interface SectorShape {
+    // The sector index this shape is for
+    sector: number;
+    // The sector's shape
+    shape: THREE.Shape;
+    // The material index for this shape
+    materialIndex: number;
+    // The color of this shape (for Doom 64 style lighting)
+    color?: number;
 }
 
 // This class takes map data, and creates a 3D mesh from it.
@@ -139,7 +159,7 @@ export class MapGeometryBuilder {
     protected getQuadUVs(
             texture: Mappable, // UV coordinates depend on texture size
             vertexIndex: number, // Index of vertex in quad
-            quad: Quad // The data representing the quad
+            quad: LineQuad // The data representing the quad
         ){
         // For the following 2 arrays:
         // 0 = Upper left
@@ -166,9 +186,43 @@ export class MapGeometryBuilder {
         }
         return [uvX, uvY];
     }
-    protected optionalTexture(texName: string): Promise<TransparentTexture> {
+    protected getSectorVertexUVs(
+        position: THREE.Vector2, // 2D position of the vertex
+        // All vanilla Doom flats are 64x64
+        // texture: Mappable, // UV coordinates depend on texture size
+    ){
+        const texture: Mappable = {
+            width: 64,
+            height: 64,
+        };
+        const uvX = position.x / texture.width;
+        const uvY = -position.y / texture.height;
+        return [uvX, uvY];
+    }
+    protected optionalTexture(texName: string, set: TextureSet): Promise<TransparentTexture> {
+        interface Texture {
+            width: number;
+            height: number;
+            getPixelDataRGBA(palette: WADColors | WADFileList): Buffer;
+        }
+        const makeTexture = (wadTexture: Texture): THREE.DataTexture => {
+            const threeTexture = new THREE.DataTexture(
+                wadTexture.getPixelDataRGBA(this.textureLibrary.fileList),
+                wadTexture.width, wadTexture.height, THREE.RGBAFormat,
+                THREE.UnsignedByteType, THREE.UVMapping,
+                THREE.RepeatWrapping, THREE.RepeatWrapping,
+                THREE.LinearFilter, THREE.LinearFilter, 1
+            );
+            if(!Number.isInteger(Math.log2(threeTexture.image.width))){
+                threeTexture.wrapS = THREE.ClampToEdgeWrapping;
+            }
+            if(!Number.isInteger(Math.log2(threeTexture.image.height))){
+                threeTexture.wrapT = THREE.ClampToEdgeWrapping;
+            }
+            return threeTexture;
+        };
         const promise = new Promise<TransparentTexture>((res, rej) => {
-            const wadTexture: WADTexture | nil = this.textureLibrary.textures[texName];
+            const wadTexture = this.textureLibrary.get(texName, set);
             if(wadTexture == null){
                 const threeTexture = MapGeometryBuilder._missingTexture;
                 if(threeTexture == null){
@@ -188,41 +242,33 @@ export class MapGeometryBuilder {
                 }else{
                     res({texture: threeTexture, transparent: false});
                 }
-            }else{
-                const threeTexture = new THREE.DataTexture(
-                    wadTexture.getPixelDataRGBA(this.textureLibrary.fileList),
-                    wadTexture.width, wadTexture.height, THREE.RGBAFormat,
-                    THREE.UnsignedByteType, THREE.UVMapping,
-                    THREE.RepeatWrapping, THREE.RepeatWrapping,
-                    THREE.LinearFilter, THREE.LinearFilter, 1
-                );
-                if(!Number.isInteger(Math.log2(threeTexture.image.width))){
-                    threeTexture.wrapS = THREE.ClampToEdgeWrapping;
-                }
-                if(!Number.isInteger(Math.log2(threeTexture.image.height))){
-                    threeTexture.wrapT = THREE.ClampToEdgeWrapping;
-                }
+            }else if(this.isWadTexture(wadTexture, set)){
+                const threeTexture = makeTexture(wadTexture);
                 res({
                     texture: threeTexture,
-                    transparent: wadTexture.isTransparent(this.textureLibrary.fileList)
+                    transparent: this.textureLibrary.isTransparent(wadTexture.name, set),
+                });
+            }else if(this.isWadFlat(wadTexture, set)){
+                const threeTexture = makeTexture(wadTexture);
+                res({
+                    texture: threeTexture,
+                    transparent: false,
                 });
             }
         });
         return promise;
     }
-    protected isWadTexture(foo: ImageData | WADTexture): foo is WADTexture {
-        const props = ["name", "flags", "width", "height", "columnDirectory", "patches"];
-        for(const prop of props){
-            if(!foo.hasOwnProperty(prop)){
-                return false;
-            }
-        }
-        return true;
+    protected isWadTexture(texture: WADTexture | WADFlat, set: TextureSet): texture is WADTexture {
+        return set === TextureSet.Walls;
     }
-    protected getMaterialIndex(texName: string): number {
+    protected isWadFlat(texture: WADTexture | WADFlat, set: TextureSet): texture is WADFlat {
+        return set === TextureSet.Flats;
+    }
+    protected getMaterialIndex(texName: string, set: TextureSet): number {
         // Get texture, or add it if it has not already been added.
+        const matName = `${set}[${texName}]`;
         let matIndex = 0;
-        if(this._materials[texName] == null){
+        if(this._materials[matName] == null){
             // Texture has not been added. Add it.
             // First, create the material.
             const material = new THREE.MeshBasicMaterial({
@@ -233,7 +279,7 @@ export class MapGeometryBuilder {
             material.vertexColors = THREE.VertexColors;
             material.needsUpdate = false;
             // Asynchronously get texture. Missing textures will use an external image file.
-            const texPromise = this.optionalTexture(texName);
+            const texPromise = this.optionalTexture(texName, set);
             this._materialPromises.push(texPromise);
             texPromise.then((transparentTexture) => {
                 transparentTexture.texture.name = texName;
@@ -242,13 +288,13 @@ export class MapGeometryBuilder {
                 material.transparent = transparentTexture.transparent;
                 material.needsUpdate = true;
             });
-            // Add the material to the index map and array.
+            // Add the material to the index map and array. Texture map is added asynchronously.
             matIndex = this._materialArray.length;
             this._materials[texName] = matIndex;
             this._materialArray.push(material);
         }else{
             // Material already has been added, so just use it.
-            matIndex = this._materials[texName];
+            matIndex = this._materials[matName];
         }
         return matIndex;
     }
@@ -257,6 +303,8 @@ export class MapGeometryBuilder {
     }
     public rebuild(): THREE.Mesh | null {
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){ return null; }
+        // Map of sector indices to their respective shapes
+        const sectorShapes: {[sector: number]: SectorShape} = {};
         // Array of quads - used for rendering walls
         let quads: LineQuad[] = [];
         // Vertices
@@ -272,7 +320,7 @@ export class MapGeometryBuilder {
             if(!line.twoSidedFlag){
                 // No back side
                 const lineHeight = frontSector.ceilingHeight - frontSector.floorHeight;
-                const lineTexture = this.getMaterialIndex(front.middle);
+                const lineTexture = this.getMaterialIndex(front.middle, TextureSet.Walls);
                 quads.push({
                     width: lineLength,
                     height: lineHeight,
@@ -293,8 +341,8 @@ export class MapGeometryBuilder {
                 const backSector = this.map.sectors.getSector(back.sector);
                 const heights = getSideHeights(frontSector, backSector);
                 if(heights.middleTop - heights.middleBottom > 0){
-                    const frontMidtex = this.textureLibrary.textures[front.middle];
-                    const backMidtex = this.textureLibrary.textures[back.middle];
+                    const frontMidtex = this.textureLibrary.get(front.middle, TextureSet.Walls) as WADTexture | nil;
+                    const backMidtex = this.textureLibrary.get(back.middle, TextureSet.Walls) as WADTexture | nil;
                     if(frontMidtex != null){
                         // Front side midtex
                         let midQuadTop = line.lowerUnpeggedFlag ?
@@ -309,7 +357,7 @@ export class MapGeometryBuilder {
                             height: lineHeight,
                             xOffset: front.x,
                             yOffset: front.y,
-                            materialIndex: this.getMaterialIndex(front.middle),
+                            materialIndex: this.getMaterialIndex(front.middle, TextureSet.Walls),
                             startX: vertices[line.startVertex].x,
                             startY: -vertices[line.startVertex].y,
                             endX: vertices[line.endVertex].x,
@@ -334,7 +382,7 @@ export class MapGeometryBuilder {
                             height: lineHeight,
                             xOffset: back.x,
                             yOffset: back.y,
-                            materialIndex: this.getMaterialIndex(back.middle),
+                            materialIndex: this.getMaterialIndex(back.middle, TextureSet.Walls),
                             startX: vertices[line.startVertex].x,
                             startY: -vertices[line.startVertex].y,
                             endX: vertices[line.endVertex].x,
@@ -353,7 +401,7 @@ export class MapGeometryBuilder {
                         height: heights.front.upperTop - heights.front.upperBottom,
                         xOffset: front.x,
                         yOffset: front.y,
-                        materialIndex: this.getMaterialIndex(front.upper),
+                        materialIndex: this.getMaterialIndex(front.upper, TextureSet.Walls),
                         startX: vertices[line.startVertex].x,
                         startY: -vertices[line.startVertex].y,
                         endX: vertices[line.endVertex].x,
@@ -372,7 +420,7 @@ export class MapGeometryBuilder {
                         height: heights.front.lowerTop - heights.front.lowerBottom,
                         xOffset: front.x,
                         yOffset: front.y,
-                        materialIndex: this.getMaterialIndex(front.lower),
+                        materialIndex: this.getMaterialIndex(front.lower, TextureSet.Walls),
                         startX: vertices[line.startVertex].x,
                         startY: -vertices[line.startVertex].y,
                         endX: vertices[line.endVertex].x,
@@ -391,7 +439,7 @@ export class MapGeometryBuilder {
                         height: heights.back.upperTop - heights.back.upperBottom,
                         xOffset: back.x,
                         yOffset: back.y,
-                        materialIndex: this.getMaterialIndex(back.upper),
+                        materialIndex: this.getMaterialIndex(back.upper, TextureSet.Walls),
                         /*
                         startX: vertices[line.startVertex].x,
                         startY: -vertices[line.startVertex].y,
@@ -416,7 +464,7 @@ export class MapGeometryBuilder {
                         height: heights.back.lowerTop - heights.back.lowerBottom,
                         xOffset: back.x,
                         yOffset: back.y,
-                        materialIndex: this.getMaterialIndex(back.lower),
+                        materialIndex: this.getMaterialIndex(back.lower, TextureSet.Walls),
                         /*
                         startX: vertices[line.startVertex].x,
                         startY: -vertices[line.startVertex].y,

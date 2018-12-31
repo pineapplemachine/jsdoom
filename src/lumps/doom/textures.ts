@@ -175,6 +175,7 @@ export class WADTexture {
         return posts;
     }
     
+    // Tell whether or not this texture has transparent pixels in it
     isTransparent(files: WADFileList, colors?: WADColors): boolean {
         const data = this.getPixelDataRGBA(files, colors);
         for(let pixel = 0; pixel < data.byteLength / 4; pixel++){
@@ -297,29 +298,6 @@ export class WADTextures {
             columnDirectory: this.data.readUInt32LE(texOffset + 16),
             patches: patches,
         });
-    }
-}
-
-export class TextureLibrary {
-    public textures: {[name: string]: WADTexture};
-    public fileList: WADFileList;
-    constructor(fileList: WADFileList){
-        this.fileList = fileList;
-        this.textures = {};
-        const libraryLumps = [];
-        for(const wad of fileList.files){
-            for(let textureLumpIndex = 1; textureLumpIndex <= 9; textureLumpIndex++){
-                const libraryLump = wad.firstByName(`TEXTURE${textureLumpIndex}`);
-                if(libraryLump != null){
-                    libraryLumps.push(WADTextures.from(libraryLump));
-                }
-            }
-        }
-        for (const libraryLump of libraryLumps){
-            for(const tex of libraryLump.enumerateTextures()){
-                this.textures[tex.name] = tex;
-            }
-        }
     }
 }
 
