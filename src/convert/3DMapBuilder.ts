@@ -200,15 +200,10 @@ export class MapGeometryBuilder {
         return [uvX, uvY];
     }
     protected optionalTexture(texName: string, set: TextureSet): Promise<TransparentTexture> {
-        interface Texture {
-            width: number;
-            height: number;
-            getPixelDataRGBA(palette: WADColors | WADFileList): Buffer;
-        }
-        const makeTexture = (wadTexture: Texture): THREE.DataTexture => {
+        const makeTexture = (wadTexture: Mappable): THREE.DataTexture => {
+            const rgba = this.textureLibrary.getRgba(texName, set);
             const threeTexture = new THREE.DataTexture(
-                wadTexture.getPixelDataRGBA(this.textureLibrary.fileList),
-                wadTexture.width, wadTexture.height, THREE.RGBAFormat,
+                rgba!, wadTexture.width, wadTexture.height, THREE.RGBAFormat,
                 THREE.UnsignedByteType, THREE.UVMapping,
                 THREE.RepeatWrapping, THREE.RepeatWrapping,
                 THREE.LinearFilter, THREE.LinearFilter, 1
@@ -263,6 +258,24 @@ export class MapGeometryBuilder {
     }
     protected isWadFlat(texture: WADTexture | WADFlat, set: TextureSet): texture is WADFlat {
         return set === TextureSet.Flats;
+    }
+    public static pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
+        // ray-casting algorithm based on
+        // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+        // Code from https://github.com/substack/point-in-polygon/blob/96ef4abc2a623c98214618418e42a68240055f2e/index.js
+        // Licensed under MIT license
+        const x = point.x, y = point.y;
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i].x, yi = polygon[i].y;
+            const xj = polygon[j].x, yj = polygon[j].y;
+            const intersect = ((yi > y) != (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if(intersect){
+                inside = !inside;
+            }
+        }
+        return inside;
     }
     protected getMaterialIndex(texName: string, set: TextureSet): number {
         // Get texture, or add it if it has not already been added.

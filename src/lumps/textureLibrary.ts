@@ -12,13 +12,18 @@ export enum TextureSet {
 export class TextureLibrary {
     // The textures themselves
     protected textures: {
-        [TextureSet.Walls]: {[name: string]: WADTexture};
-        [TextureSet.Flats]: {[name: string]: WADFlat};
+        [TextureSet.Walls]: {[name: string]: WADTexture | null};
+        [TextureSet.Flats]: {[name: string]: WADFlat | null};
     };
     // And whether or not each one is transparent
     protected transparent: {
-        [TextureSet.Walls]: {[name: string]: boolean};
-        [TextureSet.Flats]: {[name: string]: boolean};
+        [TextureSet.Walls]: {[name: string]: boolean | null};
+        [TextureSet.Flats]: {[name: string]: boolean | null};
+    };
+    // RGBA pixel buffers created from each texture
+    protected rgba: {
+        [TextureSet.Walls]: {[name: string]: Buffer | null};
+        [TextureSet.Flats]: {[name: string]: Buffer | null};
     };
     public fileList: WADFileList;
     constructor(fileList: WADFileList){
@@ -31,47 +36,10 @@ export class TextureLibrary {
             [TextureSet.Walls]: {},
             [TextureSet.Flats]: {},
         };
-        // Talon1024 2018-12-31 - Doing this every time the texture library is constructed is wasteful
-        /*
-        // Add all textures from texture list lumps
-        for(let textureLumpIndex = 1; textureLumpIndex <= 9; textureLumpIndex++){
-            const listName = `TEXTURE${textureLumpIndex}`;
-            const listLump = fileList.map.get(listName);
-            if(listLump != null){
-                const list = WADTextures.from(listLump);
-                for(const tex of list.enumerateTextures()){
-                    this.textures[TextureSet.Walls][tex.name] = tex;
-                    this.transparent[TextureSet.Walls][tex.name] = tex.isTransparent(this.fileList);
-                }
-            }
-        }
-        // Add flats
-        // Check whether the lump is a useless flat marker
-        
-        // Add all flats, starting from the given lump
-        const addFlatsFrom = (lump: WADLump): void => {
-            for(const flatLump of lump.enumerateNextLumps()){
-                if(flatLump.name === "F_END"){
-                    break;
-                }
-                if(!isFlatMarker(flatLump)){
-                    this.textures[TextureSet.Flats][flatLump.name] = WADFlat.from(flatLump);
-                    this.transparent[TextureSet.Flats][flatLump.name] = false;
-                }
-            }
+        this.rgba = {
+            [TextureSet.Walls]: {},
+            [TextureSet.Flats]: {},
         };
-        // IIRC F_START replaces/removes all existing flats
-        const flatsStart = this.fileList.map.get("F_START");
-        if(flatsStart != null){
-            this.textures[TextureSet.Flats] = {};
-            addFlatsFrom(flatsStart);
-        }
-        // Add flats from FF_START-F_END without removing existing ones
-        const newFlatsStart = this.fileList.map.get("FF_START");
-        if(newFlatsStart != null){
-            addFlatsFrom(newFlatsStart);
-        }
-        */
     }
     protected isFlatMarker(lump: WADLump): boolean {
         const name = lump.name;
@@ -82,10 +50,15 @@ export class TextureLibrary {
         );
     }
     get(name: string, set: TextureSet): WADTexture | WADFlat | null {
+        // Get a texture, or add it to the library if it has not already been added
         // Already indexed, so return it immediately
-        if(this.textures[set][name]){
+        if(this.textures[set][name] !== undefined){
+            // A texture could missing from the texture lists and flat collections.
+            console.log(`Using cached ${set}[${name}]`);
             return this.textures[set][name];
         }
+        console.log(`${set}[${name}] is not in the library.`);
+        // Wall textures are defined in TEXTUREx list entries
         if(set === TextureSet.Walls){
             for(let textureListIndex = 1; textureListIndex <= 3; textureListIndex++){
                 const listName = `TEXTURE${textureListIndex}`;
@@ -96,6 +69,7 @@ export class TextureLibrary {
                     if(texture){
                         this.textures[set][name] = texture;
                         this.transparent[set][name] = texture.isTransparent(this.fileList);
+                        this.rgba[set][name] = texture.getPixelDataRGBA(this.fileList);
                         return texture;
                     }
                 }
@@ -111,8 +85,10 @@ export class TextureLibrary {
                     if(this.isFlatMarker(flatLump)){
                         continue;
                     }
+                    const flat = WADFlat.from(flatLump);
                     this.textures[set][name] = WADFlat.from(flatLump);
                     this.transparent[set][name] = false;
+                    this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
                     if(flatLump.name === name){
                         return this.textures[set][name];
                     }
@@ -129,8 +105,10 @@ export class TextureLibrary {
                         if(this.isFlatMarker(flatLump)){
                             continue;
                         }
-                        this.textures[set][name] = WADFlat.from(flatLump);
+                        const flat = WADFlat.from(flatLump);
+                        this.textures[set][name] = flat;
                         this.transparent[set][name] = false;
+                        this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
                         if(flatLump.name === name){
                             return this.textures[set][name];
                         }
@@ -138,10 +116,19 @@ export class TextureLibrary {
                 }
             }
         }
+        this.textures[set][name] = null;
+        this.transparent[set][name] = null;
+        this.rgba[set][name] = null;
         return null;
     }
     isTransparent(name: string, set: TextureSet){
+        // This value is set when the texture is added, and this method is
+        // usually called after a texture is added.
         return this.transparent[set][name] || false;
+    }
+    getRgba(name: string, set: TextureSet): Buffer | null {
+        // The RGBA data is cached when a texture is added.
+        return this.rgba[set][name] || null;
     }
 }
 
