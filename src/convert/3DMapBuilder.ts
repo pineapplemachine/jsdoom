@@ -2,13 +2,12 @@ import * as THREE from "three";
 
 type nil = null | undefined;
 
-import {WADColors} from "@src/lumps/doom";
 import {WADFlat} from "@src/lumps/doom/flat";
 import {WADMap} from "@src/lumps/doom/map";
+import {WADMapLine} from "@src/lumps/doom/mapLines";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
 import {WADTexture} from "@src/lumps/doom/textures";
 import {TextureSet, TextureLibrary} from "@src/lumps/textureLibrary";
-import {WADFileList} from "@src/wad/fileList";
 
 // Absolute heights of each part of a side
 interface SidePartHeights {
@@ -316,6 +315,10 @@ export class MapGeometryBuilder {
     }
     public rebuild(): THREE.Mesh | null {
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){ return null; }
+        // Map of sector indices to lines that form that sector
+        const sectorLines: {[sector: number]: WADMapLine[]} = {};
+        // Map of sector indices to contiguous lines that form that sector
+        const contiguousLines: {[sector: number]: number[][]} = {};
         // Map of sector indices to their respective shapes
         const sectorShapes: {[sector: number]: SectorShape} = {};
         // Array of quads - used for rendering walls
@@ -326,6 +329,10 @@ export class MapGeometryBuilder {
         for(const line of this.map.enumerateLines()){ // All lines are made of 1-3 quads
             const front = this.map.sides.getSide(line.frontSidedef);
             const frontSector = this.map.sectors.getSector(front.sector);
+            if(!sectorLines[front.sector]){
+                sectorLines[front.sector] = [];
+            }
+            sectorLines[front.sector].push(line);
             let back = null;
             const lineX = vertices[line.endVertex].x - vertices[line.startVertex].x;
             const lineY = vertices[line.endVertex].y - vertices[line.startVertex].y;
@@ -352,6 +359,10 @@ export class MapGeometryBuilder {
             }else{
                 back = this.map.sides.getSide(line.backSidedef);
                 const backSector = this.map.sectors.getSector(back.sector);
+                if(!sectorLines[back.sector]){
+                    sectorLines[back.sector] = [];
+                }
+                sectorLines[back.sector].push(line);
                 const heights = getSideHeights(frontSector, backSector);
                 if(heights.middleTop - heights.middleBottom > 0){
                     const frontMidtex = this.textureLibrary.get(front.middle, TextureSet.Walls) as WADTexture | nil;
@@ -506,16 +517,25 @@ export class MapGeometryBuilder {
         const quadTriVerts = [0, 1, 2, 3, 2, 1];
         // Sort quads by material number so that it is easy to group them
         quads = quads.sort((a, b) => a.materialIndex - b.materialIndex);
-        // Set up buffers
+        // Set up buffer geometry
         const bufferGeometry = new THREE.BufferGeometry();
+        // Set up buffers and attributes
         // 6 vertices per quad (3 per triangle)
         // 3 numbers per vertex (XYZ coordinates)
         // 2 numbers per UV coordinate (XY coordinates)
         // 3 numbers per color (RGB channel values)
+        // TODO: Add flat polygons
         const vertexBuffer = new Float32Array(quads.length * 3 * 6);
+        const vertexAttribute = new THREE.BufferAttribute(vertexBuffer, 3);
         const normalBuffer = new Float32Array(quads.length * 3 * 6);
+        const normalAttribute = new THREE.BufferAttribute(normalBuffer, 3);
         const uvBuffer = new Float32Array(quads.length * 2 * 6);
+        const uvAttribute = new THREE.BufferAttribute(uvBuffer, 2);
         const colorBuffer = new Float32Array(quads.length * 3 * 6);
+        const colorAttribute = new THREE.BufferAttribute(colorBuffer, 3);
+        // Create mesh with temporary material
+        const tempMtl = new THREE.MeshBasicMaterial({color: Math.floor(Math.random() * 0xffffff), wireframe: true});
+        const mesh = new THREE.Mesh(bufferGeometry, tempMtl);
         // Once all of the textures for the materials have been loaded, recalculate the UV coordinates.
         Promise.all(this._materialPromises).then(() => {
             // Set up group data - used by GeometryBuffer to assign multiple materials
@@ -565,6 +585,10 @@ export class MapGeometryBuilder {
             for(const group of groups){
                 bufferGeometry.addGroup(group.lastIndex, group.lastCount, group.lastMaterialIndex);
             }
+            // Trigger UV update
+            uvAttribute.needsUpdate = true;
+            // Assign actual materials
+            mesh.material = this._materialArray;
         });
         // Add quad positions, normals, and colors to buffers
         for(let quadIndex = 0; quadIndex < quads.length; quadIndex++){
@@ -598,18 +622,11 @@ export class MapGeometryBuilder {
                 1, 1, 1, // Upper right
             ], quadIndex * 18);
         }
-        // Create buffer attributes from the arrays
-        const vertexAttribute = new THREE.BufferAttribute(vertexBuffer, 3);
-        const normalAttribute = new THREE.BufferAttribute(normalBuffer, 3);
-        const uvAttribute = new THREE.BufferAttribute(uvBuffer, 2);
-        const colorAttribute = new THREE.BufferAttribute(colorBuffer, 3);
         // Create buffer geometry and assign attributes
         bufferGeometry.addAttribute("position", vertexAttribute);
         bufferGeometry.addAttribute("normal", normalAttribute);
         bufferGeometry.addAttribute("uv", uvAttribute);
         bufferGeometry.addAttribute("color", colorAttribute);
-        // const tmpMaterial = new THREE.MeshBasicMaterial({color: Math.floor(Math.random() * 0xffffff)});
-        const mesh = new THREE.Mesh(bufferGeometry, this._materialArray);
         return mesh;
     }
 }
