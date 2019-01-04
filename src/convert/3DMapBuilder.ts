@@ -319,7 +319,7 @@ export class MapGeometryBuilder {
         });
         // Make a new array with the sector edges sorted so that it is easier to construct polygons from them
         let curPolygon = 0;
-        const sectorPolygons: number[][][] = [[]];
+        const sectorPolygons: number[][][] = [[]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
         let otherVertexIndex = -1;
         for(let i = 0; i < sectorEdges.length; i++){
             let nextEdge = sectorEdges.find((edge) => {
@@ -347,7 +347,20 @@ export class MapGeometryBuilder {
             otherVertexIndex = nextEdge[1];
             sectorPolygons[curPolygon].push(nextEdge);
         }
-        /*
+        sectorPolygons.forEach((poly) => {
+            // Sort so that the second vertex of the current edge is the first vertex of the next edge
+            for(let curEdge = 0, nextEdge = curEdge + 1; nextEdge < poly.length; curEdge++, nextEdge++){
+                if(poly[curEdge][1] === poly[nextEdge][0]){
+                    continue; // Wanted results
+                }else if(poly[curEdge][0] === poly[nextEdge][1]){
+                    poly[curEdge].reverse(); // Opposite of wanted results
+                }
+                // This check is needed separately
+                if(poly[curEdge][0] === poly[nextEdge][0] || poly[curEdge][1] === poly[nextEdge][1]){
+                    poly[nextEdge].reverse();
+                }
+            }
+        });
         if(sector){ // Debug stuff
             console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
             let sectorPolygonsCombined: number[][] = [];
@@ -356,7 +369,6 @@ export class MapGeometryBuilder {
                 console.log("Sector polygons is not the same length as sectorLines or sectorEdges!", sectorLines, sectorEdges, sectorPolygons);
             }
         }
-        */
         return sectorPolygons;
     }
 
