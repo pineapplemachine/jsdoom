@@ -1,13 +1,13 @@
 import * as THREE from "three";
 
-type nil = null | undefined;
-
 import {WADFlat} from "@src/lumps/doom/flat";
 import {WADMap} from "@src/lumps/doom/map";
 import {WADMapLine} from "@src/lumps/doom/mapLines";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
 import {WADTexture} from "@src/lumps/doom/textures";
 import {TextureSet, TextureLibrary} from "@src/lumps/textureLibrary";
+
+type nil = null | undefined;
 
 // Absolute heights of each part of a side
 interface SidePartHeights {
@@ -320,25 +320,43 @@ export class MapGeometryBuilder {
         // Make a new array with the sector edges sorted so that it is easier to construct polygons from them
         let curPolygon = 0;
         const sectorPolygons: number[][][] = [[]];
+        let otherVertexIndex = -1;
         for(let i = 0; i < sectorEdges.length; i++){
-            let nextEdge = sectorEdges.find((edge) => edge[0] === nextVertexIndex);
-            if(nextEdge){
-                if(sectorPolygons[curPolygon].some((edge) => edge === nextEdge)){
-                    // Loop - time to find next polygon
-                    nextEdge = sectorEdges.find((edge) => !sectorPolygons[curPolygon].includes(edge));
-                    if(!nextEdge){
-                        break;
-                    }
-                    sectorPolygons.push([]);
-                    curPolygon += 1;
+            let nextEdge = sectorEdges.find((edge) => {
+                // Find 1 matching vertex index, and 1 vertex index that does not match
+                // Copy edge and reverse it to ensure the edge being checked isn't a duplicate
+                const reversedEdge = edge.slice().reverse();
+                if(sectorPolygons[curPolygon].includes(edge) || sectorPolygons[curPolygon].includes(reversedEdge)){
+                    return false;
                 }
-                nextVertexIndex = nextEdge[1];
-                sectorPolygons[curPolygon].push(nextEdge);
+                const match = edge.findIndex((vertex) => vertex === nextVertexIndex || vertex === otherVertexIndex);
+                const mismatch = match === 0 ? 1 : 0;
+                return (edge[match] === nextVertexIndex || edge[match] === otherVertexIndex) &&
+                    (edge[mismatch] !== nextVertexIndex || edge[mismatch] !== otherVertexIndex);
+            });
+            if(!nextEdge){
+                // No other edges found in the current polygon. Go to the next polygon.
+                nextEdge = sectorEdges.find((edge) => !sectorPolygons[curPolygon].includes(edge));
+                if(!nextEdge){
+                    break;
+                }
+                sectorPolygons.push([]);
+                curPolygon += 1;
+            }
+            nextVertexIndex = nextEdge[0];
+            otherVertexIndex = nextEdge[1];
+            sectorPolygons[curPolygon].push(nextEdge);
+        }
+        /*
+        if(sector){ // Debug stuff
+            console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
+            let sectorPolygonsCombined: number[][] = [];
+            sectorPolygons.forEach((poly) => sectorPolygonsCombined = sectorPolygonsCombined.concat(poly));
+            if(sectorPolygonsCombined.length !== sectorEdges.length){
+                console.log("Sector polygons is not the same length as sectorLines or sectorEdges!", sectorLines, sectorEdges, sectorPolygons);
             }
         }
-        if(sector){
-            console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
-        }
+        */
         return sectorPolygons;
     }
 
