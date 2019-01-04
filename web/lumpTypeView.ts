@@ -531,6 +531,28 @@ export const LumpTypeViewMap3D = function(
     options: Map3DOptions
 ): LumpTypeView {
     const fov: number = options.fov || 90;
+    // Pointer lock related stuff
+    let mouseController: ((event: MouseEvent) => void) | null = null;
+    const makeMouseController = (direction: THREE.Spherical): (event: MouseEvent) => void => {
+        mouseController = (event: MouseEvent) => {
+            direction.theta -= event.movementX / (180 / Math.PI);
+            direction.phi -= event.movementY / (180 / Math.PI);
+            direction.makeSafe();
+        };
+        return mouseController;
+    };
+    let hasPointerLock = false;
+    const lockPointer = () => {
+        if(!mouseController){
+            return;
+        }
+        if(hasPointerLock){
+            document.removeEventListener("mousemove", mouseController);
+        }else{
+            document.addEventListener("mousemove", mouseController);
+        }
+        hasPointerLock = !hasPointerLock;
+    };
     return new LumpTypeView({
         name: "Map (3D)",
         icon: "assets/icons/lump-map.png",
@@ -539,22 +561,27 @@ export const LumpTypeViewMap3D = function(
             if(!mapLump){
                 return;
             }
+            // Initialize map and texture library
             const map = lumps.WADMap.from(mapLump);
             const textureLibrary = dm.getTextureLibrary(mapLump);
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",
+                onleftclick: () => {
+                    // Lock pointer if user left-clicks on 3D view
+                    if(!hasPointerLock){
+                        canvas.requestPointerLock();
+                    }
+                },
                 appendTo: root,
             });
+            document.addEventListener("pointerlockchange", lockPointer);
+            // Initialize scene, renderer, and camera
             const scene = new THREE.Scene();
             const renderer = new THREE.WebGLRenderer({canvas, alpha: true});
             renderer.setSize(root.clientWidth, root.clientHeight);
             const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
-            const playerStart = map.getPlayerStart(1);
-            const playerAngle = playerStart ? playerStart.angle / (180 / Math.PI) : 0;
-            camera.position.set(playerStart ? playerStart.x : 0, 0, playerStart ? -playerStart.y : 0);
-            camera.rotation.y = playerAngle;
-            const directionSphere = new THREE.Spherical(1, 90 / (180 / Math.PI), playerAngle);
+            // Build map mesh
             const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
             const mesh = mapBuilder.rebuild();
             if(mesh != null){
@@ -562,43 +589,47 @@ export const LumpTypeViewMap3D = function(
                 scene.add(mesh);
                 scene.add(vnh);
             }
-            const controls = new KeyboardListener();
+            const keyboardControls = new KeyboardListener();
+            // Set viewpoint from player 1 start
+            const viewHead = new THREE.Object3D(); // Also for VR camera
+            const playerStart = map.getPlayerStart(1);
+            viewHead.position.set(playerStart ? playerStart.x : 0, 0, playerStart ? -playerStart.y : 0);
+            viewHead.add(camera);
+            scene.add(viewHead);
+            // Direction control
+            const playerAngle = playerStart ? playerStart.angle / (180 / Math.PI) : 0; // Player angle is 0-360 degrees
+            const directionSphere = new THREE.Spherical(1, 90 / (180 / Math.PI), playerAngle);
+            makeMouseController(directionSphere);
             const render = () => {
-                if(controls.keyState["ArrowUp"]){
-                    directionSphere.phi -= 2 / (180 / Math.PI);
+                // WASD controls - moves camera around
+                if(keyboardControls.keyState["w"]){
+                    viewHead.translateZ(-10); // Forward
                 }
-                if(controls.keyState["ArrowDown"]){
-                    directionSphere.phi += 2 / (180 / Math.PI);
+                if(keyboardControls.keyState["s"]){
+                    viewHead.translateZ(10); // Backward
                 }
-                if(controls.keyState["ArrowLeft"]){
-                    directionSphere.theta += 2 / (180 / Math.PI);
+                if(keyboardControls.keyState["a"]){
+                    viewHead.translateX(-10); // Left
                 }
-                if(controls.keyState["ArrowRight"]){
-                    directionSphere.theta -= 2 / (180 / Math.PI);
+                if(keyboardControls.keyState["d"]){
+                    viewHead.translateX(10); // Right
                 }
-                if(controls.keyState["w"]){
-                    camera.translateZ(-10);
-                }
-                if(controls.keyState["s"]){
-                    camera.translateZ(10);
-                }
-                if(controls.keyState["a"]){
-                    camera.translateX(-10);
-                }
-                if(controls.keyState["d"]){
-                    camera.translateX(10);
-                }
-                directionSphere.makeSafe();
+                // Set view head direction (for non-VR users)
+                // if(!VR){
                 const lookAtMe = new THREE.Vector3();
-                lookAtMe.setFromSpherical(directionSphere).add(camera.position);
-                camera.lookAt(lookAtMe);
+                lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
+                viewHead.lookAt(lookAtMe);
+                // }
+                // Render
                 camera.updateProjectionMatrix();
                 renderer.render(scene, camera);
             };
-            setInterval(() => requestAnimationFrame(render), (1 / 35) * 1000);
+            renderer.setAnimationLoop(render); // Needed for VR support
         },
-        clear: (lump: WADLump, root: HTMLElement) => {
-            //
+        clear: () => {
+            if(mouseController){
+                document.removeEventListener("mousemove", mouseController);
+            }
         }
     });
 };
