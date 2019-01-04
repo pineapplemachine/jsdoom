@@ -54,10 +54,10 @@ export class TextureLibrary {
         // Already indexed, so return it immediately
         if(this.textures[set][name] !== undefined){
             // A texture could missing from the texture lists and flat collections.
-            console.log(`Using cached ${set}[${name}]`);
+            console.log(`Using cached ${TextureSet[set]}[${name}]`);
             return this.textures[set][name];
         }
-        console.log(`${set}[${name}] is not in the library.`);
+        console.log(`${TextureSet[set]}[${name}] is not in the library.`);
         // Wall textures are defined in TEXTUREx list entries
         if(set === TextureSet.Walls){
             for(let textureListIndex = 1; textureListIndex <= 3; textureListIndex++){
