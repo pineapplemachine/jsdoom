@@ -137,6 +137,82 @@ interface SectorShape {
     color?: number;
 }
 
+// Represents a bounding box
+interface IBoundingBox {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+}
+
+enum BoundingBoxComparison {
+    Within, // This bounding box is within the other one
+    Contains, // This bounding box contains the other one
+    Outside, // This bounding box is outside the other one
+    Edge, // This bounding box is on the edge of the other one
+}
+
+// Class for convenient comparisons and operations for bounding boxes
+class BoundingBox implements IBoundingBox {
+    // Minimum/Maximum X/Y
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    constructor(minX: number, minY: number, maxX: number, maxY: number){
+        this.minX = minX;
+        this.minY = minY;
+        this.maxX = maxX;
+        this.maxY = maxY;
+    }
+
+    static from(vertices: THREE.Vector2[]): BoundingBox {
+        return getBoundingBox(vertices);
+    }
+
+    // Determine whether this bounding box is within the other one, or otherwise contains the other one.
+    compare(other: IBoundingBox): BoundingBoxComparison {
+        if(this.minX > other.minX && this.maxX < other.maxX && this.minY > other.minY && this.maxY < other.maxY){
+            return BoundingBoxComparison.Contains;
+        }else if(other.minX < this.minX && other.maxX > this.maxX && other.minY < this.minY && other.maxY > this.maxY){
+            return BoundingBoxComparison.Within;
+        }else if((this.minX < other.minX && this.maxX < other.maxX) || (this.minY < other.minY && this.maxY < other.maxY)){
+            return BoundingBoxComparison.Edge;
+        }else{
+            return BoundingBoxComparison.Outside;
+        }
+    }
+
+    // Get the area of this bounding box - very simple math
+    area(): number {
+        const width = this.maxX - this.minX;
+        const height = this.maxY - this.minY;
+        return width * height;
+    }
+}
+
+function getBoundingBox(vertices: THREE.Vector2[]): BoundingBox {
+    let minX = vertices[0].x;
+    let minY = vertices[0].y;
+    let maxX = vertices[0].x;
+    let maxY = vertices[0].y;
+    for(const vertex of vertices){
+        if(vertex.x < minX){
+            minX = vertex.x;
+        }
+        if(vertex.y < minY){
+            minY = vertex.y;
+        }
+        if(vertex.x > maxX){
+            maxX = vertex.x;
+        }
+        if(vertex.y > maxY){
+            maxY = vertex.y;
+        }
+    }
+    return new BoundingBox(minX, minY, maxX, maxY);
+}
+
 function isWadTexture(texture: WADTexture | WADFlat, set: TextureSet): texture is WADTexture {
     return set === TextureSet.Walls;
 }
@@ -303,7 +379,7 @@ export class MapGeometryBuilder {
     }
 
     // Turn a list of sector lines into a list of vertex indices
-    protected getVerticesFromLines(sectorLines: WADMapLine[], sector?: string): number[][][] {
+    protected getPolygonsFromLines(sectorLines: WADMapLine[], sector?: string): number[][][] {
         // Get sector edges
         const sectorEdges: number[][] = [];
         for(const line of sectorLines){
@@ -592,9 +668,21 @@ export class MapGeometryBuilder {
                 }
             }
         }
+        const totalSectorTriangleCount = 0;
+        /*
         for(const sector in sectorLines){
-            this.getVerticesFromLines(sectorLines[sector], sector);
+            const sectorPolygons = this.getPolygonsFromLines(sectorLines[sector], sector);
+            const sectorVertices = sectorPolygons.map((rawPolygon) => {
+                const polygonVertexIndices = rawPolygon.map((pair) => pair[0]); // Discard second vertex index
+                return polygonVertexIndices.map((vertexIndex) => {
+                    return new THREE.Vector2(vertices[vertexIndex].x, -vertices[vertexIndex].y);
+                });
+            });
+            const bboxes = sectorVertices.map((sectorPoly) => {
+                return getBoundingBox(sectorPoly);
+            });
         }
+        */
         // Quad triangle vertex indices are laid out like this:
         // 0 ----- 1
         // |     / |
@@ -606,19 +694,30 @@ export class MapGeometryBuilder {
         quads = quads.sort((a, b) => a.materialIndex - b.materialIndex);
         // Set up buffer geometry
         const bufferGeometry = new THREE.BufferGeometry();
-        // Set up buffers and attributes
         // 6 vertices per quad (3 per triangle)
+        const verticesPerQuad = 6;
         // 3 numbers per vertex (XYZ coordinates)
+        const coordinatesPerVertex = 3;
         // 2 numbers per UV coordinate (XY coordinates)
+        const coordinatesPerUV = 2;
         // 3 numbers per color (RGB channel values)
-        // TODO: Add flat polygons
-        const vertexBuffer = new Float32Array(quads.length * 3 * 6);
+        const componentsPerColor = 3;
+        // Set up buffers and attributes
+        const vertexBuffer = new Float32Array(
+            totalSectorTriangleCount * coordinatesPerVertex +
+            quads.length * verticesPerQuad * coordinatesPerVertex);
         const vertexAttribute = new THREE.BufferAttribute(vertexBuffer, 3);
-        const normalBuffer = new Float32Array(quads.length * 3 * 6);
+        const normalBuffer = new Float32Array(
+            totalSectorTriangleCount * coordinatesPerVertex +
+            quads.length * verticesPerQuad * coordinatesPerVertex);
         const normalAttribute = new THREE.BufferAttribute(normalBuffer, 3);
-        const uvBuffer = new Float32Array(quads.length * 2 * 6);
+        const uvBuffer = new Float32Array(
+            totalSectorTriangleCount * coordinatesPerUV +
+            quads.length * verticesPerQuad * coordinatesPerUV);
         const uvAttribute = new THREE.BufferAttribute(uvBuffer, 2);
-        const colorBuffer = new Float32Array(quads.length * 3 * 6);
+        const colorBuffer = new Float32Array(
+            totalSectorTriangleCount * componentsPerColor +
+            quads.length * verticesPerQuad * componentsPerColor);
         const colorAttribute = new THREE.BufferAttribute(colorBuffer, 3);
         // Create mesh with temporary material
         const tempMtl = new THREE.MeshBasicMaterial({color: Math.floor(Math.random() * 0xffffff), wireframe: true});
