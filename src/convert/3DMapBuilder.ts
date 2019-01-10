@@ -715,13 +715,11 @@ export class MapGeometryBuilder {
                 };
             });
             // Sort by area - I think this will make it faster to build the sector ceiling/floor triangles.
-            sectorPolygons.sort((polyA, polyB) => polyA.boundingBox.area() - polyB.boundingBox.area());
+            sectorPolygons.sort((polyA, polyB) => polyB.boundingBox.area() - polyA.boundingBox.area());
             // Find holes
             sectorPolygons.forEach((poly, polyIndex) => {
-                sectorPolygons.forEach((otherPoly, otherPolyIndex) => {
-                    if(otherPolyIndex === polyIndex){
-                        return;
-                    }
+                for(let otherPolyIndex = polyIndex + 1; otherPolyIndex < sectorPolygons.length; otherPolyIndex++){
+                    const otherPoly = sectorPolygons[otherPolyIndex];
                     const boundBoxComparison = poly.boundingBox.compare(otherPoly.boundingBox);
                     // I think another polygon can only be a hole if it is within the bounding box of another polygon
                     if(boundBoxComparison === BoundingBoxComparison.Contains){
@@ -739,7 +737,7 @@ export class MapGeometryBuilder {
                         }
                         */
                     }
-                });
+                }
             });
             // Number.parseInt is required because for..in uses strings and not numbers
             const mapSector = this.map.sectors.getSector(Number.parseInt(sector, 10));
@@ -843,7 +841,7 @@ export class MapGeometryBuilder {
                 }
             }
             // Assign UV coordinates to sectors
-            for(let triIndex = 0; triIndex < sectorTriangles.length; triIndex++){
+            for(let triIndex = 0; triIndex < totalSectorTriangleCount; triIndex++){
                 const triangle = sectorTriangles[triIndex];
                 if(triangle.materialIndex !== lastMaterialIndex){
                     groups.push({lastIndex, lastCount, lastMaterialIndex});
@@ -874,7 +872,7 @@ export class MapGeometryBuilder {
                     const vertexIndex = quadTriVerts[vertexIterIndex];
                     const texture = this._materialArray[quad.materialIndex].map;
                     const bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV +
-                        quadIndex * verticesPerQuad * coordinatesPerUV * vertexIterIndex);
+                        quadIndex * verticesPerQuad * coordinatesPerUV + vertexIterIndex * coordinatesPerUV);
                     if(texture != null){
                         uvBuffer.set(this.getQuadUVs(texture.image, vertexIndex, quad), bufferOffset);
                     }
@@ -883,11 +881,16 @@ export class MapGeometryBuilder {
             }
             // Add the last group
             groups.push({lastIndex, lastCount, lastMaterialIndex});
-            for(const group of groups){
-                bufferGeometry.addGroup(group.lastIndex, group.lastCount, group.lastMaterialIndex);
-            }
+            /*
             if(this._materialArray.length !== groups.length){
                 console.warn("Different numbers of materials and groups! The map will not be textured.");
+            }
+            if(lastIndex + lastCount !== totalSectorTriangleCount * verticesPerTriangle + wallQuads.length * verticesPerQuad){
+                console.warn("lastCount does not cover the whole mesh! The map will not be textured.");
+            }
+            */
+            for(const group of groups){
+                bufferGeometry.addGroup(group.lastIndex, group.lastCount, group.lastMaterialIndex);
             }
             // Trigger UV update
             uvAttribute.needsUpdate = true;
