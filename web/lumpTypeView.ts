@@ -56,7 +56,7 @@ class DataManager {
     }
 }
 
-const dm = new DataManager();
+const sharedDataManager = new DataManager();
 
 // Warn the user before previewing lumps this big
 export const BigLumpThreshold: number = 10000;
@@ -206,7 +206,7 @@ export const LumpTypeViewTextures = new LumpTypeView({
     icon: "assets/icons/lump-textures.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = dm.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.getWadFileList(lump);
         const textures = lumps.WADTextures.from(lump);
         const viewRoot = util.createElement({
             tag: "div",
@@ -255,7 +255,7 @@ export const LumpTypeViewFlatImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = dm.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.getWadFileList(lump);
         const flat: lumps.WADFlat = lumps.WADFlat.from(lump);
         return util.createElement({
             tag: "img",
@@ -271,7 +271,7 @@ export const LumpTypeViewPictureImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = dm.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.getWadFileList(lump);
         const picture: lumps.WADPicture = lumps.WADPicture.from(lump);
         return util.createElement({
             tag: "img",
@@ -563,7 +563,7 @@ export const LumpTypeViewMap3D = function(
             }
             // Initialize map and texture library
             const map = lumps.WADMap.from(mapLump);
-            const textureLibrary = dm.getTextureLibrary(mapLump);
+            const textureLibrary = sharedDataManager.getTextureLibrary(mapLump);
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",
@@ -772,7 +772,7 @@ export function LumpTypeViewColormapAll(scaleX: number = 2, scaleY: number = 2) 
         name: "Image",
         icon: "assets/icons/view-image.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const files = dm.getWadFileList(lump);
+            const files = sharedDataManager.getWadFileList(lump);
             const colormap: lumps.WADColorMap = lumps.WADColorMap.from(lump);
             const playpal: lumps.WADPalette = files.getPlaypal();
             // Set up canvas and rendering context
@@ -813,7 +813,7 @@ export function LumpTypeViewColormapByMap(
         name: "Colormap",
         icon: "assets/icons/lump-colormap.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const files = dm.getWadFileList(lump);
+            const files = sharedDataManager.getWadFileList(lump);
             const playpal = files.getPlaypal();
             const colormap = lumps.WADColorMap.from(lump);
             // Create a canvas element and a rendering context
