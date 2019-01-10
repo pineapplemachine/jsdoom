@@ -63,6 +63,12 @@ function getSideHeights(frontSector: WADMapSector, backSector: WADMapSector): Si
     };
 }
 
+// Any textured thing
+interface Textured {
+    // The index of the material for this thing
+    materialIndex: number;
+}
+
 // Mappable thing - image or quad
 interface Mappable {
     // The width of the quad/texture in map units
@@ -85,10 +91,7 @@ enum TextureAlignment {
 }
 
 // Generic 4-sided polygon
-interface Quad extends Mappable {
-    // The index of the material for this quad
-    materialIndex: number;
-}
+interface Quad extends Mappable, Textured {}
 
 // A quad on a line or side
 interface LineQuad extends Quad {
@@ -102,19 +105,41 @@ interface LineQuad extends Quad {
     endX: number;
     // Y of end vertex
     endY: number;
+    // NOTE: The following fields are for handling walls on sloped floors
+    // Absolute Z height of the bottom of the quad at the start vertex
+    // startBottomHeight: number;
+    // Absolute Z height of the top of the quad at the start vertex
+    // startTopHeight: number;
+    // Absolute Z height of the bottom of the quad at the end vertex
+    // endBottomHeight: number;
+    // Absolute Z height of the top of the quad at the end vertex
+    // endTopHeight: number;
     // Absolute Z height of the bottom of the quad
     bottomHeight: number;
     // Absolute Z height of the top of the quad
     topHeight: number;
+    // Sector light level
+    lightLevel?: THREE.Color;
     // Upper and lower vertex colors (for Doom 64 style lighting)
-    upperColor?: number;
-    lowerColor?: number;
+    upperColor?: THREE.Color;
+    lowerColor?: THREE.Color;
     // Whether scaled texture offsets are applied in world space or texel space
     worldPanning: boolean;
     // The X offset of the texture on the quad
     xOffset: number;
     // The Y offset of the texture on the quad
     yOffset: number;
+}
+
+interface SectorTriangle extends Textured {
+    // Sector light level, or floor/ceiling color
+    color: THREE.Color;
+    // Vertices that make this triangle
+    vertices: THREE.Vector2[];
+    // Absolute height
+    height: number;
+    // The triangle normal vector
+    normalVector: THREE.Vector3;
 }
 
 // A texture that may or may not be transparent. Transparent textures are rendered last.
@@ -167,7 +192,25 @@ class BoundingBox implements IBoundingBox {
     }
 
     static from(vertices: THREE.Vector2[]): BoundingBox {
-        return getBoundingBox(vertices);
+        let minX = vertices[0].x;
+        let minY = vertices[0].y;
+        let maxX = vertices[0].x;
+        let maxY = vertices[0].y;
+        for(const vertex of vertices){
+            if(vertex.x < minX){
+                minX = vertex.x;
+            }
+            if(vertex.y < minY){
+                minY = vertex.y;
+            }
+            if(vertex.x > maxX){
+                maxX = vertex.x;
+            }
+            if(vertex.y > maxY){
+                maxY = vertex.y;
+            }
+        }
+        return new BoundingBox(minX, minY, maxX, maxY);
     }
 
     // Determine whether this bounding box is within the other one, or otherwise contains the other one.
@@ -191,26 +234,13 @@ class BoundingBox implements IBoundingBox {
     }
 }
 
-function getBoundingBox(vertices: THREE.Vector2[]): BoundingBox {
-    let minX = vertices[0].x;
-    let minY = vertices[0].y;
-    let maxX = vertices[0].x;
-    let maxY = vertices[0].y;
-    for(const vertex of vertices){
-        if(vertex.x < minX){
-            minX = vertex.x;
-        }
-        if(vertex.y < minY){
-            minY = vertex.y;
-        }
-        if(vertex.x > maxX){
-            maxX = vertex.x;
-        }
-        if(vertex.y > maxY){
-            maxY = vertex.y;
-        }
-    }
-    return new BoundingBox(minX, minY, maxX, maxY);
+interface SectorPolygon {
+    // The 2D vertex coordinates for this polygon
+    vertices: THREE.Vector2[];
+    // The 2D coordinates for each vertex that is on a hole in the polygon
+    holeVertices: THREE.Vector2[];
+    // The bounding box for this polygon
+    boundingBox: BoundingBox;
 }
 
 function isWadTexture(texture: WADTexture | WADFlat, set: TextureSet): texture is WADTexture {
@@ -480,7 +510,7 @@ export class MapGeometryBuilder {
         // Map of sector indices to their respective shapes
         const sectorShapes: {[sector: number]: SectorShape} = {};
         // Array of quads - used for rendering walls
-        let quads: LineQuad[] = [];
+        let wallQuads: LineQuad[] = [];
         // Vertices
         const vertices = Array.from(this.map.enumerateVertexes());
         // Construct array of quads from lines and sides
@@ -499,7 +529,7 @@ export class MapGeometryBuilder {
                 // No back side
                 const lineHeight = frontSector.ceilingHeight - frontSector.floorHeight;
                 const lineTexture = this.getMaterialIndex(front.middle, TextureSet.Walls);
-                quads.push({
+                wallQuads.push({
                     width: lineLength,
                     height: lineHeight,
                     xOffset: front.x,
@@ -536,7 +566,7 @@ export class MapGeometryBuilder {
                         let midQuadBottom = midQuadTop - frontMidtex.height;
                         midQuadBottom = Math.max(heights.middleBottom, midQuadBottom);
                         const lineHeight = midQuadTop - midQuadBottom;
-                        quads.push({
+                        wallQuads.push({
                             width: lineLength,
                             height: lineHeight,
                             xOffset: front.x,
@@ -561,7 +591,7 @@ export class MapGeometryBuilder {
                         let midQuadBottom = midQuadTop - backMidtex.height;
                         midQuadBottom = Math.max(heights.middleBottom, midQuadBottom);
                         const lineHeight = midQuadTop - midQuadBottom;
-                        quads.push({
+                        wallQuads.push({
                             width: lineLength,
                             height: lineHeight,
                             xOffset: back.x,
@@ -580,7 +610,7 @@ export class MapGeometryBuilder {
                 }
                 if(heights.front.upperTop > heights.front.upperBottom){
                     // Upper quad on front side
-                    quads.push({
+                    wallQuads.push({
                         width: lineLength,
                         height: heights.front.upperTop - heights.front.upperBottom,
                         xOffset: front.x,
@@ -599,7 +629,7 @@ export class MapGeometryBuilder {
                 }
                 if(heights.front.lowerTop > heights.front.lowerBottom){
                     // Lower quad on front side
-                    quads.push({
+                    wallQuads.push({
                         width: lineLength,
                         height: heights.front.lowerTop - heights.front.lowerBottom,
                         xOffset: front.x,
@@ -618,7 +648,7 @@ export class MapGeometryBuilder {
                 }
                 if(heights.back.upperTop > heights.back.upperBottom){
                     // Upper quad on back side
-                    quads.push({
+                    wallQuads.push({
                         width: lineLength,
                         height: heights.back.upperTop - heights.back.upperBottom,
                         xOffset: back.x,
@@ -643,7 +673,7 @@ export class MapGeometryBuilder {
                 }
                 if(heights.back.lowerTop > heights.back.lowerBottom){
                     // Lower quad on back side
-                    quads.push({
+                    wallQuads.push({
                         width: lineLength,
                         height: heights.back.lowerTop - heights.back.lowerBottom,
                         xOffset: back.x,
@@ -668,21 +698,77 @@ export class MapGeometryBuilder {
                 }
             }
         }
-        const totalSectorTriangleCount = 0;
-        /*
+        let totalSectorTriangleCount = 0;
+        // Sector triangles - used for rendering sectors
+        const sectorTriangles: SectorTriangle[] = [];
         for(const sector in sectorLines){
-            const sectorPolygons = this.getPolygonsFromLines(sectorLines[sector], sector);
-            const sectorVertices = sectorPolygons.map((rawPolygon) => {
+            const sectorRawPolygons = this.getPolygonsFromLines(sectorLines[sector]);
+            const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map((rawPolygon) => {
                 const polygonVertexIndices = rawPolygon.map((pair) => pair[0]); // Discard second vertex index
-                return polygonVertexIndices.map((vertexIndex) => {
+                const polygonVertices = polygonVertexIndices.map((vertexIndex) => {
                     return new THREE.Vector2(vertices[vertexIndex].x, -vertices[vertexIndex].y);
                 });
+                return {
+                    vertices: polygonVertices,
+                    holeVertices: [],
+                    boundingBox: BoundingBox.from(polygonVertices),
+                };
             });
-            const bboxes = sectorVertices.map((sectorPoly) => {
-                return getBoundingBox(sectorPoly);
+            // Sort by area - I think this will make it faster to build the sector ceiling/floor triangles.
+            sectorPolygons.sort((polyA, polyB) => polyA.boundingBox.area() - polyB.boundingBox.area());
+            // Find holes
+            sectorPolygons.forEach((poly, polyIndex) => {
+                sectorPolygons.forEach((otherPoly, otherPolyIndex) => {
+                    if(otherPolyIndex === polyIndex){
+                        return;
+                    }
+                    const boundBoxComparison = poly.boundingBox.compare(otherPoly.boundingBox);
+                    // I think another polygon can only be a hole if it is within the bounding box of another polygon
+                    if(boundBoxComparison === BoundingBoxComparison.Contains){
+                        // Will this be too expensive?
+                        const isWithinPoly = otherPoly.vertices.some((point) => {
+                            return MapGeometryBuilder.pointInPolygon(point, poly.vertices);
+                        });
+                        if(isWithinPoly){
+                            poly.holeVertices = poly.holeVertices.concat(otherPoly.vertices);
+                        }
+                        /*
+                        const point = otherPoly.vertices[0];
+                        if(MapGeometryBuilder.pointInPolygon(point, poly.vertices)){
+                            poly.holeVertices = poly.holeVertices.concat(otherPoly.vertices);
+                        }
+                        */
+                    }
+                });
+            });
+            // Number.parseInt is required because for..in uses strings and not numbers
+            const mapSector = this.map.sectors.getSector(Number.parseInt(sector, 10));
+            const lightColor = new THREE.Color(`rgb(${mapSector.light},${mapSector.light},${mapSector.light})`);
+            sectorPolygons.forEach((poly) => {
+                const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holeVertices);
+                // triangulateShape returns an array of arrays of vertex indices
+                totalSectorTriangleCount += triangles.length * 2; // x2 for floor and ceiling
+                triangles.forEach((triangle) => {
+                    const triangleVertices = [];
+                    for(let triangleVertexIndex = 0; triangleVertexIndex < 3; triangleVertexIndex++){
+                        triangleVertices.push(poly.vertices[triangle[triangleVertexIndex]]);
+                    }
+                    sectorTriangles.push({ // Floor
+                        color: lightColor,
+                        vertices: triangleVertices,
+                        height: mapSector.floorHeight,
+                        materialIndex: this.getMaterialIndex(mapSector.floorFlat, TextureSet.Flats),
+                        normalVector: new THREE.Vector3(0, 1, 0),
+                    }, { // Ceiling
+                        color: lightColor,
+                        vertices: triangleVertices,
+                        height: mapSector.ceilingHeight,
+                        materialIndex: this.getMaterialIndex(mapSector.ceilingFlat, TextureSet.Flats),
+                        normalVector: new THREE.Vector3(0, -1, 0),
+                    });
+                });
             });
         }
-        */
         // Quad triangle vertex indices are laid out like this:
         // 0 ----- 1
         // |     / |
@@ -691,11 +777,13 @@ export class MapGeometryBuilder {
         // 2 ----- 3
         const quadTriVerts = [0, 1, 2, 3, 2, 1];
         // Sort quads by material number so that it is easy to group them
-        quads = quads.sort((a, b) => a.materialIndex - b.materialIndex);
+        wallQuads = wallQuads.sort((a, b) => a.materialIndex - b.materialIndex);
         // Set up buffer geometry
         const bufferGeometry = new THREE.BufferGeometry();
-        // 6 vertices per quad (3 per triangle)
+        // 6 vertices per quad
         const verticesPerQuad = 6;
+        // 3 vertices per triangle
+        const verticesPerTriangle = 3;
         // 3 numbers per vertex (XYZ coordinates)
         const coordinatesPerVertex = 3;
         // 2 numbers per UV coordinate (XY coordinates)
@@ -704,24 +792,25 @@ export class MapGeometryBuilder {
         const componentsPerColor = 3;
         // Set up buffers and attributes
         const vertexBuffer = new Float32Array(
-            totalSectorTriangleCount * coordinatesPerVertex +
-            quads.length * verticesPerQuad * coordinatesPerVertex);
+            totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex +
+            wallQuads.length * verticesPerQuad * coordinatesPerVertex);
         const vertexAttribute = new THREE.BufferAttribute(vertexBuffer, 3);
         const normalBuffer = new Float32Array(
-            totalSectorTriangleCount * coordinatesPerVertex +
-            quads.length * verticesPerQuad * coordinatesPerVertex);
+            totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex +
+            wallQuads.length * verticesPerQuad * coordinatesPerVertex);
         const normalAttribute = new THREE.BufferAttribute(normalBuffer, 3);
         const uvBuffer = new Float32Array(
-            totalSectorTriangleCount * coordinatesPerUV +
-            quads.length * verticesPerQuad * coordinatesPerUV);
+            totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV +
+            wallQuads.length * verticesPerQuad * coordinatesPerUV);
         const uvAttribute = new THREE.BufferAttribute(uvBuffer, 2);
         const colorBuffer = new Float32Array(
-            totalSectorTriangleCount * componentsPerColor +
-            quads.length * verticesPerQuad * componentsPerColor);
+            totalSectorTriangleCount * verticesPerTriangle * componentsPerColor +
+            wallQuads.length * verticesPerQuad * componentsPerColor);
         const colorAttribute = new THREE.BufferAttribute(colorBuffer, 3);
         // Create mesh with temporary material
-        const tempMtl = new THREE.MeshBasicMaterial({color: Math.floor(Math.random() * 0xffffff), wireframe: true});
-        const mesh = new THREE.Mesh(bufferGeometry, tempMtl);
+        const tempMaterialColor = new THREE.Color(`hsl(${Math.floor(Math.random() * 360)}, 100%, 50%)`);
+        const tempMaterial = new THREE.MeshBasicMaterial({color: tempMaterialColor.getHex(), wireframe: true});
+        const mesh = new THREE.Mesh(bufferGeometry, tempMaterial);
         // Once all of the textures for the materials have been loaded, recalculate the UV coordinates.
         Promise.all(this._materialPromises).then(() => {
             // Set up group data - used by GeometryBuffer to assign multiple materials
@@ -742,43 +831,94 @@ export class MapGeometryBuilder {
                     newMaterialIndices[mtlIndex] = this._materialArray.findIndex(
                         (v) => v === materialArray[mtlIndex]);
                 }
+                // Assign new material indices to sector triangles
+                for(let triIndex = 0; triIndex < sectorTriangles.length; triIndex++){
+                    const oldMaterialIndex = sectorTriangles[triIndex].materialIndex;
+                    sectorTriangles[triIndex].materialIndex = newMaterialIndices[oldMaterialIndex];
+                }
                 // Assign new material indices to quads
-                for(let quadIndex = 0; quadIndex < quads.length; quadIndex++){
-                    const oldMaterialIndex = quads[quadIndex].materialIndex;
-                    quads[quadIndex].materialIndex = newMaterialIndices[oldMaterialIndex];
+                for(let quadIndex = 0; quadIndex < wallQuads.length; quadIndex++){
+                    const oldMaterialIndex = wallQuads[quadIndex].materialIndex;
+                    wallQuads[quadIndex].materialIndex = newMaterialIndices[oldMaterialIndex];
                 }
             }
-            for(let quadIndex = 0; quadIndex < quads.length; quadIndex++){
-                const quad = quads[quadIndex];
+            // Assign UV coordinates to sectors
+            for(let triIndex = 0; triIndex < sectorTriangles.length; triIndex++){
+                const triangle = sectorTriangles[triIndex];
+                if(triangle.materialIndex !== lastMaterialIndex){
+                    groups.push({lastIndex, lastCount, lastMaterialIndex});
+                    lastIndex += lastCount;
+                    lastCount = 0;
+                    lastMaterialIndex = triangle.materialIndex;
+                }
+                for (let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++) {
+                    const vertex = triangle.vertices[vertexIndex];
+                    const bufferOffset = (triIndex * verticesPerTriangle * coordinatesPerUV +
+                        vertexIndex * coordinatesPerUV);
+                    uvBuffer.set(this.getSectorVertexUVs(vertex), bufferOffset);
+                }
+                lastCount += verticesPerTriangle;
+            }
+            // Assign UV coordinates to quads
+            for(let quadIndex = 0; quadIndex < wallQuads.length; quadIndex++){
+                const quad = wallQuads[quadIndex];
                 if(quad.materialIndex !== lastMaterialIndex){
                     // Add another group, since the material index changed
                     groups.push({lastIndex, lastCount, lastMaterialIndex});
-                    lastIndex = lastIndex + lastCount;
+                    lastIndex += lastCount;
                     lastCount = 0;
                     lastMaterialIndex = quad.materialIndex;
                 }
+                // Calculate/assign UV coordinates for quads
                 for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++) {
                     const vertexIndex = quadTriVerts[vertexIterIndex];
                     const texture = this._materialArray[quad.materialIndex].map;
+                    const bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV +
+                        quadIndex * verticesPerQuad * coordinatesPerUV * vertexIterIndex);
                     if(texture != null){
-                        uvBuffer.set(this.getQuadUVs(texture.image, vertexIndex, quad), quadIndex * 12 + 2 * vertexIterIndex);
+                        uvBuffer.set(this.getQuadUVs(texture.image, vertexIndex, quad), bufferOffset);
                     }
                 }
-                lastCount += 6;
+                lastCount += verticesPerQuad;
             }
             // Add the last group
             groups.push({lastIndex, lastCount, lastMaterialIndex});
             for(const group of groups){
                 bufferGeometry.addGroup(group.lastIndex, group.lastCount, group.lastMaterialIndex);
             }
+            if(this._materialArray.length !== groups.length){
+                console.warn("Different numbers of materials and groups! The map will not be textured.");
+            }
             // Trigger UV update
             uvAttribute.needsUpdate = true;
             // Assign actual materials
             mesh.material = this._materialArray;
         });
+        // Add sector polygon positions, normals, and colors to buffers
+        for(let triIndex = 0; triIndex < totalSectorTriangleCount; triIndex++){
+            let bufferOffset: number;
+            const height = sectorTriangles[triIndex].height;
+            const light = sectorTriangles[triIndex].color;
+            for(let vertexIndex = 0; vertexIndex < sectorTriangles[triIndex].vertices.length; vertexIndex++){
+                const vertex = sectorTriangles[triIndex].vertices[vertexIndex];
+                const normal = sectorTriangles[triIndex].normalVector;
+                bufferOffset = triIndex * verticesPerTriangle * coordinatesPerVertex + vertexIndex * coordinatesPerVertex;
+                vertexBuffer.set([
+                    vertex.x, height, vertex.y,
+                ], bufferOffset);
+                normalBuffer.set([
+                    normal.x, normal.y, normal.z,
+                ], bufferOffset);
+                colorBuffer.set([
+                    light.r, light.g, light.b,
+                ], bufferOffset);
+            }
+        }
         // Add quad positions, normals, and colors to buffers
-        for(let quadIndex = 0; quadIndex < quads.length; quadIndex++){
-            const quad = quads[quadIndex];
+        for(let quadIndex = 0; quadIndex < wallQuads.length; quadIndex++){
+            let bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex +
+                quadIndex * verticesPerQuad * coordinatesPerVertex);
+            const quad = wallQuads[quadIndex];
             vertexBuffer.set([
                 quad.startX, quad.topHeight, quad.startY, // Upper left
                 quad.endX, quad.topHeight, quad.endY, // Upper right
@@ -786,11 +926,13 @@ export class MapGeometryBuilder {
                 quad.endX, quad.bottomHeight, quad.endY, // Lower right
                 quad.startX, quad.bottomHeight, quad.startY, // Lower left
                 quad.endX, quad.topHeight, quad.endY, // Upper right
-            ], quadIndex * 18);
+            ], bufferOffset);
             const normal = new THREE.Vector2(quad.startX, quad.startY);
             normal.sub(new THREE.Vector2(quad.endX, quad.endY));
             normal.normalize();
             normal.rotateAround(new THREE.Vector2(0, 0), -90 / (180 / Math.PI));
+            bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex +
+                quadIndex * verticesPerQuad * coordinatesPerVertex);
             normalBuffer.set([
                 normal.x, 0, normal.y, // Upper left
                 normal.x, 0, normal.y, // Upper right
@@ -798,7 +940,9 @@ export class MapGeometryBuilder {
                 normal.x, 0, normal.y, // Lower right
                 normal.x, 0, normal.y, // Lower left
                 normal.x, 0, normal.y, // Upper right
-            ], quadIndex * 18);
+            ], bufferOffset);
+            bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * componentsPerColor +
+                quadIndex * verticesPerQuad * componentsPerColor);
             colorBuffer.set([
                 1, 1, 1, // Upper left
                 1, 1, 1, // Upper right
@@ -806,7 +950,7 @@ export class MapGeometryBuilder {
                 1, 1, 1, // Lower right
                 1, 1, 1, // Lower left
                 1, 1, 1, // Upper right
-            ], quadIndex * 18);
+            ], bufferOffset);
         }
         // Create buffer geometry and assign attributes
         bufferGeometry.addAttribute("position", vertexAttribute);
