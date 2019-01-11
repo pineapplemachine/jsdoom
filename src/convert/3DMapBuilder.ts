@@ -1,6 +1,5 @@
 import * as THREE from "three";
 
-import {WADFlat} from "@src/lumps/doom/flat";
 import {WADMap} from "@src/lumps/doom/map";
 import {WADMapLine} from "@src/lumps/doom/mapLines";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
@@ -711,8 +710,10 @@ export class MapGeometryBuilder {
             sectorPolygons.sort((polyA, polyB) => polyB.boundingBox.area() - polyA.boundingBox.area());
             // Find holes
             sectorPolygons.forEach((poly, polyIndex) => {
-                for(let otherPolyIndex = polyIndex + 1; otherPolyIndex < sectorPolygons.length; otherPolyIndex++){
-                    const otherPoly = sectorPolygons[otherPolyIndex];
+                sectorPolygons.forEach((otherPoly, otherPolyIndex) => {
+                    if(polyIndex === otherPolyIndex){
+                        return;
+                    }
                     const boundBoxComparison = poly.boundingBox.compare(otherPoly.boundingBox);
                     // I think another polygon can only be a hole if it is within the bounding box of another polygon
                     if(boundBoxComparison === BoundingBoxComparison.Contains){
@@ -730,7 +731,7 @@ export class MapGeometryBuilder {
                         }
                         */
                     }
-                }
+                });
             });
             // Number.parseInt is required because for..in uses strings and not numbers
             const mapSector = this.map.sectors.getSector(Number.parseInt(sector, 10));
