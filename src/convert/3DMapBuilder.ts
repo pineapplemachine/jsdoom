@@ -128,6 +128,8 @@ interface LineQuad extends Quad {
     xOffset: number;
     // The Y offset of the texture on the quad
     yOffset: number;
+    // Whether or not to reverse the order of the vertices so as to make the face point in the right direction
+    reverse: boolean;
 }
 
 interface SectorTriangle extends Textured {
@@ -523,6 +525,7 @@ export class MapGeometryBuilder {
                     alignment: line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                     worldPanning: true,
                     lightLevel: frontLight,
+                    reverse: false,
                 });
             }else{
                 back = this.map.sides.getSide(line.backSidedef);
@@ -562,6 +565,7 @@ export class MapGeometryBuilder {
                             alignment: TextureAlignment.None,
                             worldPanning: frontMidtex.worldPanning,
                             lightLevel: backLight,
+                            reverse: false,
                         });
                     }
                     if(backMidtex != null){
@@ -588,6 +592,7 @@ export class MapGeometryBuilder {
                             alignment: TextureAlignment.None,
                             worldPanning: backMidtex.worldPanning,
                             lightLevel: backLight,
+                            reverse: true,
                         });
                     }
                 }
@@ -609,6 +614,7 @@ export class MapGeometryBuilder {
                             TextureAlignment.UpperUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
                         lightLevel: frontLight,
+                        reverse: false,
                     });
                 }
                 if(heights.front.lowerTop > heights.front.lowerBottom){
@@ -629,6 +635,7 @@ export class MapGeometryBuilder {
                             TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
                         lightLevel: frontLight,
+                        reverse: false,
                     });
                 }
                 if(heights.back.upperTop > heights.back.upperBottom){
@@ -655,6 +662,7 @@ export class MapGeometryBuilder {
                             TextureAlignment.UpperUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
                         lightLevel: backLight,
+                        reverse: false,
                     });
                 }
                 if(heights.back.lowerTop > heights.back.lowerBottom){
@@ -681,6 +689,7 @@ export class MapGeometryBuilder {
                             TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
                         lightLevel: backLight,
+                        reverse: false,
                     });
                 }
             }
@@ -861,7 +870,8 @@ export class MapGeometryBuilder {
                 }
                 // Calculate/assign UV coordinates for quads
                 for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++) {
-                    const vertexIndex = quadTriVerts[vertexIterIndex];
+                    const actualVertexIterIndex = quad.reverse ? 6 - vertexIterIndex - 1 : vertexIterIndex;
+                    const vertexIndex = quadTriVerts[actualVertexIterIndex];
                     const texture = this._materialArray[quad.materialIndex].map;
                     const bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV +
                         quadIndex * verticesPerQuad * coordinatesPerUV + vertexIterIndex * coordinatesPerUV);
@@ -916,14 +926,25 @@ export class MapGeometryBuilder {
             let bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex +
                 quadIndex * verticesPerQuad * coordinatesPerVertex);
             const quad = wallQuads[quadIndex];
-            vertexBuffer.set([
-                quad.startX, quad.topHeight, quad.startY, // Upper left
-                quad.startX, quad.bottomHeight, quad.startY, // Lower left
-                quad.endX, quad.topHeight, quad.endY, // Upper right
-                quad.endX, quad.bottomHeight, quad.endY, // Lower right
-                quad.endX, quad.topHeight, quad.endY, // Upper right
-                quad.startX, quad.bottomHeight, quad.startY, // Lower left
-            ], bufferOffset);
+            if(!quad.reverse){
+                vertexBuffer.set([
+                    quad.startX, quad.topHeight, quad.startY, // Upper left
+                    quad.startX, quad.bottomHeight, quad.startY, // Lower left
+                    quad.endX, quad.topHeight, quad.endY, // Upper right
+                    quad.endX, quad.bottomHeight, quad.endY, // Lower right
+                    quad.endX, quad.topHeight, quad.endY, // Upper right
+                    quad.startX, quad.bottomHeight, quad.startY, // Lower left
+                ], bufferOffset);
+            }else{
+                vertexBuffer.set([
+                    quad.endX, quad.topHeight, quad.endY, // Upper right
+                    quad.startX, quad.bottomHeight, quad.startY, // Lower left
+                    quad.startX, quad.topHeight, quad.startY, // Upper left
+                    quad.startX, quad.bottomHeight, quad.startY, // Lower left
+                    quad.endX, quad.topHeight, quad.endY, // Upper right
+                    quad.endX, quad.bottomHeight, quad.endY, // Lower right
+                ], bufferOffset);
+            }
             const normal = new THREE.Vector2(quad.startX, quad.startY);
             normal.sub(new THREE.Vector2(quad.endX, quad.endY));
             normal.normalize();
