@@ -118,10 +118,10 @@ interface LineQuad extends Quad {
     // Absolute Z height of the top of the quad
     topHeight: number;
     // Sector light level
-    lightLevel?: THREE.Color;
+    lightLevel: THREE.Color;
     // Upper and lower vertex colors (for Doom 64 style lighting)
-    upperColor?: THREE.Color;
-    lowerColor?: THREE.Color;
+    // upperColor?: THREE.Color;
+    // lowerColor?: THREE.Color;
     // Whether scaled texture offsets are applied in world space or texel space
     worldPanning: boolean;
     // The X offset of the texture on the quad
@@ -147,18 +147,6 @@ interface TransparentTexture {
     texture: THREE.Texture;
     // Whether or not this texture is transparent
     transparent: boolean;
-}
-
-// Used to construct 3D geometry for sector floors and ceilings
-interface SectorShape {
-    // The sector index this shape is for
-    sector: number;
-    // The sector's shape
-    shape: THREE.Shape;
-    // The material index for this shape
-    materialIndex: number;
-    // The color of this shape (for Doom 64 style lighting)
-    color?: number;
 }
 
 // Represents a bounding box
@@ -497,10 +485,6 @@ export class MapGeometryBuilder {
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){ return null; }
         // Map of sector indices to lines that form that sector
         const sectorLines: {[sector: number]: WADMapLine[]} = {};
-        // Map of sector indices to contiguous lines that form that sector
-        const contiguousLines: {[sector: number]: number[][]} = {};
-        // Map of sector indices to their respective shapes
-        const sectorShapes: {[sector: number]: SectorShape} = {};
         // Array of quads - used for rendering walls
         let wallQuads: LineQuad[] = [];
         // Vertices
@@ -509,6 +493,7 @@ export class MapGeometryBuilder {
         for(const line of this.map.enumerateLines()){ // All lines are made of 1-3 quads
             const front = this.map.sides.getSide(line.frontSidedef);
             const frontSector = this.map.sectors.getSector(front.sector);
+            const frontLight = new THREE.Color(`rgb(${frontSector.light}, ${frontSector.light}, ${frontSector.light})`);
             if(sectorLines[front.sector] == null){
                 sectorLines[front.sector] = [];
             }
@@ -535,10 +520,12 @@ export class MapGeometryBuilder {
                     topHeight: frontSector.ceilingHeight,
                     alignment: line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                     worldPanning: true,
+                    lightLevel: frontLight,
                 });
             }else{
                 back = this.map.sides.getSide(line.backSidedef);
                 const backSector = this.map.sectors.getSector(back.sector);
+                const backLight = new THREE.Color(`rgb(${backSector.light}, ${backSector.light}, ${backSector.light})`);
                 if(sectorLines[back.sector] == null){
                     sectorLines[back.sector] = [];
                 }
@@ -572,6 +559,7 @@ export class MapGeometryBuilder {
                             topHeight: midQuadTop,
                             alignment: TextureAlignment.None,
                             worldPanning: frontMidtex.worldPanning,
+                            lightLevel: backLight,
                         });
                     }
                     if(backMidtex != null){
@@ -597,6 +585,7 @@ export class MapGeometryBuilder {
                             topHeight: midQuadTop,
                             alignment: TextureAlignment.None,
                             worldPanning: backMidtex.worldPanning,
+                            lightLevel: backLight,
                         });
                     }
                 }
@@ -617,6 +606,7 @@ export class MapGeometryBuilder {
                         alignment: line.upperUnpeggedFlag ?
                             TextureAlignment.UpperUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
+                        lightLevel: frontLight,
                     });
                 }
                 if(heights.front.lowerTop > heights.front.lowerBottom){
@@ -636,6 +626,7 @@ export class MapGeometryBuilder {
                         alignment: line.lowerUnpeggedFlag ?
                             TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
+                        lightLevel: frontLight,
                     });
                 }
                 if(heights.back.upperTop > heights.back.upperBottom){
@@ -661,6 +652,7 @@ export class MapGeometryBuilder {
                         alignment: line.upperUnpeggedFlag ?
                             TextureAlignment.UpperUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
+                        lightLevel: backLight,
                     });
                 }
                 if(heights.back.lowerTop > heights.back.lowerBottom){
@@ -686,6 +678,7 @@ export class MapGeometryBuilder {
                         alignment: line.lowerUnpeggedFlag ?
                             TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
+                        lightLevel: backLight,
                     });
                 }
             }
@@ -941,12 +934,12 @@ export class MapGeometryBuilder {
             bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * componentsPerColor +
                 quadIndex * verticesPerQuad * componentsPerColor);
             colorBuffer.set([
-                1, 1, 1, // Upper left
-                1, 1, 1, // Upper right
-                1, 1, 1, // Lower left
-                1, 1, 1, // Lower right
-                1, 1, 1, // Lower left
-                1, 1, 1, // Upper right
+                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper left
+                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper right
+                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Lower left
+                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Lower right
+                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Lower left
+                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper right
             ], bufferOffset);
         }
         // Create buffer geometry and assign attributes
