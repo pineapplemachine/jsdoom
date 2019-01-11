@@ -5,7 +5,7 @@ import {WADMap} from "@src/lumps/doom/map";
 import {WADMapLine} from "@src/lumps/doom/mapLines";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
 import {WADTexture} from "@src/lumps/doom/textures";
-import {TextureSet, TextureLibrary} from "@src/lumps/textureLibrary";
+import {TextureSet, TextureLibrary, isWadFlat, isWadTexture} from "@src/lumps/textureLibrary";
 
 type nil = null | undefined;
 
@@ -241,13 +241,6 @@ interface SectorPolygon {
     holeVertices: THREE.Vector2[];
     // The bounding box for this polygon
     boundingBox: BoundingBox;
-}
-
-function isWadTexture(texture: WADTexture | WADFlat, set: TextureSet): texture is WADTexture {
-    return set === TextureSet.Walls;
-}
-function isWadFlat(texture: WADTexture | WADFlat, set: TextureSet): texture is WADFlat {
-    return set === TextureSet.Flats;
 }
 
 // This class takes map data, and creates a 3D mesh from it.

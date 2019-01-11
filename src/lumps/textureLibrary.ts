@@ -9,6 +9,13 @@ export enum TextureSet {
     Flats,
 }
 
+export function isWadTexture(texture: WADTexture | WADFlat, set: TextureSet): texture is WADTexture {
+    return set === TextureSet.Walls;
+}
+export function isWadFlat(texture: WADTexture | WADFlat, set: TextureSet): texture is WADFlat {
+    return set === TextureSet.Flats;
+}
+
 export class TextureLibrary {
     // The textures themselves
     protected textures: {
@@ -68,8 +75,8 @@ export class TextureLibrary {
                     const texture = texList.getTextureByName(name);
                     if(texture){
                         this.textures[set][name] = texture;
-                        this.transparent[set][name] = texture.isTransparent(this.fileList);
-                        this.rgba[set][name] = texture.getPixelDataRGBA(this.fileList);
+                        // this.transparent[set][name] = texture.isTransparent(this.fileList);
+                        // this.rgba[set][name] = texture.getPixelDataRGBA(this.fileList);
                         return texture;
                     }
                 }
@@ -87,8 +94,8 @@ export class TextureLibrary {
                     }
                     const flat = WADFlat.from(flatLump);
                     this.textures[set][name] = WADFlat.from(flatLump);
-                    this.transparent[set][name] = false;
-                    this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
+                    // this.transparent[set][name] = false;
+                    // this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
                     if(flatLump.name === name){
                         return this.textures[set][name];
                     }
@@ -107,8 +114,8 @@ export class TextureLibrary {
                         }
                         const flat = WADFlat.from(flatLump);
                         this.textures[set][name] = flat;
-                        this.transparent[set][name] = false;
-                        this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
+                        // this.transparent[set][name] = false;
+                        // this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
                         if(flatLump.name === name){
                             return this.textures[set][name];
                         }
@@ -121,14 +128,41 @@ export class TextureLibrary {
         this.rgba[set][name] = null;
         return null;
     }
-    isTransparent(name: string, set: TextureSet){
-        // This value is set when the texture is added, and this method is
-        // usually called after a texture is added.
+    isTransparent(name: string, set: TextureSet): boolean {
+        // Lazily get whether or not the texture is transparent
+        if(this.transparent[set][name]){
+            return this.transparent[set][name]!;
+        }
+        this.transparent[set][name] = false;
+        const texture = this.textures[set][name];
+        if(texture && isWadTexture(texture, set)){
+            const rgbaData = texture.getPixelDataRGBA(this.fileList);
+            this.rgba[set][name] = rgbaData;
+            for(let alphaOffset = 3; alphaOffset < rgbaData.length; alphaOffset += 4){
+                const alpha = rgbaData.readInt8(alphaOffset);
+                if(alpha < 255){
+                    this.transparent[set][name] = true;
+                    break;
+                }
+            }
+        }
+        // Flats cannot be transparent
         return this.transparent[set][name] || false;
     }
     getRgba(name: string, set: TextureSet): Buffer | null {
-        // The RGBA data is cached when a texture is added.
-        return this.rgba[set][name] || null;
+        // Lazily get the RGBA data for a texture
+        if(this.rgba[set][name]){
+            return this.rgba[set][name];
+        }
+        const texture = this.textures[set][name];
+        if(texture && isWadTexture(texture, set)){
+            this.rgba[set][name] = texture.getPixelDataRGBA(this.fileList);
+            return this.rgba[set][name];
+        }else if(texture && isWadFlat(texture, set)){
+            this.rgba[set][name] = texture.getPixelDataRGBA(this.fileList.getColors());
+            return this.rgba[set][name];
+        }
+        return null;
     }
 }
 
