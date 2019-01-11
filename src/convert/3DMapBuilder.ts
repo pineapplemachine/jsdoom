@@ -139,6 +139,8 @@ interface SectorTriangle extends Textured {
     height: number;
     // The triangle normal vector
     normalVector: THREE.Vector3;
+    // Whether the triangle's vertices should be reversed so as to point inwards
+    reverse: boolean;
 }
 
 // A texture that may or may not be transparent. Transparent textures are rendered last.
@@ -306,7 +308,7 @@ export class MapGeometryBuilder {
             // First, create the material.
             const material = new THREE.MeshBasicMaterial({
                 name: texName,
-                side: THREE.DoubleSide,
+                side: THREE.FrontSide,
             });
             material.transparent = true;
             material.vertexColors = THREE.VertexColors;
@@ -744,12 +746,14 @@ export class MapGeometryBuilder {
                         height: mapSector.floorHeight,
                         materialIndex: this.getMaterialIndex(mapSector.floorFlat, TextureSet.Flats),
                         normalVector: new THREE.Vector3(0, 1, 0),
+                        reverse: true,
                     }, { // Ceiling
                         color: lightColor,
                         vertices: triangleVertices,
                         height: mapSector.ceilingHeight,
                         materialIndex: this.getMaterialIndex(mapSector.ceilingFlat, TextureSet.Flats),
                         normalVector: new THREE.Vector3(0, -1, 0),
+                        reverse: false,
                     });
                 });
             });
@@ -760,7 +764,7 @@ export class MapGeometryBuilder {
         // |   /   |
         // | /     |
         // 2 ----- 3
-        const quadTriVerts = [0, 1, 2, 3, 2, 1];
+        const quadTriVerts = [0, 2, 1, 3, 1, 2];
         // Sort quads by material number so that it is easy to group them
         wallQuads = wallQuads.sort((a, b) => a.materialIndex - b.materialIndex);
         // Set up buffer geometry
@@ -837,7 +841,8 @@ export class MapGeometryBuilder {
                     lastMaterialIndex = triangle.materialIndex;
                 }
                 for (let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++) {
-                    const vertex = triangle.vertices[vertexIndex];
+                    const actualVertexIndex = triangle.reverse ? triangle.vertices.length - vertexIndex - 1 : vertexIndex;
+                    const vertex = triangle.vertices[actualVertexIndex];
                     const bufferOffset = (triIndex * verticesPerTriangle * coordinatesPerUV +
                         vertexIndex * coordinatesPerUV);
                     uvBuffer.set(this.getSectorVertexUVs(vertex), bufferOffset);
@@ -887,11 +892,13 @@ export class MapGeometryBuilder {
         // Add sector polygon positions, normals, and colors to buffers
         for(let triIndex = 0; triIndex < totalSectorTriangleCount; triIndex++){
             let bufferOffset: number;
-            const height = sectorTriangles[triIndex].height;
-            const light = sectorTriangles[triIndex].color;
-            for(let vertexIndex = 0; vertexIndex < sectorTriangles[triIndex].vertices.length; vertexIndex++){
-                const vertex = sectorTriangles[triIndex].vertices[vertexIndex];
-                const normal = sectorTriangles[triIndex].normalVector;
+            const triangle = sectorTriangles[triIndex];
+            const height = triangle.height;
+            const light = triangle.color;
+            for(let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++){
+                const actualVertexIndex = triangle.reverse ? triangle.vertices.length - vertexIndex - 1 : vertexIndex;
+                const vertex = triangle.vertices[actualVertexIndex];
+                const normal = triangle.normalVector;
                 bufferOffset = triIndex * verticesPerTriangle * coordinatesPerVertex + vertexIndex * coordinatesPerVertex;
                 vertexBuffer.set([
                     vertex.x, height, vertex.y,
@@ -911,11 +918,11 @@ export class MapGeometryBuilder {
             const quad = wallQuads[quadIndex];
             vertexBuffer.set([
                 quad.startX, quad.topHeight, quad.startY, // Upper left
-                quad.endX, quad.topHeight, quad.endY, // Upper right
                 quad.startX, quad.bottomHeight, quad.startY, // Lower left
+                quad.endX, quad.topHeight, quad.endY, // Upper right
                 quad.endX, quad.bottomHeight, quad.endY, // Lower right
-                quad.startX, quad.bottomHeight, quad.startY, // Lower left
                 quad.endX, quad.topHeight, quad.endY, // Upper right
+                quad.startX, quad.bottomHeight, quad.startY, // Lower left
             ], bufferOffset);
             const normal = new THREE.Vector2(quad.startX, quad.startY);
             normal.sub(new THREE.Vector2(quad.endX, quad.endY));
