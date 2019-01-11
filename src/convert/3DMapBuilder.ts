@@ -206,7 +206,7 @@ class BoundingBox implements IBoundingBox {
 
     // Determine whether this bounding box is within the other one, or otherwise contains the other one.
     compare(other: IBoundingBox): BoundingBoxComparison {
-        if(this.minX > other.minX && this.maxX < other.maxX && this.minY > other.minY && this.maxY < other.maxY){
+        if(this.minX < other.minX && this.maxX > other.maxX && this.minY < other.minY && this.maxY > other.maxY){
             return BoundingBoxComparison.Contains;
         }else if(other.minX < this.minX && other.maxX > this.maxX && other.minY < this.minY && other.maxY > this.maxY){
             return BoundingBoxComparison.Within;
@@ -226,12 +226,14 @@ class BoundingBox implements IBoundingBox {
 }
 
 interface SectorPolygon {
-    // The 2D vertex coordinates for this polygon
+    // The 2D vertex coordinates of the contour of this polygon
     vertices: THREE.Vector2[];
-    // The 2D coordinates for each vertex that is on a hole in the polygon
-    holeVertices: THREE.Vector2[];
+    // An array of contours representing the holes in this polygon
+    holeVertices: THREE.Vector2[][];
     // The bounding box for this polygon
     boundingBox: BoundingBox;
+    // Is this sector polygon a hole in another polygon?
+    isHole: boolean;
 }
 
 // This class takes map data, and creates a 3D mesh from it.
@@ -708,6 +710,7 @@ export class MapGeometryBuilder {
                     vertices: polygonVertices,
                     holeVertices: [],
                     boundingBox: BoundingBox.from(polygonVertices),
+                    isHole: false,
                 };
             });
             // Sort by area - I think this will make it faster to build the sector ceiling/floor triangles.
@@ -726,7 +729,8 @@ export class MapGeometryBuilder {
                             return MapGeometryBuilder.pointInPolygon(point, poly.vertices);
                         });
                         if(isWithinPoly){
-                            poly.holeVertices = poly.holeVertices.concat(otherPoly.vertices);
+                            poly.holeVertices.push(otherPoly.vertices);
+                            otherPoly.isHole = true;
                         }
                         /*
                         const point = otherPoly.vertices[0];
@@ -741,13 +745,24 @@ export class MapGeometryBuilder {
             const mapSector = this.map.sectors.getSector(Number.parseInt(sector, 10));
             const lightColor = new THREE.Color(`rgb(${mapSector.light},${mapSector.light},${mapSector.light})`);
             sectorPolygons.forEach((poly) => {
-                const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holeVertices);
+                if(poly.isHole){
+                    return;
+                }
+                // triangulateShape expects data structures like this:
+                // (contour) [{x: 10, y: 10}, {x: -10, y: 10}, {x: -10, y: -10}, {x: 10, y: -10}]
+                // (holes) [[{x: 5, y: 5}, {x: -5, y: 5}, {x: -5, y: -5}, {x: 5, y: -5}], etc.]
+                console.log(`sector ${sector} vertices`, poly.vertices);
+                const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holeVertices as any); // THREE.d.ts is wrong!!
+                console.log(`triangles for sector ${sector}`, triangles);
                 // triangulateShape returns an array of arrays of vertex indices
                 totalSectorTriangleCount += triangles.length * 2; // x2 for floor and ceiling
+                const polyVertices = poly.vertices.concat(
+                    poly.holeVertices.reduce((flat, arr) => flat.concat(arr), [])
+                );
                 triangles.forEach((triangle) => {
                     const triangleVertices = [];
-                    for(let triangleVertexIndex = 0; triangleVertexIndex < 3; triangleVertexIndex++){
-                        triangleVertices.push(poly.vertices[triangle[triangleVertexIndex]]);
+                    for(const triangleVertex of triangle){
+                        triangleVertices.push(polyVertices[triangleVertex]);
                     }
                     sectorTriangles.push({ // Floor
                         color: lightColor,
