@@ -290,13 +290,8 @@ export class MapGeometryBuilder {
     // Get UV coordinates for a sector vertex
     protected getSectorVertexUVs(
         position: THREE.Vector2, // 2D position of the vertex
-        // All vanilla Doom flats are 64x64
-        // texture: Mappable, // UV coordinates depend on texture size
+        texture: Mappable, // UV coordinates depend on texture size
     ){
-        const texture: Mappable = {
-            width: 64,
-            height: 64,
-        };
         const uvX = position.x / texture.width;
         const uvY = -position.y / texture.height;
         return [uvX, uvY];
@@ -753,9 +748,10 @@ export class MapGeometryBuilder {
                 // triangulateShape expects data structures like this:
                 // (contour) [{x: 10, y: 10}, {x: -10, y: 10}, {x: -10, y: -10}, {x: 10, y: -10}]
                 // (holes) [[{x: 5, y: 5}, {x: -5, y: 5}, {x: -5, y: -5}, {x: 5, y: -5}], etc.]
-                console.log(`sector ${sector} vertices`, poly.vertices);
-                const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holeVertices as any); // THREE.d.ts is wrong!!
-                console.log(`triangles for sector ${sector}`, triangles);
+                // console.log(`sector ${sector} vertices`, poly.vertices);
+                // "as any" is necessary to compile this code, unless you've fixed your THREE.js type definitions.
+                const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holeVertices as any);
+                // console.log(`triangles for sector ${sector}`, triangles);
                 // triangulateShape returns an array of arrays of vertex indices
                 totalSectorTriangleCount += triangles.length * 2; // x2 for floor and ceiling
                 const polyVertices = poly.vertices.concat(
@@ -872,7 +868,9 @@ export class MapGeometryBuilder {
                     const texture = this._materialArray[triangle.materialIndex].map;
                     const bufferOffset = (triIndex * verticesPerTriangle * coordinatesPerUV +
                         vertexIndex * coordinatesPerUV);
-                    uvBuffer.set(this.getSectorVertexUVs(vertex), bufferOffset);
+                    if(texture != null){
+                        uvBuffer.set(this.getSectorVertexUVs(vertex, texture.image), bufferOffset);
+                    }
                 }
                 lastCount += verticesPerTriangle;
             }
