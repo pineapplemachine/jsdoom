@@ -428,7 +428,9 @@ export class MapGeometryBuilder {
             });
             if(!nextEdge){
                 // No other edges found in the current polygon. Go to the next polygon.
-                nextEdge = sectorEdges.find((edge) => !sectorPolygons[curPolygon].includes(edge));
+                nextEdge = sectorEdges.find((edge) => {
+                    return !sectorPolygons.some((poly) => poly.includes(edge));
+                });
                 if(!nextEdge){
                     break;
                 }
@@ -913,6 +915,7 @@ export class MapGeometryBuilder {
             uvAttribute.needsUpdate = true;
             // Assign actual materials
             mesh.material = this._materialArray;
+            console.log("Done assigning materials to the mesh.");
         });
         // Add sector polygon positions, normals, and colors to buffers
         for(let triIndex = 0; triIndex < totalSectorTriangleCount; triIndex++){
@@ -990,6 +993,7 @@ export class MapGeometryBuilder {
         bufferGeometry.addAttribute("normal", normalAttribute);
         bufferGeometry.addAttribute("uv", uvAttribute);
         bufferGeometry.addAttribute("color", colorAttribute);
+        console.log("Done building the mesh.");
         return mesh;
     }
 }
