@@ -484,7 +484,7 @@ export class MapGeometryBuilder {
     }
 
     // Build the 3D mesh for the map
-    public rebuild(): THREE.Mesh | null {
+    public rebuild(callback?: (mesh: THREE.Mesh) => void): THREE.Mesh | null {
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){ return null; }
         // Map of sector indices to lines that form that sector
         const sectorLines: {[sector: number]: WADMapLine[]} = {};
@@ -921,8 +921,14 @@ export class MapGeometryBuilder {
             // Assign actual materials
             mesh.material = this._materialArray;
             console.log("Done assigning materials to the mesh.");
+            if(callback){
+                callback(mesh);
+            }
         }).catch((reason: any) => {
             console.error("Could not assign materials to the mesh!", reason);
+            if(callback){
+                callback(mesh);
+            }
         });
         // Add sector polygon positions, normals, and colors to buffers
         for(let triIndex = 0; triIndex < totalSectorTriangleCount; triIndex++){
