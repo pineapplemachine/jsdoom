@@ -867,8 +867,9 @@ export class MapGeometryBuilder {
                     lastMaterialIndex = triangle.materialIndex;
                 }
                 for (let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++) {
-                    const actualVertexIndex = triangle.reverse ? triangle.vertices.length - vertexIndex - 1 : vertexIndex;
-                    const vertex = triangle.vertices[actualVertexIndex];
+                    const fixedVertexIndex = triangle.reverse ? triangle.vertices.length - vertexIndex - 1 : vertexIndex;
+                    const vertex = triangle.vertices[fixedVertexIndex];
+                    const texture = this._materialArray[triangle.materialIndex].map;
                     const bufferOffset = (triIndex * verticesPerTriangle * coordinatesPerUV +
                         vertexIndex * coordinatesPerUV);
                     uvBuffer.set(this.getSectorVertexUVs(vertex), bufferOffset);
@@ -887,8 +888,14 @@ export class MapGeometryBuilder {
                 }
                 // Calculate/assign UV coordinates for quads
                 for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++) {
-                    const actualVertexIterIndex = quad.reverse ? 6 - vertexIterIndex - 1 : vertexIterIndex;
-                    const vertexIndex = quadTriVerts[actualVertexIterIndex];
+                    const fixedVertexIterIndex: number = function(){
+                        if(quad.reverse){
+                            const closestThree = Math.ceil((vertexIterIndex + 1) / 3) * 3;
+                            return closestThree - (vertexIterIndex % 3) - 1;
+                        }
+                        return vertexIterIndex;
+                    }();
+                    const vertexIndex = quadTriVerts[fixedVertexIterIndex];
                     const texture = this._materialArray[quad.materialIndex].map;
                     const bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV +
                         quadIndex * verticesPerQuad * coordinatesPerUV + vertexIterIndex * coordinatesPerUV);
