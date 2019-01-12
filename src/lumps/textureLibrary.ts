@@ -92,8 +92,13 @@ export class TextureLibrary {
                     if(this.isFlatMarker(flatLump)){
                         continue;
                     }
-                    const flat = WADFlat.from(flatLump);
-                    this.textures[set][name] = WADFlat.from(flatLump);
+                    let flat: WADFlat | null = null;
+                    try{
+                        flat = WADFlat.from(flatLump);
+                    }catch(err){
+                        console.error(name, err);
+                    }
+                    this.textures[set][name] = flat;
                     // this.transparent[set][name] = false;
                     // this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
                     if(flatLump.name === name){
@@ -112,7 +117,12 @@ export class TextureLibrary {
                         if(this.isFlatMarker(flatLump)){
                             continue;
                         }
-                        const flat = WADFlat.from(flatLump);
+                        let flat: WADFlat | null = null;
+                        try{
+                            flat = WADFlat.from(flatLump);
+                        }catch(err){
+                            console.error(name, err);
+                        }
                         this.textures[set][name] = flat;
                         // this.transparent[set][name] = false;
                         // this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
