@@ -916,6 +916,8 @@ export class MapGeometryBuilder {
             // Assign actual materials
             mesh.material = this._materialArray;
             console.log("Done assigning materials to the mesh.");
+        }).catch((reason: any) => {
+            console.error("Could not assign materials to the mesh!", reason);
         });
         // Add sector polygon positions, normals, and colors to buffers
         for(let triIndex = 0; triIndex < totalSectorTriangleCount; triIndex++){
