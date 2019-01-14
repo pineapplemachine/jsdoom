@@ -441,11 +441,15 @@ export class MapGeometryBuilder {
             for(let curEdge = 0, nextEdge = curEdge + 1; nextEdge < poly.length; curEdge++, nextEdge++){
                 if(poly[curEdge][1] === poly[nextEdge][0]){
                     continue; // Wanted results
-                }else if(poly[curEdge][0] === poly[nextEdge][1]){
-                    poly[curEdge].reverse(); // Opposite of wanted results
                 }
-                // This check is needed separately
-                if(poly[curEdge][0] === poly[nextEdge][0] || poly[curEdge][1] === poly[nextEdge][1]){
+                if(poly[curEdge][0] === poly[nextEdge][1]){
+                    // Opposite of wanted results
+                    poly[curEdge].reverse();
+                    poly[nextEdge].reverse();
+                }
+                if(poly[curEdge][0] === poly[nextEdge][0]){
+                    poly[curEdge].reverse();
+                }else if(poly[curEdge][1] === poly[nextEdge][1]){
                     poly[nextEdge].reverse();
                 }
             }
