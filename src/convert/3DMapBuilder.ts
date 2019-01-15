@@ -425,53 +425,29 @@ export class MapGeometryBuilder {
         let curPolygon = 0;
         const sectorPolygons: number[][][] = [[]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
         let otherVertexIndex = -1;
-        // Number of times a "bad" vertex is "hit" by the edge finder.
-        let badHitCount = 0;
-        // Is the line search reversed?
-        let reverseSearch = false;
-        // Whether or not to defer insertion into the polygon, and the edges to insert into the polygon afterwards.
-        let deferInsertion = false;
-        let deferredEdges: number[][] = [];
         // Search sector lines for contiguous polygons.
         for(let i = 0; i < sectorEdges.length; i++){
-            if(reverseSearch){
-                nextVertexIndex = sectorPolygons[curPolygon][0][0];
-                otherVertexIndex = sectorPolygons[curPolygon][0][1];
-                reverseSearch = false;
-            }
             let nextEdge = sectorEdges.find((edge) => {
-                // Be sure not to "hit" a vertex more than twice
-                if(badHitCount >= 2){
-                    return false;
-                }
                 // Find 1 matching vertex index, and 1 vertex index that does not match
                 // Copy edge and reverse it to ensure the edge being checked isn't a duplicate
                 const reversedEdge = edge.slice().reverse();
                 if(sectorPolygons[curPolygon].includes(edge) ||
-                    sectorPolygons[curPolygon].includes(reversedEdge) ||
-                    deferredEdges.includes(edge) ||
-                    deferredEdges.includes(reversedEdge)){
+                    sectorPolygons[curPolygon].includes(reversedEdge)){
                     return false;
                 }
-                const previousEdge = sectorPolygons[curPolygon][sectorPolygons[curPolygon].length - 1];
-                const match = edge.findIndex((vertex) => vertex === nextVertexIndex || vertex === otherVertexIndex);
-                const mismatch = 1 - match;
-                const found = (edge[match] === nextVertexIndex || edge[match] === otherVertexIndex) &&
-                    (edge[mismatch] !== nextVertexIndex || edge[mismatch] !== otherVertexIndex);
-                if(vertexRefCount[edge[match]] > 2 || vertexRefCount[edge[mismatch]] > 2){
-                    deferInsertion = true;
-                    reverseSearch = true;
-                    badHitCount += 1;
+                const previousEdge = sectorPolygons[curPolygon][sectorPolygons[curPolygon].length - 2];
+                if(previousEdge){
+                    if(previousEdge.some((vertexIndex) => vertexRefCount[vertexIndex] > 2) &&
+                        edge.some((vertexIndex) => vertexRefCount[vertexIndex] > 2)){
+                        return false; // Only allow 2 consecutive references to a vertex with more than 1 connected edge 
+                    }
                 }
-                return found;
+                const match = edge.findIndex((vertexIndex) => vertexIndex === nextVertexIndex || vertexIndex === otherVertexIndex);
+                const mismatch = 1 - match;
+                return (edge[match] === nextVertexIndex || edge[match] === otherVertexIndex) &&
+                    (edge[mismatch] !== nextVertexIndex || edge[mismatch] !== otherVertexIndex);
             });
             if(!nextEdge){
-                // Insert edges afterwards, if any such edges were found.
-                if(deferredEdges.length === 2){
-                    sectorPolygons[curPolygon].unshift(deferredEdges[0]);
-                    sectorPolygons[curPolygon].push(deferredEdges[1]);
-                }
-                deferredEdges = [];
                 // No other edges found in the current polygon. Go to the next polygon.
                 nextEdge = sectorEdges.find((edge) => {
                     const edgeNotFound = !sectorPolygons.some((poly) => poly.includes(edge));
@@ -479,7 +455,6 @@ export class MapGeometryBuilder {
                     if(edgeNotFound){
                         for(const vertexIndex of edge){
                             if(vertexRefCount[vertexIndex] > 2){
-                                // console.log("Bad edge! Don't use!");
                                 edgeIsGood = false;
                             }
                         }
@@ -489,28 +464,12 @@ export class MapGeometryBuilder {
                 if(!nextEdge){
                     break;
                 }
-                badHitCount = 0;
                 sectorPolygons.push([]);
                 curPolygon += 1;
-                reverseSearch = false;
             }
             nextVertexIndex = nextEdge[0];
             otherVertexIndex = nextEdge[1];
-            if(deferInsertion){
-                deferredEdges.push(nextEdge);
-                deferInsertion = false;
-            }else{
-                if(reverseSearch){
-                    sectorPolygons[curPolygon].unshift(nextEdge);
-                }else{
-                    sectorPolygons[curPolygon].push(nextEdge);
-                }
-            }
-        }
-        // Insert last deferred edges
-        if(deferredEdges.length === 2){
-            sectorPolygons[curPolygon].unshift(deferredEdges[0]);
-            sectorPolygons[curPolygon].push(deferredEdges[1]);
+            sectorPolygons[curPolygon].push(nextEdge);
         }
         sectorPolygons.forEach((poly) => {
             // Sort so that the second vertex of the current edge is the first vertex of the next edge
@@ -530,6 +489,37 @@ export class MapGeometryBuilder {
                 }
             }
         });
+        const splitPolygons: {[polyIndex: number]: number[][][]} = {};
+        sectorPolygons.forEach((poly, polyIndex) => {
+            // Split the polygons into several different polygons by making
+            // them start and end at vertices with more than 2 connections
+            if(poly.some((edge) => vertexRefCount[edge[0]] > 2)){
+                // Start at a vertex with more than 2 connections
+                function rotateArrayBackwards<T>(array: T[]){
+                    const firstValue = array.shift();
+                    array.push(firstValue!);
+                }
+                while(vertexRefCount[poly[0][0]] <= 2){
+                    rotateArrayBackwards<number[]>(poly);
+                }
+                const splitEdges = poly.filter((edge, index) => vertexRefCount[edge[1]] > 2 && index > 0);
+                const splitIndices = splitEdges.map((edge) => poly.findIndex((polyEdge) => edge === polyEdge) + 1);
+                const splitPolygon: number[][][] = [];
+                for(let i = 0; i < splitIndices.length; i++){
+                    const splitStart = i === 0 ? 0 : splitIndices[i - 1];
+                    splitPolygon.push(poly.slice(splitStart, splitIndices[i]));
+                }
+                splitPolygons[polyIndex] = splitPolygon;
+            }
+        });
+        // Perform the split
+        for(const multiPolygon in splitPolygons){
+            // Object keys are strings
+            const multiPolyIndex = Number.parseInt(multiPolygon, 10);
+            let spliceArgs: any[] = [multiPolyIndex, 1]; // The other arguments are number[][]
+            spliceArgs = spliceArgs.concat(splitPolygons[multiPolyIndex]);
+            Array.prototype.splice.apply(sectorPolygons, spliceArgs);
+        }
         if(sector){ // Debug stuff
             console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
             let sectorPolygonsCombined: number[][] = [];
