@@ -396,45 +396,121 @@ export class MapGeometryBuilder {
         for(const line of sectorLines){
             sectorEdges.push([line.startVertex, line.endVertex]);
         }
-        let nextVertexIndex = sectorEdges[0][0];
+        // Number of references to each vertex
+        const vertexRefCount: {[vertex: number]: number} = {};
+        // Find first (lowest) vertex index
         sectorEdges.forEach((edge) => {
             edge.forEach((vertexIndex) => {
-                if(vertexIndex < nextVertexIndex){
-                    nextVertexIndex = vertexIndex;
+                if(vertexRefCount[vertexIndex] == null){
+                    vertexRefCount[vertexIndex] = 1;
+                }else{
+                    vertexRefCount[vertexIndex] += 1;
                 }
             });
         });
+        console.log("vertexRefCount", vertexRefCount);
+        // Edges without "bad" vertices - That is, without more than 2 vertices attached to them
+        const goodEdges = sectorEdges.filter((edge) => {
+            let goodEdge = true;
+            for(const vertexIndex of edge){
+                if(vertexRefCount[vertexIndex] != null && vertexRefCount[vertexIndex] > 2){
+                    goodEdge = false;
+                    break;
+                }
+            }
+            return goodEdge;
+        });
+        let nextVertexIndex = goodEdges[0][0];
         // Make a new array with the sector edges sorted so that it is easier to construct polygons from them
         let curPolygon = 0;
         const sectorPolygons: number[][][] = [[]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
         let otherVertexIndex = -1;
+        // Number of times a "bad" vertex is "hit" by the edge finder.
+        let badHitCount = 0;
+        // Is the line search reversed?
+        let reverseSearch = false;
+        // Whether or not to defer insertion into the polygon, and the edges to insert into the polygon afterwards.
+        let deferInsertion = false;
+        let deferredEdges: number[][] = [];
+        // Search sector lines for contiguous polygons.
         for(let i = 0; i < sectorEdges.length; i++){
+            if(reverseSearch){
+                nextVertexIndex = sectorPolygons[curPolygon][0][0];
+                otherVertexIndex = sectorPolygons[curPolygon][0][1];
+                reverseSearch = false;
+            }
             let nextEdge = sectorEdges.find((edge) => {
+                // Be sure not to "hit" a vertex more than twice
+                if(badHitCount >= 2){
+                    return false;
+                }
                 // Find 1 matching vertex index, and 1 vertex index that does not match
                 // Copy edge and reverse it to ensure the edge being checked isn't a duplicate
                 const reversedEdge = edge.slice().reverse();
-                if(sectorPolygons[curPolygon].includes(edge) || sectorPolygons[curPolygon].includes(reversedEdge)){
+                if(sectorPolygons[curPolygon].includes(edge) ||
+                    sectorPolygons[curPolygon].includes(reversedEdge) ||
+                    deferredEdges.includes(edge) ||
+                    deferredEdges.includes(reversedEdge)){
                     return false;
                 }
+                const previousEdge = sectorPolygons[curPolygon][sectorPolygons[curPolygon].length - 1];
                 const match = edge.findIndex((vertex) => vertex === nextVertexIndex || vertex === otherVertexIndex);
-                const mismatch = match === 0 ? 1 : 0;
-                return (edge[match] === nextVertexIndex || edge[match] === otherVertexIndex) &&
+                const mismatch = 1 - match;
+                const found = (edge[match] === nextVertexIndex || edge[match] === otherVertexIndex) &&
                     (edge[mismatch] !== nextVertexIndex || edge[mismatch] !== otherVertexIndex);
+                if(vertexRefCount[edge[match]] > 2 || vertexRefCount[edge[mismatch]] > 2){
+                    deferInsertion = true;
+                    reverseSearch = true;
+                    badHitCount += 1;
+                }
+                return found;
             });
             if(!nextEdge){
+                // Insert edges afterwards, if any such edges were found.
+                if(deferredEdges.length === 2){
+                    sectorPolygons[curPolygon].unshift(deferredEdges[0]);
+                    sectorPolygons[curPolygon].push(deferredEdges[1]);
+                }
+                deferredEdges = [];
                 // No other edges found in the current polygon. Go to the next polygon.
                 nextEdge = sectorEdges.find((edge) => {
-                    return !sectorPolygons.some((poly) => poly.includes(edge));
+                    const edgeNotFound = !sectorPolygons.some((poly) => poly.includes(edge));
+                    let edgeIsGood = edgeNotFound;
+                    if(edgeNotFound){
+                        for(const vertexIndex of edge){
+                            if(vertexRefCount[vertexIndex] > 2){
+                                // console.log("Bad edge! Don't use!");
+                                edgeIsGood = false;
+                            }
+                        }
+                    }
+                    return edgeIsGood;
                 });
                 if(!nextEdge){
                     break;
                 }
+                badHitCount = 0;
                 sectorPolygons.push([]);
                 curPolygon += 1;
+                reverseSearch = false;
             }
             nextVertexIndex = nextEdge[0];
             otherVertexIndex = nextEdge[1];
-            sectorPolygons[curPolygon].push(nextEdge);
+            if(deferInsertion){
+                deferredEdges.push(nextEdge);
+                deferInsertion = false;
+            }else{
+                if(reverseSearch){
+                    sectorPolygons[curPolygon].unshift(nextEdge);
+                }else{
+                    sectorPolygons[curPolygon].push(nextEdge);
+                }
+            }
+        }
+        // Insert last deferred edges
+        if(deferredEdges.length === 2){
+            sectorPolygons[curPolygon].unshift(deferredEdges[0]);
+            sectorPolygons[curPolygon].push(deferredEdges[1]);
         }
         sectorPolygons.forEach((poly) => {
             // Sort so that the second vertex of the current edge is the first vertex of the next edge
@@ -701,6 +777,9 @@ export class MapGeometryBuilder {
         // Sector triangles - used for rendering sectors
         const sectorTriangles: SectorTriangle[] = [];
         for(const sector in sectorLines){
+            // const badSectors = [891/*, 892, 886, 304, 898, 897, 510*/]; // For Eviternity MAP04
+            // Determine whether this sector is one of the "bad" ones (Debugging)
+            // const sectorIsBad = badSectors.map((sectorNumber) => sectorNumber.toString(10)).includes(sector);
             const sectorRawPolygons = this.getPolygonsFromLines(sectorLines[sector]);
             const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map((rawPolygon) => {
                 const polygonVertexIndices = rawPolygon.map((pair) => pair[0]); // Discard second vertex index
