@@ -408,7 +408,9 @@ export class MapGeometryBuilder {
                 }
             });
         });
-        console.log("vertexRefCount", vertexRefCount);
+        if(sector){
+            console.log(`Sector ${sector} vertexRefCount`, vertexRefCount);
+        }
         // Edges without "bad" vertices - That is, without more than 2 vertices attached to them
         const goodEdges = sectorEdges.filter((edge) => {
             let goodEdge = true;
@@ -505,9 +507,9 @@ export class MapGeometryBuilder {
                 const splitEdges = poly.filter((edge, index) => vertexRefCount[edge[1]] > 2 && index > 0);
                 const splitIndices = splitEdges.map((edge) => poly.findIndex((polyEdge) => edge === polyEdge) + 1);
                 const splitPolygon: number[][][] = [];
-                for(let i = 0; i < splitIndices.length; i++){
-                    const splitStart = i === 0 ? 0 : splitIndices[i - 1];
-                    splitPolygon.push(poly.slice(splitStart, splitIndices[i]));
+                for(let splitIterIndex = 0; splitIterIndex < splitIndices.length; splitIterIndex++){
+                    const splitStart = splitIterIndex === 0 ? 0 : splitIndices[splitIterIndex - 1];
+                    splitPolygon.push(poly.slice(splitStart, splitIndices[splitIterIndex]));
                 }
                 splitPolygons[polyIndex] = splitPolygon;
             }
@@ -516,7 +518,7 @@ export class MapGeometryBuilder {
         for(const multiPolygon in splitPolygons){
             // Object keys are strings
             const multiPolyIndex = Number.parseInt(multiPolygon, 10);
-            let spliceArgs: any[] = [multiPolyIndex, 1]; // The other arguments are number[][]
+            let spliceArgs: Array<number | number[][]> = [multiPolyIndex, 1];
             spliceArgs = spliceArgs.concat(splitPolygons[multiPolyIndex]);
             Array.prototype.splice.apply(sectorPolygons, spliceArgs);
         }
@@ -767,10 +769,10 @@ export class MapGeometryBuilder {
         // Sector triangles - used for rendering sectors
         const sectorTriangles: SectorTriangle[] = [];
         for(const sector in sectorLines){
-            // const badSectors = [891/*, 892, 886, 304, 898, 897, 510*/]; // For Eviternity MAP04
+            const badSectors = [130].map((badSector) => badSector.toString(10)); // Heretic E2M6
             // Determine whether this sector is one of the "bad" ones (Debugging)
-            // const sectorIsBad = badSectors.map((sectorNumber) => sectorNumber.toString(10)).includes(sector);
-            const sectorRawPolygons = this.getPolygonsFromLines(sectorLines[sector]);
+            const sectorIsBad = badSectors.includes(sector);
+            const sectorRawPolygons = this.getPolygonsFromLines(sectorLines[sector], sectorIsBad ? sector : undefined);
             const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map((rawPolygon) => {
                 const polygonVertexIndices = rawPolygon.map((pair) => pair[0]); // Discard second vertex index
                 const polygonVertices = polygonVertexIndices.map((vertexIndex) => {
