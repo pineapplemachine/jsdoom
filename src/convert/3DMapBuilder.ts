@@ -298,9 +298,14 @@ export class MapGeometryBuilder {
         uvX += quad.xOffset * texelX;
         if(quad.alignment !== TextureAlignment.Midtexture && quad.alignment !== TextureAlignment.BackMidtexture){
             if(quad.alignment === TextureAlignment.LowerUnpegged){
-                uvY -= (quad.sectorHeight - quad.height) * texelY;
+                // Bottom of texture is at bottom of sector
+                if(quad.sectorHeight < texture.height){
+                    uvY -= quad.sectorHeight * texelY;
+                }else{
+                    uvY += (quad.sectorHeight - quad.height) * texelY;
+                }
             }else if(quad.alignment === TextureAlignment.Upper){
-                uvY -= quad.height * texelY;
+                uvY += 1 - (quad.height * texelY);
             }
             uvY += quad.yOffset * texelY;
         }
