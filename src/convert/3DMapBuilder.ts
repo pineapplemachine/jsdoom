@@ -82,18 +82,34 @@ interface Mappable {
 
 // Different alignment types for textures
 enum TextureAlignment {
-    Normal,
+    Normal, // Middle texture for one-sided walls, or upper or lower texture for two-sided walls
     LowerUnpegged,
-    UpperUnpegged,
-    None,
+    Upper,
+    Midtexture,
+    BackMidtexture,
     World, // Doom 64
 }
 
 // Generic 4-sided polygon
 interface Quad extends Mappable, Textured {}
 
+interface DoomLighting {
+    // Sector light level
+    lightLevel: THREE.Color;
+}
+
+/*
+interface Doom64Lighting {
+    // Upper and lower vertex colors (for Doom 64 style lighting)
+    upperColor: THREE.Color;
+    lowerColor: THREE.Color;
+}
+
+interface GZDoomLighting extends DoomLighting, Doom64Lighting {}
+*/
+
 // A quad on a line or side
-interface LineQuad extends Quad {
+interface LineQuad extends Quad, DoomLighting {
     // If the texture on the quad is unpegged
     alignment: TextureAlignment;
     // X of start vertex
@@ -117,11 +133,8 @@ interface LineQuad extends Quad {
     bottomHeight: number;
     // Absolute Z height of the top of the quad
     topHeight: number;
-    // Sector light level
-    lightLevel: THREE.Color;
-    // Upper and lower vertex colors (for Doom 64 style lighting)
-    // upperColor?: THREE.Color;
-    // lowerColor?: THREE.Color;
+    // Height of the sector (ceiling height - floor height)
+    sectorHeight: number;
     // Whether scaled texture offsets are applied in world space or texel space
     worldPanning: boolean;
     // The X offset of the texture on the quad
@@ -275,11 +288,18 @@ export class MapGeometryBuilder {
         const yScale = (texture.yScale || 1) * (quad.yScale || 1);
         const texelX = 1 / texture.width;
         const texelY = 1 / texture.height;
-        let uvX = texelX * uvFactorX[vertexIndex] * quad.width * xScale;
+        let uvX = texelX * quad.width * xScale;
         let uvY = texelY * uvFactorY[vertexIndex] * quad.height * yScale;
-        uvX += (quad.xOffset * texelX);
-        if(quad.alignment !== TextureAlignment.None){
+        if(quad.alignment === TextureAlignment.BackMidtexture){
+            uvX *= 1 - uvFactorX[vertexIndex];
+        }else{
+            uvX *= uvFactorX[vertexIndex];
+        }
+        uvX += quad.xOffset * texelX;
+        if(quad.alignment !== TextureAlignment.Midtexture && quad.alignment !== TextureAlignment.BackMidtexture){
             if(quad.alignment === TextureAlignment.LowerUnpegged){
+                uvY -= (quad.sectorHeight - quad.height) * texelY;
+            }else if(quad.alignment === TextureAlignment.Upper){
                 uvY -= quad.height * texelY;
             }
             uvY += quad.yOffset * texelY;
@@ -569,16 +589,16 @@ export class MapGeometryBuilder {
             const front = this.map.sides.getSide(line.frontSidedef);
             const frontSector = this.map.sectors.getSector(front.sector);
             const frontLight = new THREE.Color(`rgb(${frontSector.light}, ${frontSector.light}, ${frontSector.light})`);
-            if(sectorLines[front.sector] == null){
-                sectorLines[front.sector] = [];
-            }
-            sectorLines[front.sector].push(line);
             let back = null;
             const lineX = vertices[line.endVertex].x - vertices[line.startVertex].x;
             const lineY = vertices[line.endVertex].y - vertices[line.startVertex].y;
             const lineLength = Math.sqrt(lineX * lineX + lineY * lineY);
             if(!line.twoSidedFlag){
                 // No back side
+                if(sectorLines[front.sector] == null){
+                    sectorLines[front.sector] = [];
+                }
+                sectorLines[front.sector].push(line);
                 const lineHeight = frontSector.ceilingHeight - frontSector.floorHeight;
                 const lineTexture = this.getMaterialIndex(front.middle, TextureSet.Walls);
                 wallQuads.push({
@@ -593,6 +613,7 @@ export class MapGeometryBuilder {
                     endY: -vertices[line.endVertex].y,
                     bottomHeight: frontSector.floorHeight,
                     topHeight: frontSector.ceilingHeight,
+                    sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
                     alignment: line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                     worldPanning: true,
                     lightLevel: frontLight,
@@ -602,10 +623,14 @@ export class MapGeometryBuilder {
                 back = this.map.sides.getSide(line.backSidedef);
                 const backSector = this.map.sectors.getSector(back.sector);
                 const backLight = new THREE.Color(`rgb(${backSector.light}, ${backSector.light}, ${backSector.light})`);
-                if(sectorLines[back.sector] == null){
-                    sectorLines[back.sector] = [];
-                }
                 if(front.sector !== back.sector){
+                    if(sectorLines[front.sector] == null){
+                        sectorLines[front.sector] = [];
+                    }
+                    if(sectorLines[back.sector] == null){
+                        sectorLines[back.sector] = [];
+                    }
+                    sectorLines[front.sector].push(line);
                     sectorLines[back.sector].push(line);
                 }
                 const heights = getSideHeights(frontSector, backSector);
@@ -633,7 +658,8 @@ export class MapGeometryBuilder {
                             endY: -vertices[line.endVertex].y,
                             bottomHeight: midQuadBottom,
                             topHeight: midQuadTop,
-                            alignment: TextureAlignment.None,
+                            sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
+                            alignment: TextureAlignment.Midtexture,
                             worldPanning: frontMidtex.worldPanning,
                             lightLevel: backLight,
                             reverse: false,
@@ -660,7 +686,8 @@ export class MapGeometryBuilder {
                             endY: -vertices[line.endVertex].y,
                             bottomHeight: midQuadBottom,
                             topHeight: midQuadTop,
-                            alignment: TextureAlignment.None,
+                            sectorHeight: backSector.ceilingHeight - backSector.floorHeight,
+                            alignment: TextureAlignment.BackMidtexture,
                             worldPanning: backMidtex.worldPanning,
                             lightLevel: backLight,
                             reverse: true,
@@ -681,8 +708,10 @@ export class MapGeometryBuilder {
                         endY: -vertices[line.endVertex].y,
                         bottomHeight: heights.front.upperBottom,
                         topHeight: heights.front.upperTop,
+                        sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
+                        // Normal alignment is equivalent to upper unpegged
                         alignment: line.upperUnpeggedFlag ?
-                            TextureAlignment.UpperUnpegged : TextureAlignment.Normal,
+                            TextureAlignment.Normal : TextureAlignment.Upper,
                         worldPanning: true,
                         lightLevel: frontLight,
                         reverse: false,
@@ -702,6 +731,7 @@ export class MapGeometryBuilder {
                         endY: -vertices[line.endVertex].y,
                         bottomHeight: heights.front.lowerBottom,
                         topHeight: heights.front.lowerTop,
+                        sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
                         alignment: line.lowerUnpeggedFlag ?
                             TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
@@ -729,8 +759,9 @@ export class MapGeometryBuilder {
                         endY: -vertices[line.startVertex].y,
                         bottomHeight: heights.back.upperBottom,
                         topHeight: heights.back.upperTop,
+                        sectorHeight: backSector.ceilingHeight - backSector.floorHeight,
                         alignment: line.upperUnpeggedFlag ?
-                            TextureAlignment.UpperUnpegged : TextureAlignment.Normal,
+                            TextureAlignment.Normal : TextureAlignment.Upper,
                         worldPanning: true,
                         lightLevel: backLight,
                         reverse: false,
@@ -756,6 +787,7 @@ export class MapGeometryBuilder {
                         endY: -vertices[line.startVertex].y,
                         bottomHeight: heights.back.lowerBottom,
                         topHeight: heights.back.lowerTop,
+                        sectorHeight: backSector.ceilingHeight - backSector.floorHeight,
                         alignment: line.lowerUnpeggedFlag ?
                             TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
                         worldPanning: true,
@@ -769,7 +801,7 @@ export class MapGeometryBuilder {
         // Sector triangles - used for rendering sectors
         const sectorTriangles: SectorTriangle[] = [];
         for(const sector in sectorLines){
-            const badSectors = [130].map((badSector) => badSector.toString(10)); // Heretic E2M6
+            const badSectors = [28].map((badSector) => badSector.toString(10)); // Doom E1M1
             // Determine whether this sector is one of the "bad" ones (Debugging)
             const sectorIsBad = badSectors.includes(sector);
             const sectorRawPolygons = this.getPolygonsFromLines(sectorLines[sector], sectorIsBad ? sector : undefined);
@@ -961,14 +993,11 @@ export class MapGeometryBuilder {
                 }
                 // Calculate/assign UV coordinates for quads
                 for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++) {
-                    const fixedVertexIterIndex: number = function(){
-                        if(quad.reverse){
-                            const closestThree = Math.ceil((vertexIterIndex + 1) / 3) * 3;
-                            return closestThree - (vertexIterIndex % 3) - 1;
-                        }
-                        return vertexIterIndex;
-                    }();
+                    const fixedVertexIterIndex = quad.reverse ? quadTriVerts.length - vertexIterIndex - 1 : vertexIterIndex;
                     const vertexIndex = quadTriVerts[fixedVertexIterIndex];
+                    if(quad.reverse){
+                        console.log("vertexIndex", vertexIndex);
+                    }
                     const texture = this._materialArray[quad.materialIndex].map;
                     const bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV +
                         quadIndex * verticesPerQuad * coordinatesPerUV + vertexIterIndex * coordinatesPerUV);
@@ -1043,12 +1072,12 @@ export class MapGeometryBuilder {
                 ], bufferOffset);
             }else{
                 vertexBuffer.set([
-                    quad.endX, quad.topHeight, quad.endY, // Upper right
-                    quad.startX, quad.bottomHeight, quad.startY, // Lower left
-                    quad.startX, quad.topHeight, quad.startY, // Upper left
                     quad.startX, quad.bottomHeight, quad.startY, // Lower left
                     quad.endX, quad.topHeight, quad.endY, // Upper right
                     quad.endX, quad.bottomHeight, quad.endY, // Lower right
+                    quad.endX, quad.topHeight, quad.endY, // Upper right
+                    quad.startX, quad.bottomHeight, quad.startY, // Lower left
+                    quad.startX, quad.topHeight, quad.startY, // Upper left
                 ], bufferOffset);
             }
             const normal = new THREE.Vector2(quad.startX, quad.startY);
