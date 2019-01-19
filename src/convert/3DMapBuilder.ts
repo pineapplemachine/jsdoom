@@ -82,12 +82,17 @@ interface Mappable {
 
 // Different alignment types for textures
 enum TextureAlignment {
-    Normal, // Middle texture for one-sided walls, or upper or lower texture for two-sided walls
-    LowerUnpegged,
-    Upper,
-    Midtexture,
-    BackMidtexture,
-    World, // Doom 64
+    // Middle texture for one-sided walls, or upper or lower texture for two-sided walls
+    Normal = 0,
+    // Upper texture that is not unpegged
+    Upper = 1,
+    // Midtexture quad
+    Midtexture = 2,
+    // Back-side midtexture quad
+    BackMidtexture = 3,
+    World = 4, // Doom 64
+    LowerUnpegged = 8, // Flag
+    TwoSided = 16, // Flag
 }
 
 // Generic 4-sided polygon
@@ -296,16 +301,17 @@ export class MapGeometryBuilder {
             uvX *= uvFactorX[vertexIndex];
         }
         uvX += quad.xOffset * texelX;
-        if(quad.alignment !== TextureAlignment.Midtexture && quad.alignment !== TextureAlignment.BackMidtexture){
-            if(quad.alignment === TextureAlignment.LowerUnpegged){
-                // Bottom of texture is at bottom of sector
-                if(quad.sectorHeight < texture.height){
-                    uvY -= quad.sectorHeight * texelY;
+        if((quad.alignment !== TextureAlignment.Midtexture && quad.alignment !== TextureAlignment.BackMidtexture) || quad.height < texture.height){
+            if((quad.alignment & TextureAlignment.LowerUnpegged) === TextureAlignment.LowerUnpegged){
+                if(!((quad.alignment & TextureAlignment.TwoSided) === TextureAlignment.TwoSided)){
+                    // Bottom of texture is at bottom of quad
+                    uvY += 1 - texelY * quad.height;
                 }else{
+                    // Top of texture is at top of sector
                     uvY += (quad.sectorHeight - quad.height) * texelY;
                 }
             }else if(quad.alignment === TextureAlignment.Upper){
-                uvY += 1 - (quad.height * texelY);
+                uvY += 1 - quad.height * texelY;
             }
             uvY += quad.yOffset * texelY;
         }
@@ -651,6 +657,8 @@ export class MapGeometryBuilder {
                         let midQuadBottom = midQuadTop - frontMidtex.height;
                         midQuadBottom = Math.max(heights.middleBottom, midQuadBottom);
                         const lineHeight = midQuadTop - midQuadBottom;
+                        const alignment = TextureAlignment.Midtexture | (line.lowerUnpeggedFlag ?
+                            TextureAlignment.LowerUnpegged : 0);
                         wallQuads.push({
                             width: lineLength,
                             height: lineHeight,
@@ -664,7 +672,7 @@ export class MapGeometryBuilder {
                             bottomHeight: midQuadBottom,
                             topHeight: midQuadTop,
                             sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
-                            alignment: TextureAlignment.Midtexture,
+                            alignment,
                             worldPanning: frontMidtex.worldPanning,
                             lightLevel: backLight,
                             reverse: false,
@@ -679,6 +687,8 @@ export class MapGeometryBuilder {
                         let midQuadBottom = midQuadTop - backMidtex.height;
                         midQuadBottom = Math.max(heights.middleBottom, midQuadBottom);
                         const lineHeight = midQuadTop - midQuadBottom;
+                        const alignment = TextureAlignment.BackMidtexture | (line.lowerUnpeggedFlag ?
+                            TextureAlignment.LowerUnpegged : 0);
                         wallQuads.push({
                             width: lineLength,
                             height: lineHeight,
@@ -692,7 +702,7 @@ export class MapGeometryBuilder {
                             bottomHeight: midQuadBottom,
                             topHeight: midQuadTop,
                             sectorHeight: backSector.ceilingHeight - backSector.floorHeight,
-                            alignment: TextureAlignment.BackMidtexture,
+                            alignment,
                             worldPanning: backMidtex.worldPanning,
                             lightLevel: backLight,
                             reverse: true,
@@ -737,8 +747,8 @@ export class MapGeometryBuilder {
                         bottomHeight: heights.front.lowerBottom,
                         topHeight: heights.front.lowerTop,
                         sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
-                        alignment: line.lowerUnpeggedFlag ?
-                            TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
+                        alignment: TextureAlignment.Normal | (line.lowerUnpeggedFlag ?
+                            TextureAlignment.LowerUnpegged : 0) | TextureAlignment.TwoSided,
                         worldPanning: true,
                         lightLevel: frontLight,
                         reverse: false,
@@ -793,8 +803,8 @@ export class MapGeometryBuilder {
                         bottomHeight: heights.back.lowerBottom,
                         topHeight: heights.back.lowerTop,
                         sectorHeight: backSector.ceilingHeight - backSector.floorHeight,
-                        alignment: line.lowerUnpeggedFlag ?
-                            TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
+                        alignment: TextureAlignment.Normal | (line.lowerUnpeggedFlag ?
+                            TextureAlignment.LowerUnpegged : 0) | TextureAlignment.TwoSided,
                         worldPanning: true,
                         lightLevel: backLight,
                         reverse: false,
@@ -1000,9 +1010,6 @@ export class MapGeometryBuilder {
                 for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++) {
                     const fixedVertexIterIndex = quad.reverse ? quadTriVerts.length - vertexIterIndex - 1 : vertexIterIndex;
                     const vertexIndex = quadTriVerts[fixedVertexIterIndex];
-                    if(quad.reverse){
-                        console.log("vertexIndex", vertexIndex);
-                    }
                     const texture = this._materialArray[quad.materialIndex].map;
                     const bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV +
                         quadIndex * verticesPerQuad * coordinatesPerUV + vertexIterIndex * coordinatesPerUV);
