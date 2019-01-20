@@ -112,7 +112,7 @@ class SectorPolygonBuilder {
             });
         });
         if(sector){
-            console.log(`Sector ${this.sector} vertexRefCount`, this.vertexRefCount);
+            console.log(`Sector ${sector} vertexRefCount`, this.vertexRefCount);
             this.sector = sector;
         }
     }
@@ -192,9 +192,12 @@ class SectorPolygonBuilder {
         let firstEdge: number[] = nextEdge!;
         // Searching backwards for a vertex
         let reverseSearch: boolean = false;
+        // Search firstEdge instead of nextEdge
+        let reverseSearchStart: boolean = false;
         // Search sector lines for contiguous polygons.
         for(let edgeIndex = 0; edgeIndex < this.sectorEdges.length; edgeIndex++){
-            nextEdge = this.findNextEdgeFor(nextEdge!, edgesToSkip);
+            nextEdge = this.findNextEdgeFor(reverseSearchStart ? firstEdge : nextEdge!, edgesToSkip);
+            reverseSearchStart = false;
             if(!nextEdge){
                 // No other edges found in the current polygon. Go to the next polygon.
                 this.sortPolygon(sectorPolygons[curPolygon]);
@@ -211,7 +214,8 @@ class SectorPolygonBuilder {
                 if(!nextEdge){
                     break;
                 }
-                sectorPolygons.push([]);
+                sectorPolygons.push([nextEdge]);
+                edgesToSkip.push(nextEdge);
                 firstEdge = nextEdge;
                 curPolygon += 1;
                 reverseSearch = false;
@@ -226,17 +230,31 @@ class SectorPolygonBuilder {
             }
             edgesToSkip.push(nextEdge);
             if(nextEdge && nextEdge.some((vertexIndex) => this.vertexRefCount[vertexIndex] > 2)){
+                if(this.sector){
+                    debugger;
+                }
                 if(!reverseSearch){
                     // Hit a vertex with more than 2 references - begin search backwards
                     reverseSearch = true;
-                    nextEdge = this.findNextEdgeFor(firstEdge, edgesToSkip);
-                    if(nextEdge){
-                        sectorPolygons[curPolygon].unshift(nextEdge);
-                        edgesToSkip.push(nextEdge);
-                    }
+                    reverseSearchStart = true;
                 }else{
-                    // Go to next polygon
-                    sectorPolygons.push([]);
+                    // Hit another vertex with more than 2 references - go to next polygon
+                    this.sortPolygon(sectorPolygons[curPolygon]);
+                    nextEdge = this.findNextGoodEdge(edgesToSkip);
+                    if(!nextEdge){
+                        // Polygon only has 1 or 2 edges - these edges will be connected later
+                        nextEdge = this.sectorEdges.find((edge) => {
+                            if(edgesToSkip.includes(edge)){
+                                return false;
+                            }
+                            return true;
+                        });
+                    }
+                    if(!nextEdge){
+                        break;
+                    }
+                    sectorPolygons.push([nextEdge]);
+                    edgesToSkip.push(nextEdge);
                     firstEdge = nextEdge;
                     curPolygon += 1;
                     reverseSearch = false;
