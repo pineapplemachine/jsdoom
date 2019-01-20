@@ -240,6 +240,12 @@ class SectorPolygonBuilder {
                 }else{
                     // Hit another vertex with more than 2 references - go to next polygon
                     this.sortPolygon(sectorPolygons[curPolygon]);
+                    const polygon = sectorPolygons[curPolygon];
+                    if(polygon[0][0] === polygon[polygon.length - 1][1]){
+                        // Loop finished
+                        const vertexIndex = polygon[0][0];
+                        this.vertexRefCount[vertexIndex] -= 2;
+                    }
                     nextEdge = this.findNextGoodEdge(edgesToSkip);
                     if(!nextEdge){
                         // Polygon only has 1 or 2 edges - these edges will be connected later
