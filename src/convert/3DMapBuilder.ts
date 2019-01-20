@@ -62,6 +62,275 @@ function getSideHeights(frontSector: WADMapSector, backSector: WADMapSector): Si
     };
 }
 
+// Represents a polygon join
+interface PolygonJoin {
+    // Index of the polygon to join
+    polyIndex: number;
+    // Whether or not to reverse the polygon
+    reverse: boolean;
+    // Whether or not to join the next polygon after or before
+    after: boolean;
+}
+
+// Polygon joins
+interface PolygonJoins {
+    // Index of the first polygon
+    firstPolyIndex: number;
+    // Other polygons to join with the first one
+    otherPolyJoins: PolygonJoin[];
+}
+
+// Takes line data, and converts it to polygons
+class SectorPolygonBuilder {
+
+    // The "edges" (start/end vertex of each line, as number arrays)
+    private sectorEdges: number[][];
+    // Number of connections to each vertex
+    private vertexRefCount: {[vertex: number]: number};
+    // Sector number - used to decide whether or not to put debug info in the console.
+    private sector?: string;
+    // Number of edges
+    public get sectorEdgeCount(){
+        return this.sectorEdges.length;
+    }
+
+    constructor(sectorLines: WADMapLine[], sector?: string){
+        // Get sector edges
+        this.sectorEdges = [];
+        for(const line of sectorLines){
+            this.sectorEdges.push([line.startVertex, line.endVertex]);
+        }
+        // Get number of references to each vertex
+        this.vertexRefCount = {};
+        this.sectorEdges.forEach((edge) => {
+            edge.forEach((vertexIndex) => {
+                if(this.vertexRefCount[vertexIndex] == null){
+                    this.vertexRefCount[vertexIndex] = 1;
+                }else{
+                    this.vertexRefCount[vertexIndex] += 1;
+                }
+            });
+        });
+        if(sector){
+            console.log(`Sector ${this.sector} vertexRefCount`, this.vertexRefCount);
+            this.sector = sector;
+        }
+    }
+
+    protected findNextGoodEdge(edgesToSkip?: number[][]): number[] | undefined {
+        return this.sectorEdges.find((edge) => {
+            if(edgesToSkip && edgesToSkip.includes(edge)){
+                return false;
+            }
+            return !edge.some((vertexIndex) => this.vertexRefCount[vertexIndex] != null && this.vertexRefCount[vertexIndex] > 2);
+        });
+    }
+
+    protected findNextEdgeFor(edge: number[], edgesToSkip: number[][] = []): number[] | undefined {
+        return this.sectorEdges.find((sectorEdge) => {
+            const reversedEdge = sectorEdge.slice().reverse();
+            if(edgesToSkip.includes(sectorEdge) || edgesToSkip.includes(reversedEdge)){
+                return false;
+            }
+            /*
+            // Not possible, as the polygon is not available
+            const previousEdge = edgesToSkip[edgesToSkip.length - 2];
+            if(previousEdge){
+                if(previousEdge.some((vertexIndex) => this.vertexRefCount[vertexIndex] > 2) &&
+                    sectorEdge.some((vertexIndex) => this.vertexRefCount[vertexIndex] > 2)){
+                    return false; // Only allow 2 consecutive references to a vertex with more than 1 connected edge 
+                }
+            }
+            */
+            const match = sectorEdge.findIndex((vertexIndex) => edge.includes(vertexIndex));
+            const mismatch = 1 - match;
+            return edge.includes(sectorEdge[match]) && !edge.includes(sectorEdge[mismatch]);
+        });
+    }
+
+    protected sortPolygon(polygon: number[][]): number[][] {
+        if(polygon.length < 2){
+            return polygon;
+        }
+        // Sort so that the second vertex of the current edge is the first vertex of the next edge
+        for(let curEdge = 0, nextEdge = curEdge + 1; nextEdge < polygon.length; curEdge++, nextEdge++){
+            if(polygon[curEdge][1] === polygon[nextEdge][0]){
+                continue; // Wanted results
+            }
+            if(polygon[curEdge][0] === polygon[nextEdge][1]){
+                // Opposite of wanted results
+                polygon[curEdge].reverse();
+                polygon[nextEdge].reverse();
+            }
+            if(polygon[curEdge][0] === polygon[nextEdge][0]){
+                polygon[curEdge].reverse();
+            }else if(polygon[curEdge][1] === polygon[nextEdge][1]){
+                polygon[nextEdge].reverse();
+            }
+        }
+        if(this.sector){
+            console.log(`Sector ${this.sector} sorted polygon`, polygon);
+        }
+        return polygon;
+    }
+
+    protected isPolygonComplete(polygon: number[][]): boolean {
+        return polygon[0][0] === polygon[polygon.length - 1][1];
+    }
+
+    getPolygons(): number[][][] {
+        // Make a new array with the sector polygons
+        // Next edge
+        let nextEdge: number[] | undefined = this.findNextGoodEdge();
+        // Current polygon index
+        let curPolygon = 0;
+        // Polygon array
+        const sectorPolygons: number[][][] = [[nextEdge!]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
+        // Edges that have already been added to a polygon
+        const edgesToSkip: number[][] = [nextEdge!];
+        // First edge of current polygon
+        let firstEdge: number[] = nextEdge!;
+        // Searching backwards for a vertex
+        let reverseSearch: boolean = false;
+        // Search sector lines for contiguous polygons.
+        for(let edgeIndex = 0; edgeIndex < this.sectorEdges.length; edgeIndex++){
+            nextEdge = this.findNextEdgeFor(nextEdge!, edgesToSkip);
+            if(!nextEdge){
+                // No other edges found in the current polygon. Go to the next polygon.
+                this.sortPolygon(sectorPolygons[curPolygon]);
+                nextEdge = this.findNextGoodEdge(edgesToSkip);
+                if(!nextEdge){
+                    // Polygon only has 1 or 2 edges - these edges will be connected later
+                    nextEdge = this.sectorEdges.find((edge) => {
+                        if(edgesToSkip.includes(edge)){
+                            return false;
+                        }
+                        return true;
+                    });
+                }
+                if(!nextEdge){
+                    break;
+                }
+                sectorPolygons.push([]);
+                firstEdge = nextEdge;
+                curPolygon += 1;
+                reverseSearch = false;
+            }
+            if(this.sector){
+                console.log(`Sector ${this.sector} polygon ${curPolygon} nextEdge`, nextEdge);
+            }
+            if(!reverseSearch){
+                sectorPolygons[curPolygon].push(nextEdge);
+            }else{
+                sectorPolygons[curPolygon].unshift(nextEdge);
+            }
+            edgesToSkip.push(nextEdge);
+            if(nextEdge && nextEdge.some((vertexIndex) => this.vertexRefCount[vertexIndex] > 2)){
+                if(!reverseSearch){
+                    // Hit a vertex with more than 2 references - begin search backwards
+                    reverseSearch = true;
+                    nextEdge = this.findNextEdgeFor(firstEdge, edgesToSkip);
+                    if(nextEdge){
+                        sectorPolygons[curPolygon].unshift(nextEdge);
+                        edgesToSkip.push(nextEdge);
+                    }
+                }else{
+                    // Go to next polygon
+                    sectorPolygons.push([]);
+                    firstEdge = nextEdge;
+                    curPolygon += 1;
+                    reverseSearch = false;
+                }
+            }
+        }
+        // Sort last polygon
+        this.sortPolygon(sectorPolygons[sectorPolygons.length - 1]);
+        /*
+        // Find incomplete polygons - that is, polygons that do not "loop".
+        const incompletePolygons: number[][][] = [];
+        for(let polyIndex = 0; polyIndex < sectorPolygons.length; polyIndex++){
+            const polygon = sectorPolygons[polyIndex];
+            if(!this.isPolygonComplete(polygon)){
+                // Incomplete polygon
+                for(const edge of polygon){
+                    // Remove edges of incomplete polygons from edgesToSkip
+                    const edgeIndex = edgesToSkip.findIndex((skipEdge) => skipEdge === edge);
+                    edgesToSkip.splice(edgeIndex, 1);
+                }
+                // Add to incomplete polygon list
+                incompletePolygons.push(polygon);
+                sectorPolygons.splice(polyIndex, 1);
+            }
+        }
+        // Find polygons that need to be joined.
+        const incompletePolygonJoins: PolygonJoins[] = [];
+        for(let polyIndex = 0; polyIndex < incompletePolygons.length; polyIndex++){
+            // Don't join polygons that will be joined.
+            if(incompletePolygonJoins.some((joins) => joins.otherPolyJoins.some((join) => join.polyIndex === polyIndex))){
+                continue;
+            }
+            const joins: PolygonJoins = {
+                firstPolyIndex: polyIndex,
+                otherPolyJoins: [],
+            };
+            const firstPolygon = incompletePolygons[polyIndex];
+            let curPolygon = firstPolygon;
+            let nextPolyIndex = 0;
+            while(nextPolyIndex !== -1){
+                nextPolyIndex = incompletePolygons.findIndex((polygon, polyIndex) => {
+                    // Don't join polygons that are already going to be joined.
+                    if(joins.otherPolyJoins.some((polyJoin) => polyJoin.polyIndex === polyIndex)){
+                        return false;
+                    }
+                    // First or last vertex of polygon matches first or last vertex of curPolygon
+                    return (polygon[0][0] === curPolygon[curPolygon.length - 1][1] ||
+                        polygon[polygon.length - 1][1] === curPolygon[0][0] ||
+                        polygon[0][0] === curPolygon[0][0] ||
+                        polygon[polygon.length - 1][1] === curPolygon[curPolygon.length - 1][1]);
+                });
+                if(nextPolyIndex === -1){
+                    break;
+                }
+                const nextPolygon = incompletePolygons[nextPolyIndex];
+                // First vertex of curPolygon = last vertex of nextPolygon
+                if(curPolygon[0][0] === nextPolygon[nextPolygon.length - 1][1]){
+                    joins.otherPolyJoins.push({
+                        polyIndex: nextPolyIndex,
+                        reverse: false,
+                        after: false,
+                    });
+                // Last vertex of curPolygon = first vertex of nextPolygon
+                }else if(curPolygon[curPolygon.length - 1][1] === nextPolygon[0][0]){
+                    joins.otherPolyJoins.push({
+                        polyIndex: nextPolyIndex,
+                        reverse: false,
+                        after: true,
+                    });
+                // First vertex of curPolygon = first vertex of nextPolygon
+                }else if(curPolygon[0][0] === nextPolygon[0][0]){
+                    joins.otherPolyJoins.push({
+                        polyIndex: nextPolyIndex,
+                        reverse: true,
+                        after: false,
+                    });
+                // Last vertex of curPolygon = last vertex of nextPolygon
+                }else if(curPolygon[curPolygon.length - 1][1] === nextPolygon[nextPolygon.length - 1][1]){
+                    joins.otherPolyJoins.push({
+                        polyIndex: nextPolyIndex,
+                        reverse: true,
+                        after: true,
+                    });
+                }
+                curPolygon = nextPolygon;
+            }
+            incompletePolygonJoins.push(joins);
+        }
+        console.log("incompletePolyJoins", incompletePolygonJoins);
+        */
+        return sectorPolygons;
+    }
+}
+
 // Any textured thing
 interface Textured {
     // The index of the material for this thing
@@ -260,7 +529,7 @@ export class MapGeometryBuilder {
     protected map: WADMap;
     // The texture library
     protected textureLibrary: TextureLibrary;
-    // Texture for walls and flats with missing textures. Temporary.
+    // Texture for walls and flats with missing textures.
     private static _missingTexture: THREE.Texture | nil;
     protected _materials: {[name: string]: number};
     protected _materialArray: THREE.MeshBasicMaterial[];
@@ -422,143 +691,14 @@ export class MapGeometryBuilder {
 
     // Turn a list of sector lines into a list of vertex indices
     protected getPolygonsFromLines(sectorLines: WADMapLine[], sector?: string): number[][][] {
-        // Get sector edges
-        const sectorEdges: number[][] = [];
-        for(const line of sectorLines){
-            sectorEdges.push([line.startVertex, line.endVertex]);
-        }
-        // Number of references to each vertex
-        const vertexRefCount: {[vertex: number]: number} = {};
-        // Find first (lowest) vertex index
-        sectorEdges.forEach((edge) => {
-            edge.forEach((vertexIndex) => {
-                if(vertexRefCount[vertexIndex] == null){
-                    vertexRefCount[vertexIndex] = 1;
-                }else{
-                    vertexRefCount[vertexIndex] += 1;
-                }
-            });
-        });
-        if(sector){
-            console.log(`Sector ${sector} vertexRefCount`, vertexRefCount);
-        }
-        // Edges without "bad" vertices - That is, without more than 2 vertices attached to them
-        const goodEdges = sectorEdges.filter((edge) => {
-            let goodEdge = true;
-            for(const vertexIndex of edge){
-                if(vertexRefCount[vertexIndex] != null && vertexRefCount[vertexIndex] > 2){
-                    goodEdge = false;
-                    break;
-                }
-            }
-            return goodEdge;
-        });
-        let nextVertexIndex = goodEdges[0][0];
-        // Make a new array with the sector edges sorted so that it is easier to construct polygons from them
-        let curPolygon = 0;
-        const sectorPolygons: number[][][] = [[]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
-        let otherVertexIndex = -1;
-        // Search sector lines for contiguous polygons.
-        for(let i = 0; i < sectorEdges.length; i++){
-            let nextEdge = sectorEdges.find((edge) => {
-                // Find 1 matching vertex index, and 1 vertex index that does not match
-                // Copy edge and reverse it to ensure the edge being checked isn't a duplicate
-                const reversedEdge = edge.slice().reverse();
-                if(sectorPolygons[curPolygon].includes(edge) ||
-                    sectorPolygons[curPolygon].includes(reversedEdge)){
-                    return false;
-                }
-                const previousEdge = sectorPolygons[curPolygon][sectorPolygons[curPolygon].length - 2];
-                if(previousEdge){
-                    if(previousEdge.some((vertexIndex) => vertexRefCount[vertexIndex] > 2) &&
-                        edge.some((vertexIndex) => vertexRefCount[vertexIndex] > 2)){
-                        return false; // Only allow 2 consecutive references to a vertex with more than 1 connected edge 
-                    }
-                }
-                const match = edge.findIndex((vertexIndex) => vertexIndex === nextVertexIndex || vertexIndex === otherVertexIndex);
-                const mismatch = 1 - match;
-                return (edge[match] === nextVertexIndex || edge[match] === otherVertexIndex) &&
-                    (edge[mismatch] !== nextVertexIndex || edge[mismatch] !== otherVertexIndex);
-            });
-            if(!nextEdge){
-                // No other edges found in the current polygon. Go to the next polygon.
-                nextEdge = sectorEdges.find((edge) => {
-                    const edgeNotFound = !sectorPolygons.some((poly) => poly.includes(edge));
-                    let edgeIsGood = edgeNotFound;
-                    if(edgeNotFound){
-                        for(const vertexIndex of edge){
-                            if(vertexRefCount[vertexIndex] > 2){
-                                edgeIsGood = false;
-                            }
-                        }
-                    }
-                    return edgeIsGood;
-                });
-                if(!nextEdge){
-                    break;
-                }
-                sectorPolygons.push([]);
-                curPolygon += 1;
-            }
-            nextVertexIndex = nextEdge[0];
-            otherVertexIndex = nextEdge[1];
-            sectorPolygons[curPolygon].push(nextEdge);
-        }
-        sectorPolygons.forEach((poly) => {
-            // Sort so that the second vertex of the current edge is the first vertex of the next edge
-            for(let curEdge = 0, nextEdge = curEdge + 1; nextEdge < poly.length; curEdge++, nextEdge++){
-                if(poly[curEdge][1] === poly[nextEdge][0]){
-                    continue; // Wanted results
-                }
-                if(poly[curEdge][0] === poly[nextEdge][1]){
-                    // Opposite of wanted results
-                    poly[curEdge].reverse();
-                    poly[nextEdge].reverse();
-                }
-                if(poly[curEdge][0] === poly[nextEdge][0]){
-                    poly[curEdge].reverse();
-                }else if(poly[curEdge][1] === poly[nextEdge][1]){
-                    poly[nextEdge].reverse();
-                }
-            }
-        });
-        const splitPolygons: {[polyIndex: number]: number[][][]} = {};
-        sectorPolygons.forEach((poly, polyIndex) => {
-            // Split the polygons into several different polygons by making
-            // them start and end at vertices with more than 2 connections
-            if(poly.some((edge) => vertexRefCount[edge[0]] > 2)){
-                // Start at a vertex with more than 2 connections
-                function rotateArrayBackwards<T>(array: T[]){
-                    const firstValue = array.shift();
-                    array.push(firstValue!);
-                }
-                while(vertexRefCount[poly[0][0]] <= 2){
-                    rotateArrayBackwards<number[]>(poly);
-                }
-                const splitEdges = poly.filter((edge, index) => vertexRefCount[edge[1]] > 2 && index > 0);
-                const splitIndices = splitEdges.map((edge) => poly.findIndex((polyEdge) => edge === polyEdge) + 1);
-                const splitPolygon: number[][][] = [];
-                for(let splitIterIndex = 0; splitIterIndex < splitIndices.length; splitIterIndex++){
-                    const splitStart = splitIterIndex === 0 ? 0 : splitIndices[splitIterIndex - 1];
-                    splitPolygon.push(poly.slice(splitStart, splitIndices[splitIterIndex]));
-                }
-                splitPolygons[polyIndex] = splitPolygon;
-            }
-        });
-        // Perform the split
-        for(const multiPolygon in splitPolygons){
-            // Object keys are strings
-            const multiPolyIndex = Number.parseInt(multiPolygon, 10);
-            let spliceArgs: Array<number | number[][]> = [multiPolyIndex, 1];
-            spliceArgs = spliceArgs.concat(splitPolygons[multiPolyIndex]);
-            Array.prototype.splice.apply(sectorPolygons, spliceArgs);
-        }
+        const sectorPolygonBuilder = new SectorPolygonBuilder(sectorLines, sector);
+        const sectorPolygons  = sectorPolygonBuilder.getPolygons();
         if(sector){ // Debug stuff
             console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
             let sectorPolygonsCombined: number[][] = [];
             sectorPolygons.forEach((poly) => sectorPolygonsCombined = sectorPolygonsCombined.concat(poly));
-            if(sectorPolygonsCombined.length !== sectorEdges.length){
-                console.log("Sector polygons is not the same length as sectorLines or sectorEdges!", sectorLines, sectorEdges, sectorPolygons);
+            if(sectorPolygonsCombined.length !== sectorPolygonBuilder.sectorEdgeCount){
+                console.log("Sector polygons is not the same length as sectorLines!", sectorLines, sectorPolygons);
             }
         }
         return sectorPolygons;
