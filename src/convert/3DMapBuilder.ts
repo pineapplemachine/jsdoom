@@ -188,6 +188,8 @@ class SectorPolygonBuilder {
         const sectorPolygons: number[][][] = [[nextEdge!]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
         // Edges that have already been added to a polygon
         const edgesToSkip: number[][] = [nextEdge!];
+        // This will be modified while searching for contiguous polygons
+        // const vertexRefCount: {[vertex: number]: number} = Object.assign();
         // First edge of current polygon
         let firstEdge: number[] = nextEdge!;
         // Searching backwards for a vertex
@@ -617,7 +619,7 @@ export class MapGeometryBuilder {
         texture: Mappable, // UV coordinates depend on texture size
     ){
         const uvX = position.x / texture.width;
-        const uvY = -position.y / texture.height;
+        const uvY = position.y / texture.height;
         return [uvX, uvY];
     }
 
