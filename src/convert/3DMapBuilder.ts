@@ -331,7 +331,7 @@ class SectorPolygonBuilder {
                     polygon[polygon.length - 1][1] === curPolygon[curPolygon.length - 1][1]));
             });
             if(nextPolyIndex){
-                const nextPolygon = sectorPolygons[incompletePolygons[nextPolyIndex]];
+                const nextPolygon = sectorPolygons[nextPolyIndex];
                 if(curPolygon[0][0] === nextPolygon[nextPolygon.length - 1][1] &&
                     curPolygon[curPolygon.length - 1][1] === nextPolygon[0][0]){
                     // First vertex of curPolygon = last vertex of nextPolygon
