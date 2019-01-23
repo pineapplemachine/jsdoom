@@ -315,22 +315,22 @@ class SectorPolygonBuilder {
             };
             const firstPolygon = sectorPolygons[incompletePolygons[polyIndex]];
             const curPolygon = firstPolygon;
-            let nextPolyIndex = 0;
-            nextPolyIndex = sectorPolygons.findIndex((polygon, polyIndex) => {
+            const nextPolyIndex = incompletePolygons.find((otherPolyIndex) => {
                 // Don't join polygons that are already going to be joined.
-                if(!incompletePolygons.includes(polyIndex)){
+                if(polyIndex === otherPolyIndex){
                     return false;
                 }
                 if(joins.otherPolyJoins.some((polyJoin) => polyJoin.polyIndex === polyIndex)){
                     return false;
                 }
+                const polygon = sectorPolygons[otherPolyIndex];
                 // First and last vertex of polygon matches first and last vertex of curPolygon
                 return ((polygon[0][0] === curPolygon[curPolygon.length - 1][1] && 
                     polygon[polygon.length - 1][1] === curPolygon[0][0]) ||
                     (polygon[0][0] === curPolygon[0][0] &&
                     polygon[polygon.length - 1][1] === curPolygon[curPolygon.length - 1][1]));
             });
-            if(nextPolyIndex !== -1 && nextPolyIndex !== polyIndex){
+            if(nextPolyIndex){
                 const nextPolygon = sectorPolygons[incompletePolygons[nextPolyIndex]];
                 if(curPolygon[0][0] === nextPolygon[nextPolygon.length - 1][1] &&
                     curPolygon[curPolygon.length - 1][1] === nextPolygon[0][0]){
