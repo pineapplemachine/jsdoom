@@ -190,16 +190,19 @@ class SectorPolygonBuilder {
         // Make a new array with the sector polygons
         // Next edge
         let nextEdge: number[] | undefined = this.findNextGoodEdge();
+        if(!nextEdge){
+            nextEdge = this.sectorEdges[0];
+        }
         // Current polygon index
         let curPolygon = 0;
         // Polygon array
-        const sectorPolygons: number[][][] = [[nextEdge!]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
+        const sectorPolygons: number[][][] = [[nextEdge]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
         // Edges that have already been added to a polygon
-        const edgesToSkip: number[][] = [nextEdge!];
+        const edgesToSkip: number[][] = [nextEdge];
         // This will be modified while searching for contiguous polygons
         const vertexRefCount: {[vertex: number]: number} = Object.assign({}, this.vertexRefCount);
         // First edge of current polygon
-        let firstEdge: number[] = nextEdge!;
+        let firstEdge: number[] = nextEdge;
         // Searching backwards for a vertex
         let reverseSearch: boolean = false;
         // Search firstEdge instead of nextEdge
@@ -1168,7 +1171,7 @@ export class MapGeometryBuilder {
             {
                 // Sort material array so that transparent textures are rendered last
                 const materialArray = this._materialArray.slice();
-                this._materialArray.sort((material) => material.transparent ? -1 : 1);
+                this._materialArray.sort((material) => material.transparent ? 1 : -1);
                 const newMaterialIndices: {[old: number]: number} = {};
                 for (let mtlIndex = 0; mtlIndex < materialArray.length; mtlIndex++) {
                     newMaterialIndices[mtlIndex] = this._materialArray.findIndex(
