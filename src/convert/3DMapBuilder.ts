@@ -595,6 +595,17 @@ interface SectorPolygon {
     isHole: boolean;
 }
 
+interface BufferOffsets {
+    // The offset of the specified element in the vertex buffer
+    vertex: number;
+    // The offset of the specified element in the vertex normal buffer
+    // normal: number; // Vertex buffer and normal buffer are the same size
+    // The offset of the specified element in the UV buffer
+    uv: number;
+    // The offset of the specified element in the vertex color buffer
+    color: number;
+}
+
 // This class takes map data, and creates a 3D mesh from it.
 export class MapGeometryBuilder {
     // The map data
@@ -1136,6 +1147,12 @@ export class MapGeometryBuilder {
         const coordinatesPerUV = 2;
         // 3 numbers per color (RGB channel values)
         const componentsPerColor = 3;
+        // Offset in buffers (typed arrays) for quads
+        const quadsOffsets: BufferOffsets = {
+            vertex: totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex,
+            uv: totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV,
+            color: totalSectorTriangleCount * verticesPerTriangle * componentsPerColor,
+        };
         // Set up buffers and attributes
         const vertexBuffer = new Float32Array(
             totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex +
@@ -1173,7 +1190,7 @@ export class MapGeometryBuilder {
                 const materialArray = this._materialArray.slice();
                 this._materialArray.sort((material) => material.transparent ? 1 : -1);
                 const newMaterialIndices: {[old: number]: number} = {};
-                for (let mtlIndex = 0; mtlIndex < materialArray.length; mtlIndex++) {
+                for (let mtlIndex = 0; mtlIndex < materialArray.length; mtlIndex++){
                     newMaterialIndices[mtlIndex] = this._materialArray.findIndex(
                         (v) => v === materialArray[mtlIndex]);
                 }
@@ -1197,7 +1214,7 @@ export class MapGeometryBuilder {
                     lastCount = 0;
                     lastMaterialIndex = triangle.materialIndex;
                 }
-                for (let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++) {
+                for (let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++){
                     const fixedVertexIndex = triangle.reverse ? triangle.vertices.length - vertexIndex - 1 : vertexIndex;
                     const vertex = triangle.vertices[fixedVertexIndex];
                     const texture = this._materialArray[triangle.materialIndex].map;
@@ -1224,8 +1241,9 @@ export class MapGeometryBuilder {
                     const fixedVertexIterIndex = quad.reverse ? quadTriVerts.length - vertexIterIndex - 1 : vertexIterIndex;
                     const vertexIndex = quadTriVerts[fixedVertexIterIndex];
                     const texture = this._materialArray[quad.materialIndex].map;
-                    const bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerUV +
-                        quadIndex * verticesPerQuad * coordinatesPerUV + vertexIterIndex * coordinatesPerUV);
+                    const bufferOffset = quadsOffsets.uv + // Quads in UV buffer
+                        quadIndex * verticesPerQuad * coordinatesPerUV + // Previous quads
+                        vertexIterIndex * coordinatesPerUV; // Current quad
                     if(texture != null){
                         uvBuffer.set(this.getQuadUVs(texture.image, vertexIndex, quad), bufferOffset);
                     }
@@ -1269,7 +1287,8 @@ export class MapGeometryBuilder {
                 const actualVertexIndex = triangle.reverse ? triangle.vertices.length - vertexIndex - 1 : vertexIndex;
                 const vertex = triangle.vertices[actualVertexIndex];
                 const normal = triangle.normalVector;
-                bufferOffset = triIndex * verticesPerTriangle * coordinatesPerVertex + vertexIndex * coordinatesPerVertex;
+                bufferOffset = triIndex * verticesPerTriangle * coordinatesPerVertex + // Previous triangles
+                    vertexIndex * coordinatesPerVertex; // Current triangle
                 vertexBuffer.set([
                     vertex.x, height, vertex.y,
                 ], bufferOffset);
@@ -1283,8 +1302,7 @@ export class MapGeometryBuilder {
         }
         // Add quad positions, normals, and colors to buffers
         for(let quadIndex = 0; quadIndex < wallQuads.length; quadIndex++){
-            let bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex +
-                quadIndex * verticesPerQuad * coordinatesPerVertex);
+            let bufferOffset = quadsOffsets.vertex + quadIndex * verticesPerQuad * coordinatesPerVertex;
             const quad = wallQuads[quadIndex];
             if(!quad.reverse){
                 vertexBuffer.set([
@@ -1309,8 +1327,7 @@ export class MapGeometryBuilder {
             normal.sub(new THREE.Vector2(quad.endX, quad.endY));
             normal.normalize();
             normal.rotateAround(new THREE.Vector2(0, 0), -90 / (180 / Math.PI));
-            bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * coordinatesPerVertex +
-                quadIndex * verticesPerQuad * coordinatesPerVertex);
+            bufferOffset = quadsOffsets.vertex + quadIndex * verticesPerQuad * coordinatesPerVertex;
             normalBuffer.set([
                 normal.x, 0, normal.y, // Upper left
                 normal.x, 0, normal.y, // Upper right
@@ -1319,8 +1336,7 @@ export class MapGeometryBuilder {
                 normal.x, 0, normal.y, // Lower left
                 normal.x, 0, normal.y, // Upper right
             ], bufferOffset);
-            bufferOffset = (totalSectorTriangleCount * verticesPerTriangle * componentsPerColor +
-                quadIndex * verticesPerQuad * componentsPerColor);
+            bufferOffset = quadsOffsets.color + quadIndex * verticesPerQuad * componentsPerColor;
             colorBuffer.set([
                 quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper left
                 quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper right
