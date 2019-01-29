@@ -886,7 +886,7 @@ export class MapGeometryBuilder {
                             sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
                             alignment,
                             worldPanning: frontMidtex.worldPanning,
-                            lightLevel: backLight,
+                            lightLevel: frontLight,
                             reverse: false,
                         });
                     }
