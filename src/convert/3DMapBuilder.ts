@@ -301,12 +301,13 @@ class SectorPolygonBuilder {
                 incompletePolygons.push(polyIndex);
             }
         }
+        incompletePolygons.sort((a, b) => sectorPolygons[a].length - sectorPolygons[b].length);
         if(this.sector){
             console.log(`Sector ${this.sector} incomplete polygons`, incompletePolygons);
         }
         // Find polygons that need to be joined.
         const incompletePolygonJoins: PolygonJoins[] = [];
-        for(let polyIndex = 0; polyIndex < incompletePolygons.length; polyIndex++){
+        for(const polyIndex of incompletePolygons){
             // Don't start at a polygon that will be joined.
             if(incompletePolygonJoins.some((joins) => joins.otherPolyJoins.some((join) => join.polyIndex === polyIndex))){
                 continue;
@@ -316,7 +317,7 @@ class SectorPolygonBuilder {
                 otherPolyJoins: [],
                 complete: false,
             };
-            const firstPolygon = sectorPolygons[incompletePolygons[polyIndex]];
+            const firstPolygon = sectorPolygons[polyIndex];
             const curPolygon = firstPolygon;
             const nextPolyIndex = incompletePolygons.find((otherPolyIndex) => {
                 // Don't join polygons that are already going to be joined.
