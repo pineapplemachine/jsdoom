@@ -815,7 +815,7 @@ export class MapGeometryBuilder {
         // Map of sector indices to lines that form that sector
         const sectorLines: {[sector: number]: WADMapLine[]} = {};
         // Array of quads - used for rendering walls
-        let wallQuads: LineQuad[] = [];
+        const wallQuads: LineQuad[] = [];
         // Vertices
         const vertices = Array.from(this.map.enumerateVertexes());
         // Construct array of quads from lines and sides
@@ -1056,33 +1056,31 @@ export class MapGeometryBuilder {
                     isHole: false,
                 };
             });
-            // Sort by area - I think this will make it faster to build the sector ceiling/floor triangles.
+            // Sort by area in descending order - I think this will make it faster to build the sector ceiling/floor triangles.
             sectorPolygons.sort((polyA, polyB) => polyB.boundingBox.area() - polyA.boundingBox.area());
             // Find holes
-            sectorPolygons.forEach((poly, polyIndex) => {
-                sectorPolygons.forEach((otherPoly, otherPolyIndex) => {
-                    if(polyIndex === otherPolyIndex){
-                        return;
+            sectorPolygons.forEach((polygon, polygonIndex) => {
+                // Find out which polygons "contain" this one
+                let containerPolygons = sectorPolygons.slice(0, polygonIndex);
+                containerPolygons = containerPolygons.filter((otherPolygon) => {
+                    if(otherPolygon.boundingBox.area() === polygon.boundingBox.area()){
+                        return false;
                     }
-                    const boundBoxComparison = poly.boundingBox.compare(otherPoly.boundingBox);
-                    // I think another polygon can only be a hole if it is within the bounding box of another polygon
+                    const boundBoxComparison = otherPolygon.boundingBox.compare(polygon.boundingBox);
                     if(boundBoxComparison === BoundingBoxComparison.Contains){
-                        // Will this be too expensive?
-                        const isWithinPoly = otherPoly.vertices.some((point) => {
-                            return MapGeometryBuilder.pointInPolygon(point, poly.vertices);
+                        return polygon.vertices.some((point) => {
+                            return MapGeometryBuilder.pointInPolygon(point, otherPolygon.vertices);
                         });
-                        if(isWithinPoly){
-                            poly.holeVertices.push(otherPoly.vertices);
-                            otherPoly.isHole = true;
-                        }
-                        /*
-                        const point = otherPoly.vertices[0];
-                        if(MapGeometryBuilder.pointInPolygon(point, poly.vertices)){
-                            poly.holeVertices = poly.holeVertices.concat(otherPoly.vertices);
-                        }
-                        */
                     }
+                    return false;
                 });
+                // Get the smallest polygon containing this one, and make this
+                // polygon a hole if the smallest polygon containing this one is not.
+                const smallestContainerPolygon: SectorPolygon | undefined = containerPolygons[containerPolygons.length - 1];
+                if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
+                    smallestContainerPolygon.holeVertices.push(polygon.vertices);
+                    polygon.isHole = true;
+                }
             });
             // Number.parseInt is required because for..in uses strings and not numbers
             const mapSector = this.map.sectors.getSector(Number.parseInt(sector, 10));
@@ -1134,7 +1132,7 @@ export class MapGeometryBuilder {
         // 2 ----- 3
         const quadTriVerts = [0, 2, 1, 3, 1, 2];
         // Sort quads by material number so that it is easy to group them
-        wallQuads = wallQuads.sort((a, b) => a.materialIndex - b.materialIndex);
+        wallQuads.sort((a, b) => a.materialIndex - b.materialIndex);
         // Set up buffer geometry
         const bufferGeometry = new THREE.BufferGeometry();
         // 6 vertices per quad
@@ -1330,20 +1328,20 @@ export class MapGeometryBuilder {
             bufferOffset = quadsOffsets.vertex + quadIndex * verticesPerQuad * coordinatesPerVertex;
             normalBuffer.set([
                 normal.x, 0, normal.y, // Upper left
-                normal.x, 0, normal.y, // Upper right
                 normal.x, 0, normal.y, // Lower left
+                normal.x, 0, normal.y, // Upper right
                 normal.x, 0, normal.y, // Lower right
-                normal.x, 0, normal.y, // Lower left
                 normal.x, 0, normal.y, // Upper right
+                normal.x, 0, normal.y, // Lower left
             ], bufferOffset);
             bufferOffset = quadsOffsets.color + quadIndex * verticesPerQuad * componentsPerColor;
             colorBuffer.set([
                 quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper left
-                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper right
                 quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Lower left
+                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper right
                 quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Lower right
-                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Lower left
                 quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Upper right
+                quad.lightLevel.r, quad.lightLevel.g, quad.lightLevel.b, // Lower left
             ], bufferOffset);
         }
         // Create buffer geometry and assign attributes
