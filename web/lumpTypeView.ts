@@ -31,9 +31,16 @@ class DataManager {
     // Get WAD file list
     // Makes this file easier to maintain when the proper implementation is added
     getWadFileList(lump: WADLump): WADFileList {
-        if(lump.file && lump.file !== this.lastWadFile){
-            this.lastWadFile = lump.file;
-            this.wadFileList = new WADFileList([lump.file]);
+        if(lump.file){
+            if(lump.file !== this.lastWadFile || !this.wadFileList){
+                this.lastWadFile = lump.file;
+                this.wadFileList = new WADFileList([lump.file]);
+            }
+            return this.wadFileList;
+        }else{
+            if(!this.wadFileList){
+                this.wadFileList = new WADFileList();
+            }
             return this.wadFileList;
         }
         return new WADFileList();
