@@ -457,7 +457,9 @@ interface GZDoomLighting extends DoomLighting, Doom64Lighting {}
 
 // A quad on a line or side
 interface LineQuad extends Quad, DoomLighting {
-    // If the texture on the quad is unpegged
+    // A combination of an enum value and a bitfield. The lowest three bits
+    // store an enum value containing the alignment type, and the other bits
+    // store flags, such as whether the quad is "lower unpegged" or two-sided
     alignment: TextureAlignment;
     // X of start vertex
     startX: number;
@@ -632,6 +634,9 @@ export class MapGeometryBuilder {
             vertexIndex: number, // Index of vertex in quad
             quad: LineQuad // The data representing the quad
         ){
+        // Separate quad.alignment into type and flags
+        const alignType = quad.alignment & 7;
+        const alignFlags = quad.alignment ^ alignType;
         // For the following 2 arrays:
         // 0 = Upper left
         // 1 = Upper right
@@ -648,22 +653,24 @@ export class MapGeometryBuilder {
         const texelY = 1 / texture.height;
         let uvX = texelX * quad.width * xScale;
         let uvY = texelY * uvFactorY[vertexIndex] * quad.height * yScale;
-        if(quad.alignment === TextureAlignment.BackMidtexture){
+        if(alignType === TextureAlignment.BackMidtexture){
             uvX *= 1 - uvFactorX[vertexIndex];
         }else{
             uvX *= uvFactorX[vertexIndex];
         }
         uvX += quad.xOffset * texelX;
-        if((quad.alignment !== TextureAlignment.Midtexture && quad.alignment !== TextureAlignment.BackMidtexture) || quad.height < texture.height){
-            if((quad.alignment & TextureAlignment.LowerUnpegged) === TextureAlignment.LowerUnpegged){
-                if(!((quad.alignment & TextureAlignment.TwoSided) === TextureAlignment.TwoSided)){
+        if((alignType !== TextureAlignment.Midtexture &&
+            alignType !== TextureAlignment.BackMidtexture) ||
+                quad.height < texture.height){
+            if((alignFlags & TextureAlignment.LowerUnpegged) !== 0){
+                if(!((alignFlags & TextureAlignment.TwoSided) !== 0)){
                     // Bottom of texture is at bottom of quad
                     uvY += 1 - texelY * quad.height;
                 }else{
                     // Top of texture is at top of sector
                     uvY += (quad.sectorHeight - quad.height) * texelY;
                 }
-            }else if(quad.alignment === TextureAlignment.Upper){
+            }else if(alignType === TextureAlignment.Upper){
                 uvY += 1 - quad.height * texelY;
             }
             uvY += quad.yOffset * texelY;
