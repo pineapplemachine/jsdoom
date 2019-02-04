@@ -582,10 +582,18 @@ export const LumpTypeViewMap3D = function(
                 },
                 appendTo: root,
             });
+            let context = canvas.getContext("webgl2", {
+                alpha: true,
+            });
+            if(!context){
+                context = canvas.getContext("webgl", {
+                    alpha: true,
+                });
+            }
             document.addEventListener("pointerlockchange", lockPointer);
             // Initialize scene, renderer, and camera
             const scene = new THREE.Scene();
-            const renderer = new THREE.WebGLRenderer({canvas, alpha: true});
+            const renderer = new THREE.WebGLRenderer({canvas, context});
             renderer.setSize(root.clientWidth, root.clientHeight);
             const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
             // Build map mesh
