@@ -146,7 +146,7 @@ class SectorPolygonBuilder {
             if(previousEdge){
                 if(previousEdge.some((vertexIndex) => this.vertexRefCount[vertexIndex] > 2) &&
                     sectorEdge.some((vertexIndex) => this.vertexRefCount[vertexIndex] > 2)){
-                    return false; // Only allow 2 consecutive references to a vertex with more than 1 connected edge 
+                    return false; // Only allow 2 consecutive references to a vertex with more than 1 connected edge
                 }
             }
             */
@@ -329,7 +329,7 @@ class SectorPolygonBuilder {
                 }
                 const polygon = sectorPolygons[otherPolyIndex];
                 // First and last vertex of polygon matches first and last vertex of curPolygon
-                return ((polygon[0][0] === curPolygon[curPolygon.length - 1][1] && 
+                return ((polygon[0][0] === curPolygon[curPolygon.length - 1][1] &&
                     polygon[polygon.length - 1][1] === curPolygon[0][0]) ||
                     (polygon[0][0] === curPolygon[0][0] &&
                     polygon[polygon.length - 1][1] === curPolygon[curPolygon.length - 1][1]));
@@ -812,7 +812,10 @@ export class MapGeometryBuilder {
 
     // Build the 3D mesh for the map
     public rebuild(callback?: (mesh: THREE.Mesh) => void): THREE.Mesh | null {
-        if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){ return null; }
+        // The map is missing one of the necessary data lumps
+        if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
+            return null;
+        }
         // Map of sector indices to lines that form that sector
         const sectorLines: {[sector: number]: WADMapLine[]} = {};
         // Array of quads - used for rendering walls
@@ -820,14 +823,21 @@ export class MapGeometryBuilder {
         // Vertices
         const vertices = Array.from(this.map.enumerateVertexes());
         // Construct array of quads from lines and sides
-        for(const line of this.map.enumerateLines()){ // All lines are made of 1-3 quads
+        for(const line of this.map.enumerateLines()){
+            // All lines are made of 1-3 quads - A top quad, and/or bottom quad,
+            // and an optional middle quad for two-sided lines, and a middle quad
+            // for one-sided lines.
             const front = this.map.sides.getSide(line.frontSidedef);
             const frontSector = this.map.sectors.getSector(front.sector);
-            const frontLight = new THREE.Color(`rgb(${frontSector.light}, ${frontSector.light}, ${frontSector.light})`);
+            const frontLight = new THREE.Color(
+                `rgb(${frontSector.light}, ${frontSector.light}, ${frontSector.light})`);
             let back = null;
-            const lineX = vertices[line.endVertex].x - vertices[line.startVertex].x;
-            const lineY = vertices[line.endVertex].y - vertices[line.startVertex].y;
-            const lineLength = Math.sqrt(lineX * lineX + lineY * lineY);
+            // Calculate line length - the "width" of quad(s) for the line.
+            const lineLength: number = (() => {
+                const lineX = vertices[line.endVertex].x - vertices[line.startVertex].x;
+                const lineY = vertices[line.endVertex].y - vertices[line.startVertex].y;
+                return Math.sqrt(lineX * lineX + lineY * lineY);
+            })();
             if(!line.twoSidedFlag){
                 // No back side
                 if(sectorLines[front.sector] == null){
@@ -1040,13 +1050,16 @@ export class MapGeometryBuilder {
         // Sector triangles - used for rendering sectors
         const sectorTriangles: SectorTriangle[] = [];
         for(const sector in sectorLines){
-            // const badSectors = [84].map((badSector) => badSector.toString(10)); // Heretic E2M6
-            const badSectors = [37].map((badSector) => badSector.toString(10)); // Doom E1M9
+            const badSectors = [84].map((badSector) => badSector.toString(10)); // Heretic E2M6
             // Determine whether this sector is one of the "bad" ones (Debugging)
             const sectorIsBad = badSectors.includes(sector);
-            const sectorRawPolygons = this.getPolygonsFromLines(sectorLines[sector], sectorIsBad ? sector : undefined);
+            // Get sector polygons and triangulate the sector
+            const sectorRawPolygons = this.getPolygonsFromLines(
+                sectorLines[sector], sectorIsBad ? sector : undefined);
             const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map((rawPolygon) => {
-                const polygonVertexIndices = rawPolygon.map((pair) => pair[0]); // Discard second vertex index
+                // Discard second vertex index
+                const polygonVertexIndices = rawPolygon.map((pair) => pair[0]);
+                // Convert indices to positions
                 const polygonVertices = polygonVertexIndices.map((vertexIndex) => {
                     return new THREE.Vector2(vertices[vertexIndex].x, -vertices[vertexIndex].y);
                 });
@@ -1057,8 +1070,10 @@ export class MapGeometryBuilder {
                     isHole: false,
                 };
             });
-            // Sort by area in descending order - I think this will make it faster to build the sector ceiling/floor triangles.
-            sectorPolygons.sort((polyA, polyB) => polyB.boundingBox.area() - polyA.boundingBox.area());
+            // Sort by area in descending order.
+            // I think this will make it faster to build the sector ceiling/floor triangles.
+            sectorPolygons.sort((polyA, polyB) =>
+                polyB.boundingBox.area() - polyA.boundingBox.area());
             // Find holes
             sectorPolygons.forEach((polygon, polygonIndex) => {
                 // Find out which polygons "contain" this one
