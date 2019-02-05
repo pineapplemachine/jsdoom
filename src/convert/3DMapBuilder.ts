@@ -664,10 +664,10 @@ export class MapGeometryBuilder {
                 quad.height < texture.height){
             if((alignFlags & TextureAlignment.LowerUnpegged) !== 0){
                 if(!((alignFlags & TextureAlignment.TwoSided) !== 0)){
-                    // Bottom of texture is at bottom of quad
+                    // One-sided - bottom of texture is at bottom of quad
                     uvY += 1 - texelY * quad.height;
                 }else{
-                    // Top of texture is at top of sector
+                    // Two-sided - top of texture is at top of sector
                     uvY += (quad.sectorHeight - quad.height) * texelY;
                 }
             }else if(alignType === TextureAlignment.Upper){
@@ -787,9 +787,11 @@ export class MapGeometryBuilder {
         if(sector){ // Debug stuff
             console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
             let sectorPolygonsCombined: number[][] = [];
-            sectorPolygons.forEach((poly) => sectorPolygonsCombined = sectorPolygonsCombined.concat(poly));
+            sectorPolygons.forEach((poly) =>
+                sectorPolygonsCombined = sectorPolygonsCombined.concat(poly));
             if(sectorPolygonsCombined.length !== sectorPolygonBuilder.sectorEdgeCount){
-                console.log("Sector polygons is not the same length as sectorLines!", sectorLines, sectorPolygons);
+                console.log("Sector polygons is not the same length as " +
+                    "sectorLines!", sectorLines, sectorPolygons);
             }
         }
         return sectorPolygons;
@@ -803,7 +805,7 @@ export class MapGeometryBuilder {
         // Licensed under MIT license
         const x = point.x, y = point.y;
         let inside = false;
-        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        for(let i = 0, j = polygon.length - 1; i < polygon.length; j = i++){
             const xi = polygon[i].x;
             const yi = polygon[i].y;
             const xj = polygon[j].x;
@@ -866,7 +868,9 @@ export class MapGeometryBuilder {
                     bottomHeight: frontSector.floorHeight,
                     topHeight: frontSector.ceilingHeight,
                     sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
-                    alignment: line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : TextureAlignment.Normal,
+                    alignment: line.lowerUnpeggedFlag ?
+                        TextureAlignment.LowerUnpegged :
+                        TextureAlignment.Normal,
                     worldPanning: true,
                     lightLevel: frontLight,
                     reverse: false,
@@ -874,7 +878,8 @@ export class MapGeometryBuilder {
             }else{
                 back = this.map.sides.getSide(line.backSidedef);
                 const backSector = this.map.sectors.getSector(back.sector);
-                const backLight = new THREE.Color(`rgb(${backSector.light}, ${backSector.light}, ${backSector.light})`);
+                const backLight = new THREE.Color(
+                    `rgb(${backSector.light}, ${backSector.light}, ${backSector.light})`);
                 if(front.sector !== back.sector){
                     if(sectorLines[front.sector] == null){
                         sectorLines[front.sector] = [];
@@ -887,8 +892,10 @@ export class MapGeometryBuilder {
                 }
                 const heights = getSideHeights(frontSector, backSector);
                 if(heights.middleTop - heights.middleBottom > 0){
-                    const frontMidtex = this.textureLibrary.get(front.middle, TextureSet.Walls) as WADTexture | nil;
-                    const backMidtex = this.textureLibrary.get(back.middle, TextureSet.Walls) as WADTexture | nil;
+                    const frontMidtex = this.textureLibrary.get(
+                        front.middle, TextureSet.Walls) as WADTexture | nil;
+                    const backMidtex = this.textureLibrary.get(
+                        back.middle, TextureSet.Walls) as WADTexture | nil;
                     if(frontMidtex != null){
                         // Front side midtex
                         let midQuadTop = line.lowerUnpeggedFlag ?
@@ -898,8 +905,8 @@ export class MapGeometryBuilder {
                         let midQuadBottom = midQuadTop - frontMidtex.height;
                         midQuadBottom = Math.max(heights.middleBottom, midQuadBottom);
                         const lineHeight = midQuadTop - midQuadBottom;
-                        const alignment = TextureAlignment.Midtexture | (line.lowerUnpeggedFlag ?
-                            TextureAlignment.LowerUnpegged : 0);
+                        const alignment = TextureAlignment.Midtexture |
+                            (line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : 0);
                         wallQuads.push({
                             width: lineLength,
                             height: lineHeight,
@@ -928,8 +935,8 @@ export class MapGeometryBuilder {
                         let midQuadBottom = midQuadTop - backMidtex.height;
                         midQuadBottom = Math.max(heights.middleBottom, midQuadBottom);
                         const lineHeight = midQuadTop - midQuadBottom;
-                        const alignment = TextureAlignment.BackMidtexture | (line.lowerUnpeggedFlag ?
-                            TextureAlignment.LowerUnpegged : 0);
+                        const alignment = TextureAlignment.BackMidtexture |
+                            (line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : 0);
                         wallQuads.push({
                             width: lineLength,
                             height: lineHeight,
@@ -1099,7 +1106,8 @@ export class MapGeometryBuilder {
                 });
                 // Get the smallest polygon containing this one, and make this
                 // polygon a hole if the smallest polygon containing this one is not.
-                const smallestContainerPolygon: SectorPolygon | undefined = containerPolygons[containerPolygons.length - 1];
+                const smallestContainerPolygon: SectorPolygon | undefined = (
+                    containerPolygons[containerPolygons.length - 1]);
                 if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
                     smallestContainerPolygon.holeVertices.push(polygon.vertices);
                     polygon.isHole = true;
@@ -1107,7 +1115,8 @@ export class MapGeometryBuilder {
             });
             // Number.parseInt is required because for..in uses strings and not numbers
             const mapSector = this.map.sectors.getSector(Number.parseInt(sector, 10));
-            const lightColor = new THREE.Color(`rgb(${mapSector.light},${mapSector.light},${mapSector.light})`);
+            const lightColor = new THREE.Color(
+                `rgb(${mapSector.light},${mapSector.light},${mapSector.light})`);
             sectorPolygons.forEach((poly) => {
                 if(poly.isHole){
                     return;
@@ -1191,9 +1200,11 @@ export class MapGeometryBuilder {
             totalSectorTriangleCount * verticesPerTriangle * componentsPerColor +
             wallQuads.length * verticesPerQuad * componentsPerColor);
         const colorAttribute = new THREE.BufferAttribute(colorBuffer, 3);
-        // Create mesh with temporary material
-        const tempMaterialColor = new THREE.Color(`hsl(${Math.floor(Math.random() * 360)}, 100%, 50%)`);
-        const tempMaterial = new THREE.MeshBasicMaterial({color: tempMaterialColor.getHex(), wireframe: true});
+        // Create mesh with temporary material (random color)
+        const tempMaterialColor = new THREE.Color(
+            `hsl(${Math.floor(Math.random() * 360)}, 100%, 50%)`);
+        const tempMaterial = new THREE.MeshBasicMaterial(
+            {color: tempMaterialColor.getHex(), wireframe: true});
         const mesh = new THREE.Mesh(bufferGeometry, tempMaterial);
         // Once all of the textures for the materials have been loaded, recalculate the UV coordinates.
         Promise.all(this._materialPromises).then(() => {
@@ -1211,7 +1222,7 @@ export class MapGeometryBuilder {
                 const materialArray = this._materialArray.slice();
                 this._materialArray.sort((material) => material.transparent ? 1 : -1);
                 const newMaterialIndices: {[old: number]: number} = {};
-                for (let mtlIndex = 0; mtlIndex < materialArray.length; mtlIndex++){
+                for(let mtlIndex = 0; mtlIndex < materialArray.length; mtlIndex++){
                     newMaterialIndices[mtlIndex] = this._materialArray.findIndex(
                         (v) => v === materialArray[mtlIndex]);
                 }
@@ -1235,8 +1246,9 @@ export class MapGeometryBuilder {
                     lastCount = 0;
                     lastMaterialIndex = triangle.materialIndex;
                 }
-                for (let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++){
-                    const fixedVertexIndex = triangle.reverse ? triangle.vertices.length - vertexIndex - 1 : vertexIndex;
+                for(let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++){
+                    const fixedVertexIndex = triangle.reverse ?
+                        triangle.vertices.length - vertexIndex - 1 : vertexIndex;
                     const vertex = triangle.vertices[fixedVertexIndex];
                     const texture = this._materialArray[triangle.materialIndex].map;
                     const bufferOffset = (triIndex * verticesPerTriangle * coordinatesPerUV +
@@ -1258,8 +1270,9 @@ export class MapGeometryBuilder {
                     lastMaterialIndex = quad.materialIndex;
                 }
                 // Calculate/assign UV coordinates for quads
-                for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++) {
-                    const fixedVertexIterIndex = quad.reverse ? quadTriVerts.length - vertexIterIndex - 1 : vertexIterIndex;
+                for(let vertexIterIndex = 0; vertexIterIndex < quadTriVerts.length; vertexIterIndex++){
+                    const fixedVertexIterIndex = quad.reverse ?
+                        quadTriVerts.length - vertexIterIndex - 1 : vertexIterIndex;
                     const vertexIndex = quadTriVerts[fixedVertexIterIndex];
                     const texture = this._materialArray[quad.materialIndex].map;
                     const bufferOffset = quadsOffsets.uv + // Quads in UV buffer
@@ -1275,10 +1288,13 @@ export class MapGeometryBuilder {
             groups.push({lastIndex, lastCount, lastMaterialIndex});
             /*
             if(this._materialArray.length !== groups.length){
-                console.warn("Different numbers of materials and groups! The map will not be textured.");
+                console.warn("Different numbers of materials and groups! " +
+                    "The map will not be textured.");
             }
-            if(lastIndex + lastCount !== totalSectorTriangleCount * verticesPerTriangle + wallQuads.length * verticesPerQuad){
-                console.warn("lastCount does not cover the whole mesh! The map will not be textured.");
+            if(lastIndex + lastCount !== totalSectorTriangleCount * verticesPerTriangle +
+                    wallQuads.length * verticesPerQuad){
+                console.warn("lastCount does not cover the whole mesh! " +
+                    "The map will not be textured.");
             }
             */
             for(const group of groups){
@@ -1305,7 +1321,8 @@ export class MapGeometryBuilder {
             const height = triangle.height;
             const light = triangle.color;
             for(let vertexIndex = 0; vertexIndex < triangle.vertices.length; vertexIndex++){
-                const actualVertexIndex = triangle.reverse ? triangle.vertices.length - vertexIndex - 1 : vertexIndex;
+                const actualVertexIndex = triangle.reverse ?
+                    triangle.vertices.length - vertexIndex - 1 : vertexIndex;
                 const vertex = triangle.vertices[actualVertexIndex];
                 const normal = triangle.normalVector;
                 bufferOffset = triIndex * verticesPerTriangle * coordinatesPerVertex + // Previous triangles
@@ -1323,7 +1340,8 @@ export class MapGeometryBuilder {
         }
         // Add quad positions, normals, and colors to buffers
         for(let quadIndex = 0; quadIndex < wallQuads.length; quadIndex++){
-            let bufferOffset = quadsOffsets.vertex + quadIndex * verticesPerQuad * coordinatesPerVertex;
+            let bufferOffset = quadsOffsets.vertex +
+                quadIndex * verticesPerQuad * coordinatesPerVertex;
             const quad = wallQuads[quadIndex];
             if(!quad.reverse){
                 vertexBuffer.set([
@@ -1348,7 +1366,8 @@ export class MapGeometryBuilder {
             normal.sub(new THREE.Vector2(quad.endX, quad.endY));
             normal.normalize();
             normal.rotateAround(new THREE.Vector2(0, 0), -90 / (180 / Math.PI));
-            bufferOffset = quadsOffsets.vertex + quadIndex * verticesPerQuad * coordinatesPerVertex;
+            bufferOffset = quadsOffsets.vertex +
+                quadIndex * verticesPerQuad * coordinatesPerVertex;
             normalBuffer.set([
                 normal.x, 0, normal.y, // Upper left
                 normal.x, 0, normal.y, // Lower left
