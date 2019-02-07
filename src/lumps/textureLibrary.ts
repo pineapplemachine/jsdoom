@@ -50,11 +50,9 @@ export class TextureLibrary {
     }
     protected isFlatMarker(lump: WADLump): boolean {
         const name = lump.name;
-        return (
-            name === "F1_START" || name === "F2_START" || name === "F3_START" ||
-            name === "F1_END" || name === "F2_END" || name === "F3_END" ||
-            lump.dataLength === 0
-        );
+        return WADFlat.IWADMarkerNames.includes(name) ||
+            WADFlat.PWADMarkerNames.includes(name) ||
+            lump.dataLength === 0;
     }
     get(name: string, set: TextureSet): WADTexture | WADFlat | null {
         // Get a texture, or add it to the library if it has not already been added
@@ -83,10 +81,10 @@ export class TextureLibrary {
             }
         }else if(set === TextureSet.Flats){
             // Search IWAD flats
-            const flatsStart = this.fileList.map.get("F_START");
+            const flatsStart = this.fileList.map.get(WADFlat.IWADMarkerStart);
             if(flatsStart){
                 for(const flatLump of flatsStart.enumerateNextLumps()){
-                    if(flatLump.name === "F_END" || flatLump.name === "FF_END"){
+                    if(flatLump.name === WADFlat.IWADMarkerEnd){
                         break;
                     }
                     if(this.isFlatMarker(flatLump)){
@@ -107,11 +105,12 @@ export class TextureLibrary {
                 }
             }
             // Not found, search custom flats
-            const flatsStarts = this.fileList.map.getAll("FF_START");
+            const flatsStarts = this.fileList.map.getAll(WADFlat.PWADMarkerStart);
             if(flatsStarts){
                 for(const customFlatStart of flatsStarts){
                     for(const flatLump of customFlatStart.enumerateNextLumps()){
-                        if(flatLump.name === "F_END" || flatLump.name === "FF_END"){
+                        if(flatLump.name === WADFlat.IWADMarkerEnd ||
+                                flatLump.name === WADFlat.PWADMarkerEnd){
                             break;
                         }
                         if(this.isFlatMarker(flatLump)){

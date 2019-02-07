@@ -245,7 +245,8 @@ export const LumpTypeList: LumpType[] = [
         views: [view.LumpTypeViewFlatImage],
         filter: (lump: WADLump) => {
             return lumps.WADFlat.match(lump) && lump.isBetweenMulti(
-                ["F_START", "FF_START"], ["F_END", "FF_END"]
+                [lumps.WADFlat.IWADMarkerStart, lumps.WADFlat.PWADMarkerStart],
+                [lumps.WADFlat.IWADMarkerEnd, lumps.WADFlat.PWADMarkerEnd]
             );
         },
     }),

@@ -8,6 +8,26 @@ import {WADColors} from "@src/lumps/doom/colors";
 // limitation in the vanilla Doom engine but the limitation is relaxed in ZDoom
 // ports.
 export class WADFlat {
+    // Names of the markers used in the IWAD to denote the beginning and
+    // end of the flat namespace
+    static readonly IWADMarkerNames = [
+        "F_START", "F1_START", "F2_START", "F3_START",
+        "F_END", "F1_END", "F2_END", "F3_END",
+    ];
+    // The name of the marker at the beginning of the flat namespace.
+    static readonly IWADMarkerStart = "F_START";
+    // The name of the marker at the end of the flat namespace.
+    static readonly IWADMarkerEnd = "F_END";
+    // Names of markers used in PWADs to denote the beginning/end of the flat
+    // namespace. Unlike the IWAD marker names, these can be used in addition
+    // to the flats in the IWADs.
+    static readonly PWADMarkerNames = [
+        "FF_START", "FF_END",
+    ];
+    // The name of the marker at the beginning of the custom flat namespace.
+    static readonly PWADMarkerStart = "FF_START";
+    // The name of the marker at the end of the custom flat namespace.
+    static readonly PWADMarkerEnd = "FF_END";
     // The name of the flat.
     name: string;
     // The flat's pixel data.
