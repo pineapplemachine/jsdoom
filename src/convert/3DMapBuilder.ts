@@ -609,6 +609,11 @@ interface BufferOffsets {
     color: number;
 }
 
+interface Disposable {
+    // Dispose of the object's WebGL data
+    dispose(): void;
+}
+
 // This class takes map data, and creates a 3D mesh from it.
 export class MapGeometryBuilder {
     // The map data
@@ -620,12 +625,15 @@ export class MapGeometryBuilder {
     protected _materials: {[name: string]: number};
     protected _materialArray: THREE.MeshBasicMaterial[];
     protected _materialPromises: Promise<TransparentTexture>[];
+    protected _disposables: Disposable[];
+
     constructor(map: WADMap, textures: TextureLibrary){
         this.map = map;
         this.textureLibrary = textures;
         this._materials = {};
         this._materialArray = [];
         this._materialPromises = [];
+        this._disposables = [];
     }
 
     // Get UV coordinates for a quad
@@ -1255,6 +1263,7 @@ export class MapGeometryBuilder {
                         vertexIndex * coordinatesPerUV);
                     if(texture != null){
                         uvBuffer.set(this.getSectorVertexUVs(vertex, texture.image), bufferOffset);
+                        this._disposables.push(texture);
                     }
                 }
                 lastCount += verticesPerTriangle;
@@ -1280,6 +1289,7 @@ export class MapGeometryBuilder {
                         vertexIterIndex * coordinatesPerUV; // Current quad
                     if(texture != null){
                         uvBuffer.set(this.getQuadUVs(texture.image, vertexIndex, quad), bufferOffset);
+                        this._disposables.push(texture);
                     }
                 }
                 lastCount += verticesPerQuad;
@@ -1392,6 +1402,16 @@ export class MapGeometryBuilder {
         bufferGeometry.addAttribute("uv", uvAttribute);
         bufferGeometry.addAttribute("color", colorAttribute);
         console.log("Done building the mesh.");
+        this._disposables.push(bufferGeometry);
         return mesh;
+    }
+
+    public dispose(): void {
+        for(const thing of this._disposables){
+            thing.dispose();
+        }
+        for(const thing of this._materialArray){
+            thing.dispose();
+        }
     }
 }

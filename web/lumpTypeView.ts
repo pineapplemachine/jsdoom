@@ -560,6 +560,7 @@ export const LumpTypeViewMap3D = function(
         }
         hasPointerLock = !hasPointerLock;
     };
+    let mapBuilder: MapGeometryBuilder | null = null;
     return new LumpTypeView({
         name: "Map (3D)",
         icon: "assets/icons/lump-map.png",
@@ -582,9 +583,11 @@ export const LumpTypeViewMap3D = function(
                 },
                 appendTo: root,
             });
+            // Prefer WebGL2 context, since that allows non-power-of-2 textures to tile
             let context = canvas.getContext("webgl2", {
                 alpha: true,
             });
+            // Fall back to WebGL context if WebGL2 is unavailable
             if(!context){
                 context = canvas.getContext("webgl", {
                     alpha: true,
@@ -597,7 +600,7 @@ export const LumpTypeViewMap3D = function(
             renderer.setSize(root.clientWidth, root.clientHeight);
             const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
             // Build map mesh
-            const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
+            mapBuilder = new MapGeometryBuilder(map, textureLibrary);
             const mesh = mapBuilder.rebuild();
             if(mesh != null){
                 const vnh = new THREE.VertexNormalsHelper(mesh, 5, 0x3884fa, 2);
@@ -644,6 +647,9 @@ export const LumpTypeViewMap3D = function(
         clear: () => {
             if(mouseController){
                 document.removeEventListener("mousemove", mouseController);
+            }
+            if(mapBuilder){
+                mapBuilder.dispose();
             }
         }
     });
