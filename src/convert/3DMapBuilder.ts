@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {WADMap} from "@src/lumps/doom/map";
 import {WADMapLine} from "@src/lumps/doom/mapLines";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
+import {WADMapVertex} from "@src/lumps/doom/mapVertexes";
 import {WADTexture} from "@src/lumps/doom/textures";
 import {TextureSet, TextureLibrary, isWadFlat, isWadTexture} from "@src/lumps/textureLibrary";
 
@@ -82,323 +83,333 @@ interface PolygonJoins {
     complete: boolean;
 }
 
+function arrayLast<T>(array: T[], offset: number = 1): T {
+    if(array.length > 1){
+        return array[array.length - offset];
+    }else{
+        return array[0];
+    }
+}
+
+// Custom Vector2 type; minimal interface for 2D position
+interface Vector2 {
+    x: number;
+    y: number;
+}
+
+// 2D Vertex position and index
+interface SectorVertex {
+    position: Vector2;
+    index: number;
+}
+
 // Takes line data, and converts it to polygons
 class SectorPolygonBuilder {
 
     // The "edges" (start/end vertex of each line, as number arrays)
-    private sectorEdges: number[][];
+    private readonly sectorEdges: number[][];
     // Number of connections to each vertex
-    private vertexRefCount: {[vertex: number]: number};
-    // Sector number - used to decide whether or not to put debug info in the console.
-    private sector?: string;
+    private readonly vertexRefCount: {[vertex: number]: number};
+    // Maximum number of times a vertex can be added to any polygon
+    private readonly maxVisits: {[vertex: number]: number};
+    // The number of times a particular vertex has been added to a polygon
+    private visitCount: {[vertex: number]: number};
+    // Vertices used by the sector's lines
+    private readonly sectorVertices: SectorVertex[];
+    // Map vertex index -> Sector vertex index mapping
+    // For getting the index of a particular vertex in the sectorVertices array
+    private readonly mapToSectorIndices: {[vertex: number]: number};
     // Number of edges
     public get sectorEdgeCount(){
         return this.sectorEdges.length;
     }
 
-    constructor(sectorLines: WADMapLine[], sector?: string){
+    constructor(sectorLines: WADMapLine[], mapVertices: WADMapVertex[]){
         // Get sector edges
         this.sectorEdges = [];
         for(const line of sectorLines){
             this.sectorEdges.push([line.startVertex, line.endVertex]);
         }
+        const sectorVertexIndices: number[] = [];
+        for(const edge of this.sectorEdges){
+            for(const edgeVertex of edge){
+                if(!sectorVertexIndices.includes(edgeVertex)){
+                    sectorVertexIndices.push(edgeVertex);
+                }
+            }
+        }
+        this.mapToSectorIndices = {};
+        this.sectorVertices = [];
+        for(let vertexIterIndex = 0;
+                vertexIterIndex < sectorVertexIndices.length;
+                vertexIterIndex++){
+            const vertexIndex = sectorVertexIndices[vertexIterIndex];
+            const vertex = mapVertices[vertexIndex];
+            const position = {x: vertex.x, y: vertex.y};
+            this.mapToSectorIndices[vertexIndex] = vertexIterIndex;
+            this.sectorVertices.push({
+                position,
+                index: vertexIndex
+            });
+        }
         // Get number of references to each vertex
         this.vertexRefCount = {};
+        this.maxVisits = {};
+        this.visitCount = {};
         this.sectorEdges.forEach((edge) => {
             edge.forEach((vertexIndex) => {
                 if(this.vertexRefCount[vertexIndex] == null){
                     this.vertexRefCount[vertexIndex] = 1;
                 }else{
                     this.vertexRefCount[vertexIndex] += 1;
+                    if(this.vertexRefCount[vertexIndex] > 2){
+                        this.maxVisits[vertexIndex] = (
+                            this.vertexRefCount[vertexIndex] / 2);
+                        this.visitCount[vertexIndex] = 0;
+                    }
                 }
             });
         });
-        if(sector){
-            console.log(`Sector ${sector} vertexRefCount`, this.vertexRefCount);
-            this.sector = sector;
+    }
+
+    // Get the counterclockwise angle between three points
+    public static angleBetween(p1: Vector2, p2: Vector2, p3: Vector2): number {
+        // http://stackoverflow.com/questions/3486172/angle-between-3-points
+        // modified not to bother converting to degrees
+        const ab = {x: p2.x - p1.x, y: p2.y - p1.y};
+        const cb = {x: p2.x - p3.x, y: p2.y - p3.y};
+        // Dot and cross product of the two vectors
+        const dot = (ab.x * cb.x + ab.y * cb.y);
+        const cross = (ab.x * cb.y - ab.y * cb.x);
+        const alpha = Math.atan2(cross, dot);
+        // Ensure positive result
+        if(alpha < 0){
+            return 2 * Math.PI + alpha;
         }
+        return alpha;
     }
 
-    protected findNextGoodEdge(vertexRefCounts?: {[vertex: number]: number}, edgesToSkip?: number[][]): number[] | undefined {
-        const vertexRefCount = vertexRefCounts || this.vertexRefCount;
-        return this.sectorEdges.find((edge) => {
-            if(edgesToSkip && edgesToSkip.includes(edge)){
-                return false;
-            }
-            return !edge.some((vertexIndex) => vertexRefCount[vertexIndex] != null && vertexRefCount[vertexIndex] > 2);
+    // Get the position of a vertex (map index)
+    protected vectorFor(vertexIndex: number): Vector2 {
+        return this.sectorVertices[
+            this.mapToSectorIndices[vertexIndex]
+        ].position;
+    }
+
+    protected findNextStartEdge(vertsToSkip?: number[]): number[] {
+        // Filter out vertices to skip
+        const usableVertices = this.sectorVertices.filter((vertex) => {
+            return vertsToSkip ? !vertsToSkip.includes(vertex.index) : true;
         });
+        // Find rightmost vertex and edge(s)
+        const rightMostVertex = usableVertices.reduce<SectorVertex>(
+            (rightMostVertex, currentVertex) => {
+                if(currentVertex.position.x > rightMostVertex.position.x){
+                    return currentVertex;
+                }else{
+                    return rightMostVertex;
+                }
+            }, usableVertices[0]);
+        const rightMostEdges = this.sectorEdges.filter((edge) => {
+            return !edge.some(
+                (vertexIndex) => vertsToSkip ?
+                    vertsToSkip.includes(vertexIndex) : false) &&
+                edge.includes(rightMostVertex.index);
+        })!;
+        // Sort vertices in clockwise order
+        // First, get center point
+        const rightMostConnectedVertices: SectorVertex[] = rightMostEdges.map(
+            (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0])
+        .map<SectorVertex>((vertexIndex) => this.sectorVertices[
+            this.mapToSectorIndices[vertexIndex]]);
+        rightMostConnectedVertices.push(rightMostVertex);
+        const vertexCount = rightMostConnectedVertices.length;
+        const centerPoint = rightMostConnectedVertices.reduce<Vector2>(
+            (center, sectorVertex) => {
+                return {
+                    x: center.x + sectorVertex.position.x,
+                    y: center.y + sectorVertex.position.y,
+                };
+            }, {x: 0, y: 0});
+        centerPoint.x /= vertexCount;
+        centerPoint.y /= vertexCount;
+        // Sort clockwise
+        // https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order
+        rightMostConnectedVertices.sort((a, b) => {
+            // a and b relative to center point
+            const aVector = a.position;
+            const bVector = b.position;
+            const ac: Vector2 = {
+                x: aVector.x - centerPoint.x,
+                y: aVector.y - centerPoint.y
+            };
+            const bc: Vector2 = {
+                x: bVector.x - centerPoint.x,
+                y: bVector.y - centerPoint.y
+            };
+            if(ac.x >= 0 && bc.x < 0){
+                return 1;
+            }
+            if(ac.x < 0 && bc.x >= 0){
+                return -1;
+            }
+            if(ac.x == 0 && bc.x == 0){
+                if(ac.y >= 0 || bc.y >= 0){
+                    return aVector.y - bVector.y;
+                }
+                return bVector.y - aVector.y;
+            }
+
+            // Cross product
+            const det = ac.x * bc.y - bc.x * ac.y;
+            if(det === 0){
+                // Which point is closer to the center?
+                const ac2 = ac.x * ac.x + ac.y * ac.y;
+                const bc2 = bc.x * bc.x + bc.y * bc.y;
+                return bc2 - ac2;
+            }
+            return det;
+        });
+        const rightMostVertexIndex = rightMostConnectedVertices.findIndex(
+            (vertex) => vertex.index === rightMostVertex.index)!;
+        const vertexIndices = rightMostConnectedVertices.slice(
+            rightMostVertexIndex, rightMostVertexIndex + 2).map(
+                (vertex) => vertex.index);
+        if(vertexIndices.length < 2){
+            vertexIndices.push(rightMostConnectedVertices[0].index);
+        }
+        return vertexIndices;
     }
 
-    protected findNextEdgeFor(edge: number[], edgesToSkip: number[][] = [], badVertex?: number): number[] | undefined {
-        return this.sectorEdges.find((sectorEdge) => {
-            const reversedEdge = sectorEdge.slice().reverse();
-            // Don't "find" edges which have already been found or should otherwise be skipped.
-            if(edgesToSkip.includes(sectorEdge) || edgesToSkip.includes(reversedEdge)){
-                return false;
+    protected findNextVertex(from: number, previous: number,
+            vertsToSkip?: number[], clockwise: boolean = false): number | null {
+        // Find all edges that:
+        // - Are attached to the "from" vertex
+        // - Are not the "previous" vertex
+        const edges: number[][] = this.sectorEdges.filter((edge) => {
+            if(edge.includes(from) && !edge.includes(previous)){
+                return true;
             }
-            // Don't use edges with the given "bad" vertex (usually with more than 2 connections).
-            if(badVertex && sectorEdge.some((vertexIndex) => vertexIndex === badVertex)){
-                return false;
-            }
-            /*
-            // Not possible, as the polygon is not available
-            const previousEdge = edgesToSkip[edgesToSkip.length - 2];
-            if(previousEdge){
-                if(previousEdge.some((vertexIndex) => this.vertexRefCount[vertexIndex] > 2) &&
-                    sectorEdge.some((vertexIndex) => this.vertexRefCount[vertexIndex] > 2)){
-                    return false; // Only allow 2 consecutive references to a vertex with more than 1 connected edge
+            return false;
+        });
+        if(edges.length > 1){
+            // Find the vertices that are attached to the edge
+            const intersectionVertices: number[] = edges.map((edge) => {
+                return edge.find((edgeVertex) => {
+                    return edgeVertex !== from &&
+                        edgeVertex !== previous;
+                }) || null;
+            }).filter<number>(
+                (vertex): vertex is number => vertex != null
+            );
+            // Find the vertex that is connected by the lowest angle
+            let mostAcuteAngle = Math.PI * 2;
+            let mostAcuteVertex = 0;
+            const startVector = this.vectorFor(previous);
+            const midVector = this.vectorFor(from);
+            // Iterate through vertices, find which one has the lowest angle
+            for(const vertexIndex of intersectionVertices){
+                const endVector = this.vectorFor(vertexIndex);
+                let angle = 0;
+                if(clockwise){
+                    angle = SectorPolygonBuilder.angleBetween(
+                        endVector, midVector, startVector);
+                }else{
+                    angle = SectorPolygonBuilder.angleBetween(
+                        startVector, midVector, endVector);
+                }
+                if(angle < mostAcuteAngle){
+                    mostAcuteAngle = angle;
+                    mostAcuteVertex = vertexIndex;
                 }
             }
-            */
-            const match = sectorEdge.findIndex((vertexIndex) => edge.includes(vertexIndex));
-            const mismatch = 1 - match;
-            return edge.includes(sectorEdge[match]) && !edge.includes(sectorEdge[mismatch]);
-        });
+            // The vertex whose angle is the lowest is one which has been added
+            // to a polygon
+            if(vertsToSkip && vertsToSkip.includes(mostAcuteVertex)){
+                return null;
+            }
+            return mostAcuteVertex;
+        }else if(edges.length === 1){
+            // There should be at least 1 vertex that comes next in the polygon
+            return edges[0].find((edgeVertex) => {
+                if(vertsToSkip && vertsToSkip.includes(edgeVertex)){
+                    return false;
+                }
+                return edgeVertex !== from;
+            }) || null;
+        }else{
+            return null;
+        }
     }
 
-    protected sortPolygon(polygon: number[][]): number[][] {
-        if(polygon.length < 2){
-            return polygon;
-        }
-        // Sort so that the second vertex of the current edge is the first vertex of the next edge
-        for(let curEdge = 0, nextEdge = curEdge + 1; nextEdge < polygon.length; curEdge++, nextEdge++){
-            if(polygon[curEdge][1] === polygon[nextEdge][0]){
-                continue; // Wanted results
+    // Increments the number of times a vertex has been added to a polygon
+    // Returns true if it should be added to the "vertsToSkip" array,
+    // and returns false if it should not.
+    protected visitVertex(vertex: number): boolean {
+        if(this.maxVisits[vertex]){
+            this.visitCount[vertex] += 1;
+            if(this.visitCount[vertex] === this.maxVisits[vertex]){
+                return true;
             }
-            if(polygon[curEdge][0] === polygon[nextEdge][1]){
-                // Opposite of wanted results
-                polygon[curEdge].reverse();
-                polygon[nextEdge].reverse();
-            }
-            if(polygon[curEdge][0] === polygon[nextEdge][0]){
-                polygon[curEdge].reverse();
-            }else if(polygon[curEdge][1] === polygon[nextEdge][1]){
-                polygon[nextEdge].reverse();
-            }
+            return false;
         }
-        if(this.sector){
-            console.log(`Sector ${this.sector} sorted polygon`, polygon);
-        }
-        return polygon;
+        return true;
     }
 
-    protected isPolygonComplete(polygon: number[][]): boolean {
-        return polygon[0][0] === polygon[polygon.length - 1][1];
-    }
-
-    getPolygons(): number[][][] {
+    // Get the polygons that make up the sector, as indices in the VERTEXES lump
+    getPolygons(): number[][] {
         // Make a new array with the sector polygons
-        // Next edge
-        let nextEdge: number[] | undefined = this.findNextGoodEdge();
-        if(!nextEdge){
-            nextEdge = this.sectorEdges[0];
-        }
+        const startEdge = this.findNextStartEdge();
         // Current polygon index
         let curPolygon = 0;
         // Polygon array
-        const sectorPolygons: number[][][] = [[nextEdge]]; // e.g. Array(3) [(12)[...], (4)[...], (4)...]
-        // Edges that have already been added to a polygon
-        const edgesToSkip: number[][] = [nextEdge];
-        // This will be modified while searching for contiguous polygons
-        const vertexRefCount: {[vertex: number]: number} = Object.assign({}, this.vertexRefCount);
-        // First edge of current polygon
-        let firstEdge: number[] = nextEdge;
-        // Searching backwards for a vertex
-        let reverseSearch: boolean = false;
-        // Search firstEdge instead of nextEdge
-        let reverseSearchStart: boolean = false;
-        // Search sector lines for contiguous polygons.
-        for(let edgeIndex = 0; edgeIndex < this.sectorEdges.length; edgeIndex++){
-            const badVertex = firstEdge.filter((vertexIndex) => vertexRefCount[vertexIndex] > 2)[0];
-            nextEdge = this.findNextEdgeFor(reverseSearchStart ? firstEdge : nextEdge!, edgesToSkip, badVertex);
-            /*
-            if(this.sector){
-                debugger;
-            }
-            */
-            reverseSearchStart = false;
-            if(!nextEdge){
-                // No other edges found in the current polygon. Go to the next polygon.
-                this.sortPolygon(sectorPolygons[curPolygon]);
-                nextEdge = this.findNextGoodEdge(vertexRefCount, edgesToSkip);
-                if(!nextEdge){
-                    // Polygon only has 1 or 2 edges - these edges will be connected later
-                    nextEdge = this.sectorEdges.find((edge) => {
-                        if(edgesToSkip.includes(edge)){
-                            return false;
-                        }
-                        return true;
-                    });
-                }
-                if(!nextEdge){
-                    break;
-                }
-                sectorPolygons.push([nextEdge]);
-                edgesToSkip.push(nextEdge);
-                firstEdge = nextEdge;
+        // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
+        const sectorPolygons: number[][] = [startEdge];
+        // Vertices that have already been added to a polygon
+        const vertsToSkip: number[] = sectorPolygons[curPolygon].slice();
+        let clockwise = false;
+        // NOTE: All vertices are stored as indices in the VERTEXES lump
+        for(let vertexIteration = 2; // Start with 2 vertices in the "polygon"
+            vertexIteration < this.sectorEdges.length; vertexIteration++){
+            // The vertex from which to start the search for the next vertex
+            const [prevVertex, lastVertex] = (
+                sectorPolygons[curPolygon].slice(-2));
+            // The next vertex to add to the polygon
+            const nextVertex = this.findNextVertex(
+                lastVertex, prevVertex, sectorPolygons[curPolygon], clockwise);
+            // nextVertex is null - no more vertices left in this polygon
+            if(nextVertex == null){
                 curPolygon += 1;
-                reverseSearch = false;
-                continue;
-            }
-            if(this.sector){
-                console.log(`Sector ${this.sector} polygon ${curPolygon} nextEdge`, nextEdge);
-            }
-            if(!reverseSearch){
-                sectorPolygons[curPolygon].push(nextEdge);
+                const nextStartEdge = this.findNextStartEdge(vertsToSkip);
+                // Is the current polygon within another?
+                const containerPolygons = sectorPolygons.filter((polygon) => {
+                    const polygonVertices = polygon.map(
+                        (vertexIndex) => this.vectorFor(vertexIndex));
+                    return nextStartEdge.every((vertexIndex) => {
+                        const vertexPos = this.vectorFor(vertexIndex);
+                        return MapGeometryBuilder.pointInPolygon(
+                            vertexPos, polygonVertices);
+                    });
+                });
+                clockwise = containerPolygons.length > 0 &&
+                    containerPolygons.length % 2 === 0;
+                if(clockwise){
+                    nextStartEdge.reverse();
+                }
+                sectorPolygons.push(nextStartEdge);
+                for(const edgeVertex of nextStartEdge){
+                    if(this.visitVertex(edgeVertex)){
+                        vertsToSkip.push(edgeVertex);
+                    }
+                }
+                vertexIteration += 1;
             }else{
-                sectorPolygons[curPolygon].unshift(nextEdge);
-            }
-            edgesToSkip.push(nextEdge);
-            if(nextEdge && nextEdge.some((vertexIndex) => vertexRefCount[vertexIndex] > 2)){
-                if(!reverseSearch){
-                    // Hit a vertex with more than 2 references - begin search backwards
-                    reverseSearch = true;
-                    reverseSearchStart = true;
-                }else{
-                    // Hit another vertex with more than 2 references - go to next polygon
-                    this.sortPolygon(sectorPolygons[curPolygon]);
-                    const polygon = sectorPolygons[curPolygon];
-                    if(polygon[0][0] === polygon[polygon.length - 1][1]){
-                        // Loop finished
-                        const vertexIndex = polygon[0][0];
-                        vertexRefCount[vertexIndex] -= 2;
-                    }
-                    nextEdge = this.findNextGoodEdge(vertexRefCount, edgesToSkip);
-                    if(!nextEdge){
-                        // Polygon only has 1 or 2 edges - these edges will be connected later
-                        nextEdge = this.sectorEdges.find((edge) => {
-                            if(edgesToSkip.includes(edge)){
-                                return false;
-                            }
-                            return true;
-                        });
-                    }
-                    if(!nextEdge){
-                        break;
-                    }
-                    sectorPolygons.push([nextEdge]);
-                    edgesToSkip.push(nextEdge);
-                    firstEdge = nextEdge;
-                    curPolygon += 1;
-                    reverseSearch = false;
+                // There is another vertex in the polygon
+                if(this.visitVertex(nextVertex)){
+                    vertsToSkip.push(nextVertex);
                 }
+                sectorPolygons[curPolygon].push(nextVertex);
             }
-        }
-        // Sort last polygon
-        this.sortPolygon(sectorPolygons[sectorPolygons.length - 1]);
-        // Find incomplete polygons - that is, polygons that do not "loop".
-        const incompletePolygons: number[] = [];
-        for(let polyIndex = 0; polyIndex < sectorPolygons.length; polyIndex++){
-            const polygon = sectorPolygons[polyIndex];
-            if(!this.isPolygonComplete(polygon)){
-                // Incomplete polygon
-                for(const edge of polygon){
-                    // Remove edges of incomplete polygons from edgesToSkip
-                    const edgeIndex = edgesToSkip.findIndex((skipEdge) => skipEdge === edge);
-                    edgesToSkip.splice(edgeIndex, 1);
-                }
-                // Add to incomplete polygon list
-                incompletePolygons.push(polyIndex);
-            }
-        }
-        incompletePolygons.sort((a, b) => sectorPolygons[a].length - sectorPolygons[b].length);
-        if(this.sector){
-            console.log(`Sector ${this.sector} incomplete polygons`, incompletePolygons);
-        }
-        // Find polygons that need to be joined.
-        const incompletePolygonJoins: PolygonJoins[] = [];
-        for(const polyIndex of incompletePolygons){
-            // Don't start at a polygon that will be joined.
-            if(incompletePolygonJoins.some((joins) => joins.otherPolyJoins.some((join) => join.polyIndex === polyIndex))){
-                continue;
-            }
-            const joins: PolygonJoins = {
-                firstPolyIndex: polyIndex,
-                otherPolyJoins: [],
-                complete: false,
-            };
-            const firstPolygon = sectorPolygons[polyIndex];
-            const curPolygon = firstPolygon;
-            const nextPolyIndex = incompletePolygons.find((otherPolyIndex) => {
-                // Don't join polygons that are already going to be joined.
-                if(polyIndex === otherPolyIndex){
-                    return false;
-                }
-                if(joins.otherPolyJoins.some((polyJoin) => polyJoin.polyIndex === polyIndex)){
-                    return false;
-                }
-                const polygon = sectorPolygons[otherPolyIndex];
-                // First and last vertex of polygon matches first and last vertex of curPolygon
-                return ((polygon[0][0] === curPolygon[curPolygon.length - 1][1] &&
-                    polygon[polygon.length - 1][1] === curPolygon[0][0]) ||
-                    (polygon[0][0] === curPolygon[0][0] &&
-                    polygon[polygon.length - 1][1] === curPolygon[curPolygon.length - 1][1]));
-            });
-            if(nextPolyIndex){
-                const nextPolygon = sectorPolygons[nextPolyIndex];
-                if(curPolygon[0][0] === nextPolygon[nextPolygon.length - 1][1] &&
-                    curPolygon[curPolygon.length - 1][1] === nextPolygon[0][0]){
-                    // First vertex of curPolygon = last vertex of nextPolygon
-                    joins.otherPolyJoins.push({
-                        polyIndex: nextPolyIndex,
-                        reverse: false,
-                        after: true,
-                    });
-                    joins.complete = true;
-                }else if(curPolygon[0][0] === nextPolygon[0][0] &&
-                        curPolygon[curPolygon.length - 1][1] === nextPolygon[nextPolygon.length - 1][1]){
-                    // Last vertex of curPolygon = first vertex of nextPolygon
-                    joins.otherPolyJoins.push({
-                        polyIndex: nextPolyIndex,
-                        reverse: true,
-                        after: true,
-                    });
-                    joins.complete = true;
-                }
-            }
-            if(joins.otherPolyJoins.length > 0){
-                incompletePolygonJoins.push(joins);
-            }
-        }
-        if(incompletePolygonJoins.length > 0){
-            console.log("incompletePolyJoins", incompletePolygonJoins);
-        }
-        // Perform the joins
-        const joinedPolygons: number[][][] = [];
-        const polygonsToDelete: number[] = [];
-        for(const joins of incompletePolygonJoins){
-            if(joins.complete){
-                let joinedPolygon = sectorPolygons[joins.firstPolyIndex];
-                polygonsToDelete.push(joins.firstPolyIndex);
-                for(const otherJoin of joins.otherPolyJoins){
-                    // Copy the polygon and the edges
-                    const otherPolygon = sectorPolygons[otherJoin.polyIndex].slice().map((edge) => edge.slice());
-                    if(otherJoin.reverse){
-                        otherPolygon.reverse();
-                        otherPolygon.forEach((edge) => edge.reverse());
-                    }
-                    if(otherJoin.after){
-                        joinedPolygon = joinedPolygon.concat(otherPolygon);
-                    }else{
-                        joinedPolygon = otherPolygon.concat(joinedPolygon);
-                    }
-                    polygonsToDelete.push(otherJoin.polyIndex);
-                }
-                joinedPolygons.push(joinedPolygon);
-            }
-        }
-        if(this.sector){
-            console.log(`Sector ${this.sector} joined polygons:`, joinedPolygons);
-        }
-        // Delete polygons that should be deleted, and insert new ones
-        // Higher indexes first in order to avoid overflow
-        polygonsToDelete.sort((polyIndexA, polyIndexB) => polyIndexB - polyIndexA);
-        for(const polyIndex of polygonsToDelete){
-            sectorPolygons.splice(polyIndex, 1);
-        }
-        // Insert the completed polygons
-        for(const joinedPolygon of joinedPolygons){
-            sectorPolygons.push(joinedPolygon);
         }
         return sectorPolygons;
     }
@@ -789,8 +800,11 @@ export class MapGeometryBuilder {
     }
 
     // Turn a list of sector lines into a list of vertex indices
-    protected getPolygonsFromLines(sectorLines: WADMapLine[], sector?: string): number[][][] {
-        const sectorPolygonBuilder = new SectorPolygonBuilder(sectorLines, sector);
+    protected getPolygonsFromLines(sectorLines: WADMapLine[],
+            sector?: string): number[][] {
+        const vertices = Array.from(this.map.enumerateVertexes());
+        const sectorPolygonBuilder = new SectorPolygonBuilder(sectorLines,
+                                                              vertices);
         const sectorPolygons  = sectorPolygonBuilder.getPolygons();
         if(sector){ // Debug stuff
             console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
@@ -805,8 +819,9 @@ export class MapGeometryBuilder {
         return sectorPolygons;
     }
 
-    // Point-in-polygon algorithm - used to find out whether a contiguous set of vertices is a hole in a sector polygon
-    public static pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
+    // Point-in-polygon algorithm - used to find out whether a contiguous set
+    // of vertices is a hole in a sector polygon
+    public static pointInPolygon(point: Vector2, polygon: Vector2[]): boolean {
         // ray-casting algorithm based on
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
         // Code from https://github.com/substack/point-in-polygon/blob/96ef4abc2a623c98214618418e42a68240055f2e/index.js
@@ -838,7 +853,7 @@ export class MapGeometryBuilder {
         // Array of quads - used for rendering walls
         const wallQuads: LineQuad[] = [];
         // Vertices
-        const vertices = Array.from(this.map.enumerateVertexes());
+        const vertices: WADMapVertex[] = Array.from(this.map.enumerateVertexes());
         // Construct array of quads from lines and sides
         for(const line of this.map.enumerateLines()){
             // All lines are made of 1-3 quads - A top quad, and/or bottom quad,
@@ -1078,12 +1093,13 @@ export class MapGeometryBuilder {
             // Get sector polygons and triangulate the sector
             const sectorRawPolygons = this.getPolygonsFromLines(
                 sectorLines[sector], sectorIsBad ? sector : undefined);
-            const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map((rawPolygon) => {
-                // Discard second vertex index
-                const polygonVertexIndices = rawPolygon.map((pair) => pair[0]);
+            console.log("sectorRawPolygons", sectorRawPolygons);
+            const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
+            (rawPolygon) => {
                 // Convert indices to positions
-                const polygonVertices = polygonVertexIndices.map((vertexIndex) => {
-                    return new THREE.Vector2(vertices[vertexIndex].x, -vertices[vertexIndex].y);
+                const polygonVertices = rawPolygon.map((vertexIndex) => {
+                    return new THREE.Vector2(
+                        vertices[vertexIndex].x, -vertices[vertexIndex].y);
                 });
                 return {
                     vertices: polygonVertices,
@@ -1093,7 +1109,8 @@ export class MapGeometryBuilder {
                 };
             });
             // Sort by area in descending order.
-            // I think this will make it faster to build the sector ceiling/floor triangles.
+            // I think this will make it faster to build the sector
+            // ceiling/floor triangles.
             sectorPolygons.sort((polyA, polyB) =>
                 polyB.boundingBox.area() - polyA.boundingBox.area());
             // Find holes
