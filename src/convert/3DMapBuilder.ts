@@ -63,43 +63,9 @@ function getSideHeights(frontSector: WADMapSector, backSector: WADMapSector): Si
     };
 }
 
-// Represents a polygon join
-interface PolygonJoin {
-    // Index of the polygon to join
-    polyIndex: number;
-    // Whether or not to reverse the polygon
-    reverse: boolean;
-    // Whether or not to join the next polygon after or before
-    after: boolean;
-}
-
-// Polygon joins
-interface PolygonJoins {
-    // Index of the first polygon
-    firstPolyIndex: number;
-    // Other polygons to join with the first one
-    otherPolyJoins: PolygonJoin[];
-    // Whether or not this polygon is complete after joining the other ones
-    complete: boolean;
-}
-
-function arrayLast<T>(array: T[], offset: number = 1): T {
-    if(array.length > 1){
-        return array[array.length - offset];
-    }else{
-        return array[0];
-    }
-}
-
-// Custom Vector2 type; minimal interface for 2D position
-interface Vector2 {
-    x: number;
-    y: number;
-}
-
 // 2D Vertex position and index
 interface SectorVertex {
-    position: Vector2;
+    position: THREE.Vector2;
     index: number;
 }
 
@@ -143,13 +109,13 @@ class SectorPolygonBuilder {
         for(let vertexIterIndex = 0;
                 vertexIterIndex < sectorVertexIndices.length;
                 vertexIterIndex++){
-            const vertexIndex = sectorVertexIndices[vertexIterIndex];
-            const vertex = mapVertices[vertexIndex];
-            const position = {x: vertex.x, y: vertex.y};
-            this.mapToSectorIndices[vertexIndex] = vertexIterIndex;
+            const index = sectorVertexIndices[vertexIterIndex];
+            const vertex = mapVertices[index];
+            const position = new THREE.Vector2(vertex.x, vertex.y);
+            this.mapToSectorIndices[index] = vertexIterIndex;
             this.sectorVertices.push({
                 position,
-                index: vertexIndex
+                index
             });
         }
         // Get number of references to each vertex
@@ -163,6 +129,8 @@ class SectorPolygonBuilder {
                 }else{
                     this.vertexRefCount[vertexIndex] += 1;
                     if(this.vertexRefCount[vertexIndex] > 2){
+                        // Each vertex for a convex sector polygon is
+                        // referenced at least twice
                         this.maxVisits[vertexIndex] = (
                             this.vertexRefCount[vertexIndex] / 2);
                         this.visitCount[vertexIndex] = 0;
@@ -172,37 +140,38 @@ class SectorPolygonBuilder {
         });
     }
 
-    // Get the counterclockwise angle between three points
-    public static angleBetween(p1: Vector2, p2: Vector2, p3: Vector2): number {
+    // Get the clockwise or counterclockwise angle between three points
+    public static angleBetween(p1: THREE.Vector2, center: THREE.Vector2,
+            p2: THREE.Vector2, clockwise: boolean = false): number {
         // http://stackoverflow.com/questions/3486172/angle-between-3-points
         // modified not to bother converting to degrees
-        const ab = {x: p2.x - p1.x, y: p2.y - p1.y};
-        const cb = {x: p2.x - p3.x, y: p2.y - p3.y};
+        const ab = p1.clone().sub(center).normalize();
+        const cb = p2.clone().sub(center).normalize();
         // Dot and cross product of the two vectors
-        const dot = (ab.x * cb.x + ab.y * cb.y);
-        const cross = (ab.x * cb.y - ab.y * cb.x);
-        const alpha = Math.atan2(cross, dot);
-        // Ensure positive result
-        if(alpha < 0){
-            return 2 * Math.PI + alpha;
-        }
-        return alpha;
+        const dot = ab.dot(cb);
+        const cross = ab.cross(cb);
+        // Angle - will always be positive
+        return Math.atan2(clockwise ? cross : -cross, -dot) + Math.PI;
     }
 
     // Get the position of a vertex (map index)
-    protected vectorFor(vertexIndex: number): Vector2 {
-        return this.sectorVertices[
+    protected vectorFor(vertexIndex: number): THREE.Vector2 {
+        const position = this.sectorVertices[
             this.mapToSectorIndices[vertexIndex]
         ].position;
+        return new THREE.Vector2(position.x, position.y);
     }
 
-    protected findNextStartEdge(vertsToSkip?: number[]): number[] {
+    protected findNextStartEdge(
+        vertsToSkip?: Set<Number>,
+        polygons?: Number[][]
+    ): number[] {
         // Filter out vertices to skip
         const usableVertices = this.sectorVertices.filter((vertex) => {
-            return vertsToSkip ? !vertsToSkip.includes(vertex.index) : true;
+            return vertsToSkip ? !vertsToSkip.has(vertex.index) : true;
         });
         // Find rightmost vertex and edge(s)
-        const rightMostVertex = usableVertices.reduce<SectorVertex>(
+        const rightMostVertex: SectorVertex = usableVertices.reduce<SectorVertex>(
             (rightMostVertex, currentVertex) => {
                 if(currentVertex.position.x > rightMostVertex.position.x){
                     return currentVertex;
@@ -211,78 +180,52 @@ class SectorPolygonBuilder {
                 }
             }, usableVertices[0]);
         const rightMostEdges = this.sectorEdges.filter((edge) => {
-            return !edge.some(
-                (vertexIndex) => vertsToSkip ?
-                    vertsToSkip.includes(vertexIndex) : false) &&
-                edge.includes(rightMostVertex.index);
+            if(edge.includes(rightMostVertex.index)){
+                const otherVertex = edge.find((vertex) => vertex !== rightMostVertex.index)!;
+                // Ensure no existing edges or "skipped" vertices are used
+                let skipVertex = false;
+                if(polygons){
+                    skipVertex = skipVertex || polygons.some((polygon) => polygon.includes(otherVertex));
+                }
+                if(vertsToSkip){
+                    skipVertex = skipVertex || edge.some((vertexIndex) => vertsToSkip.has(vertexIndex));
+                }
+                return !skipVertex;
+            }
+            return false;
         })!;
-        // Sort vertices in clockwise order
-        // First, get center point
+        // Get vertices connected to the rightmost vertex
         const rightMostConnectedVertices: SectorVertex[] = rightMostEdges.map(
             (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0])
         .map<SectorVertex>((vertexIndex) => this.sectorVertices[
             this.mapToSectorIndices[vertexIndex]]);
-        rightMostConnectedVertices.push(rightMostVertex);
+        // Sort vertices in clockwise order
+        // First, get center point
         const vertexCount = rightMostConnectedVertices.length;
-        const centerPoint = rightMostConnectedVertices.reduce<Vector2>(
-            (center, sectorVertex) => {
-                return {
-                    x: center.x + sectorVertex.position.x,
-                    y: center.y + sectorVertex.position.y,
-                };
-            }, {x: 0, y: 0});
-        centerPoint.x /= vertexCount;
-        centerPoint.y /= vertexCount;
-        // Sort clockwise
-        // https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order
-        rightMostConnectedVertices.sort((a, b) => {
-            // a and b relative to center point
-            const aVector = a.position;
-            const bVector = b.position;
-            const ac: Vector2 = {
-                x: aVector.x - centerPoint.x,
-                y: aVector.y - centerPoint.y
-            };
-            const bc: Vector2 = {
-                x: bVector.x - centerPoint.x,
-                y: bVector.y - centerPoint.y
-            };
-            if(ac.x >= 0 && bc.x < 0){
-                return 1;
-            }
-            if(ac.x < 0 && bc.x >= 0){
-                return -1;
-            }
-            if(ac.x == 0 && bc.x == 0){
-                if(ac.y >= 0 || bc.y >= 0){
-                    return aVector.y - bVector.y;
-                }
-                return bVector.y - aVector.y;
-            }
-
-            // Cross product
-            const det = ac.x * bc.y - bc.x * ac.y;
-            if(det === 0){
-                // Which point is closer to the center?
-                const ac2 = ac.x * ac.x + ac.y * ac.y;
-                const bc2 = bc.x * bc.x + bc.y * bc.y;
-                return bc2 - ac2;
-            }
-            return det;
+        const centerPoint = new THREE.Vector2(0, 0);
+        rightMostConnectedVertices.forEach((sectorVertex) => {
+            centerPoint.add(sectorVertex.position);
         });
-        const rightMostVertexIndex = rightMostConnectedVertices.findIndex(
-            (vertex) => vertex.index === rightMostVertex.index)!;
-        const vertexIndices = rightMostConnectedVertices.slice(
-            rightMostVertexIndex, rightMostVertexIndex + 2).map(
-                (vertex) => vertex.index);
-        if(vertexIndices.length < 2){
-            vertexIndices.push(rightMostConnectedVertices[0].index);
-        }
-        return vertexIndices;
+        centerPoint.divideScalar(vertexCount);
+        // Sort clockwise
+        const angles = rightMostConnectedVertices.map((vertex) => {
+            const rightMostVector = rightMostVertex.position;
+            const vertexVector = vertex.position;
+            return SectorPolygonBuilder.angleBetween(
+                rightMostVector, centerPoint, vertexVector, false);
+        });
+        // Find the point with the lowest angle
+        const lowestAngle = Math.min.apply(null, angles);
+        const lowestAngleIndex = angles.findIndex((angle) => angle === lowestAngle)!;
+        return [rightMostVertex.index, rightMostConnectedVertices[lowestAngleIndex].index];
     }
 
-    protected findNextVertex(from: number, previous: number,
-            vertsToSkip?: number[], clockwise: boolean = false): number | null {
+    protected findNextVertex(
+        from: number,
+        previous: number,
+        vertsToSkip?: Set<number>,
+        clockwise: boolean = false
+    ): number | null {
         // Find all edges that:
         // - Are attached to the "from" vertex
         // - Are not the "previous" vertex
@@ -310,14 +253,8 @@ class SectorPolygonBuilder {
             // Iterate through vertices, find which one has the lowest angle
             for(const vertexIndex of intersectionVertices){
                 const endVector = this.vectorFor(vertexIndex);
-                let angle = 0;
-                if(clockwise){
-                    angle = SectorPolygonBuilder.angleBetween(
-                        endVector, midVector, startVector);
-                }else{
-                    angle = SectorPolygonBuilder.angleBetween(
-                        startVector, midVector, endVector);
-                }
+                const angle = SectorPolygonBuilder.angleBetween(
+                        endVector, midVector, startVector, clockwise);
                 if(angle < mostAcuteAngle){
                     mostAcuteAngle = angle;
                     mostAcuteVertex = vertexIndex;
@@ -325,18 +262,23 @@ class SectorPolygonBuilder {
             }
             // The vertex whose angle is the lowest is one which has been added
             // to a polygon
-            if(vertsToSkip && vertsToSkip.includes(mostAcuteVertex)){
+            if(vertsToSkip && vertsToSkip.has(mostAcuteVertex)){
                 return null;
             }
             return mostAcuteVertex;
         }else if(edges.length === 1){
             // There should be at least 1 vertex that comes next in the polygon
-            return edges[0].find((edgeVertex) => {
-                if(vertsToSkip && vertsToSkip.includes(edgeVertex)){
+            const otherVertex = edges[0].find((edgeVertex) => {
+                if(vertsToSkip && vertsToSkip.has(edgeVertex)){
                     return false;
                 }
                 return edgeVertex !== from;
-            }) || null;
+            });
+            // otherVertex could be 0, and 0 || null === null.
+            if(otherVertex === undefined){
+                return null;
+            }
+            return otherVertex;
         }else{
             return null;
         }
@@ -366,8 +308,13 @@ class SectorPolygonBuilder {
         // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
         const sectorPolygons: number[][] = [startEdge];
         // Vertices that have already been added to a polygon
-        const vertsToSkip: number[] = sectorPolygons[curPolygon].slice();
-        let clockwise = false;
+        const vertsToSkip: Set<number> = new Set();
+        for(const vertex of sectorPolygons[curPolygon]){
+            if(this.visitVertex(vertex)){
+                vertsToSkip.add(vertex);
+            }
+        }
+        // let clockwise = false;
         // NOTE: All vertices are stored as indices in the VERTEXES lump
         for(let vertexIteration = 2; // Start with 2 vertices in the "polygon"
             vertexIteration < this.sectorEdges.length; vertexIteration++){
@@ -376,12 +323,13 @@ class SectorPolygonBuilder {
                 sectorPolygons[curPolygon].slice(-2));
             // The next vertex to add to the polygon
             const nextVertex = this.findNextVertex(
-                lastVertex, prevVertex, sectorPolygons[curPolygon], clockwise);
+                lastVertex, prevVertex, vertsToSkip);
             // nextVertex is null - no more vertices left in this polygon
-            if(nextVertex == null){
+            if(nextVertex == null || nextVertex === sectorPolygons[curPolygon][0]){
                 curPolygon += 1;
                 const nextStartEdge = this.findNextStartEdge(vertsToSkip);
                 // Is the current polygon within another?
+                /*
                 const containerPolygons = sectorPolygons.filter((polygon) => {
                     const polygonVertices = polygon.map(
                         (vertexIndex) => this.vectorFor(vertexIndex));
@@ -391,22 +339,23 @@ class SectorPolygonBuilder {
                             vertexPos, polygonVertices);
                     });
                 });
-                clockwise = containerPolygons.length > 0 &&
-                    containerPolygons.length % 2 === 0;
-                if(clockwise){
+                clockwise = THREE.ShapeUtils.isClockWise(nextStartEdge.map(
+                    (vertex) => this.vectorFor(vertex)));
+                if(!clockwise){
                     nextStartEdge.reverse();
                 }
+                */
                 sectorPolygons.push(nextStartEdge);
                 for(const edgeVertex of nextStartEdge){
                     if(this.visitVertex(edgeVertex)){
-                        vertsToSkip.push(edgeVertex);
+                        vertsToSkip.add(edgeVertex);
                     }
                 }
                 vertexIteration += 1;
             }else{
                 // There is another vertex in the polygon
                 if(this.visitVertex(nextVertex)){
-                    vertsToSkip.push(nextVertex);
+                    vertsToSkip.add(nextVertex);
                 }
                 sectorPolygons[curPolygon].push(nextVertex);
             }
@@ -821,7 +770,7 @@ export class MapGeometryBuilder {
 
     // Point-in-polygon algorithm - used to find out whether a contiguous set
     // of vertices is a hole in a sector polygon
-    public static pointInPolygon(point: Vector2, polygon: Vector2[]): boolean {
+    public static pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
         // ray-casting algorithm based on
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
         // Code from https://github.com/substack/point-in-polygon/blob/96ef4abc2a623c98214618418e42a68240055f2e/index.js
@@ -1093,7 +1042,7 @@ export class MapGeometryBuilder {
             // Get sector polygons and triangulate the sector
             const sectorRawPolygons = this.getPolygonsFromLines(
                 sectorLines[sector], sectorIsBad ? sector : undefined);
-            console.log("sectorRawPolygons", sectorRawPolygons);
+            console.log(`sectorRawPolygons for sector ${sector}`, sectorRawPolygons);
             const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
             (rawPolygon) => {
                 // Convert indices to positions
