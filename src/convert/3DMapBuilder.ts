@@ -298,6 +298,22 @@ class SectorPolygonBuilder {
         return true;
     }
 
+    protected isPolygonComplete(polygon: number[]): boolean {
+        if(polygon.length < 3){
+            // There is no such thing as a 2 sided polygon
+            return false;
+        }
+        const first = polygon[0];
+        const last = polygon[polygon.length - 1];
+        // Get edges containing first vertex.
+        const firstEdges = this.sectorEdges.filter(
+            (edge) => edge.includes(first));
+        // Get edge containing both first vertex and last vertex.
+        const lastEdges = firstEdges.filter((edge) => edge.includes(last));
+        // If an edge is found, lastEdges will have at least one edge in it.
+        return lastEdges.length !== 0;
+    }
+
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
     getPolygons(): number[][] {
         // Make a new array with the sector polygons
@@ -325,7 +341,8 @@ class SectorPolygonBuilder {
             const nextVertex = this.findNextVertex(
                 lastVertex, prevVertex, vertsToSkip);
             // nextVertex is null - no more vertices left in this polygon
-            if(nextVertex == null || nextVertex === sectorPolygons[curPolygon][0]){
+            if(nextVertex == null ||
+                    this.isPolygonComplete(sectorPolygons[curPolygon])){
                 curPolygon += 1;
                 const nextStartEdge = this.findNextStartEdge(vertsToSkip);
                 // Is the current polygon within another?
@@ -339,8 +356,6 @@ class SectorPolygonBuilder {
                             vertexPos, polygonVertices);
                     });
                 });
-                clockwise = THREE.ShapeUtils.isClockWise(nextStartEdge.map(
-                    (vertex) => this.vectorFor(vertex)));
                 if(!clockwise){
                     nextStartEdge.reverse();
                 }
@@ -359,6 +374,11 @@ class SectorPolygonBuilder {
                 }
                 sectorPolygons[curPolygon].push(nextVertex);
             }
+            /*
+            clockwise = THREE.ShapeUtils.isClockWise(
+                sectorPolygons[curPolygon].map(
+                    (vertex) => this.vectorFor(vertex)));
+            */
         }
         return sectorPolygons;
     }
