@@ -1,5 +1,5 @@
 import {WADFile} from "@src/wad/file";
-import {WADLump} from "@src/wad/lump";
+import {WADLump, WADCategory} from "@src/wad/lump";
 
 // Object interface used by the WADLumpMap implementation.
 // Maps lump names to lists of so-named WAD lumps.
@@ -56,10 +56,21 @@ export class WADLumpMap {
     // Get a lump by name. If there were no lumps, the function returns null.
     // If there was more than one lump by that name, then the last lump in
     // the last file with the given name is returned.
-    get(name: string): (WADLump | null) {
+    get(name: string, category?: WADCategory): (WADLump | null) {
         const upperName: string = name.toUpperCase();
         if(this.lumps[upperName]){
             const list = this.lumps[upperName];
+            if(category){
+                // Filter lumps in the list by namespace
+                const categoryLumps = list.filter(
+                    (lump) => lump.category === category);
+                console.log(`Category: ${WADCategory[category]}`, list, categoryLumps);
+                if(categoryLumps.length > 0){
+                    return categoryLumps[categoryLumps.length - 1];
+                }else{
+                    return null;
+                }
+            }
             return list[list.length - 1];
         }else{
             return null;

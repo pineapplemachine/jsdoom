@@ -1,5 +1,14 @@
 import {WADFile} from "@src/wad/file";
 
+// The namespace a WAD lump is in.
+export enum WADCategory {
+    None,
+    Patches,
+    Flats,
+    Sprites,
+    End,
+}
+
 // Represents a WAD lump.
 export class WADLump {
     // The WAD file to which this lump belongs, if any.
@@ -19,7 +28,13 @@ export class WADLump {
     // Some zero-length (marker) lumps have a data offset value of zero,
     // and some don't. This flag tells the WAD file writing logic what to do.
     noDataOffset: boolean;
-    
+    // The namespace this lump is in. A WAD can have two different lumps with
+    // the same name in two different namespaces, so this is important for
+    // distinguishing between them.
+    // NOTE: namespace is a reserved word in Typescript, so I'm using category
+    // instead.
+    category: WADCategory;
+
     constructor(options: {
         file: (WADFile | null),
         name: string,
@@ -28,6 +43,7 @@ export class WADLump {
         dataOffset?: number,
         dataLength?: number,
         noDataOffset?: boolean,
+        category?: WADCategory,
     }) {
         this.file = options.file;
         this.name = options.name;
@@ -36,6 +52,25 @@ export class WADLump {
         this.dataOffset = options.dataOffset || 0;
         this.dataLength = options.dataLength || 0;
         this.noDataOffset = options.noDataOffset || false;
+        this.category = options.category || WADCategory.None;
+    }
+    
+    // Gets the namespace associated with this lump
+    static categoryOf(name: string): WADCategory {
+        const patchNamespace = /^P[123]?_START$/;
+        const flatNamespace = /^F[123]?_START$/;
+        const spriteNamespace = "S_START";
+        const endNamespace = /_END$/;
+        if(patchNamespace.test(name)){
+            return WADCategory.Patches;
+        }else if(flatNamespace.test(name)){
+            return WADCategory.Flats;
+        }else if(name === spriteNamespace){
+            return WADCategory.Sprites;
+        }else if(endNamespace.test(name)){
+            return WADCategory.End;
+        }
+        return WADCategory.None;
     }
     
     // Get the path to the WAD containing this lump, if any.

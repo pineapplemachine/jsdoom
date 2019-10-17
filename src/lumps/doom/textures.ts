@@ -1,5 +1,5 @@
 import {WADFileList} from "@src/wad/fileList";
-import {WADLump} from "@src/wad/lump";
+import {WADLump, WADCategory} from "@src/wad/lump";
 import {readPaddedString8} from "@src/wad/string";
 
 import {WADColors} from "@src/lumps/doom/colors";
@@ -131,7 +131,7 @@ export class WADTexture {
                 }
             }
             // Otherwise, look for the patch lump
-            const lump: (WADLump | null) = files.map.get(name);
+            const lump: (WADLump | null) = files.map.get(name, WADCategory.Patches);
             // Lump is missing
             if(!lump){
                 pictures.push(null);
