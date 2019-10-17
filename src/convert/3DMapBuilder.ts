@@ -96,6 +96,7 @@ class SectorPolygonBuilder {
         for(const line of sectorLines){
             this.sectorEdges.push([line.startVertex, line.endVertex]);
         }
+        // Sector to map indices
         const sectorVertexIndices: number[] = [];
         for(const edge of this.sectorEdges){
             for(const edgeVertex of edge){
@@ -104,7 +105,9 @@ class SectorPolygonBuilder {
                 }
             }
         }
+        // Map to sector indices - used to find vertices
         this.mapToSectorIndices = {};
+        // Sector vertices
         this.sectorVertices = [];
         for(let vertexIterIndex = 0;
                 vertexIterIndex < sectorVertexIndices.length;
@@ -143,8 +146,7 @@ class SectorPolygonBuilder {
     // Get the clockwise or counterclockwise angle between three points
     public static angleBetween(p1: THREE.Vector2, center: THREE.Vector2,
             p2: THREE.Vector2, clockwise: boolean = false): number {
-        // http://stackoverflow.com/questions/3486172/angle-between-3-points
-        // modified not to bother converting to degrees
+        // Rewritten to be simpler and work better with the THREE.js API
         const ab = p1.clone().sub(center).normalize();
         const cb = p2.clone().sub(center).normalize();
         // Dot and cross product of the two vectors
@@ -170,7 +172,7 @@ class SectorPolygonBuilder {
         const usableVertices = this.sectorVertices.filter((vertex) => {
             return vertsToSkip ? !vertsToSkip.has(vertex.index) : true;
         });
-        // Find rightmost vertex and edge(s)
+        // Find rightmost vertex
         const rightMostVertex: SectorVertex = usableVertices.reduce<SectorVertex>(
             (rightMostVertex, currentVertex) => {
                 if(currentVertex.position.x > rightMostVertex.position.x){
@@ -179,16 +181,22 @@ class SectorPolygonBuilder {
                     return rightMostVertex;
                 }
             }, usableVertices[0]);
+        // Find edges connected to the rightmost vertex
         const rightMostEdges = this.sectorEdges.filter((edge) => {
             if(edge.includes(rightMostVertex.index)){
-                const otherVertex = edge.find((vertex) => vertex !== rightMostVertex.index)!;
-                // Ensure no existing edges or "skipped" vertices are used
+                // What's the other vertex?
+                const otherVertex = edge.find(
+                    (vertex) => vertex !== rightMostVertex.index)!;
+                // Ensure no existing edges or "skipped" vertices are used.
+                // This code is intended to find a new edge to start from.
                 let skipVertex = false;
                 if(polygons){
-                    skipVertex = skipVertex || polygons.some((polygon) => polygon.includes(otherVertex));
+                    skipVertex = skipVertex || polygons.some(
+                        (polygon) => polygon.includes(otherVertex));
                 }
                 if(vertsToSkip){
-                    skipVertex = skipVertex || edge.some((vertexIndex) => vertsToSkip.has(vertexIndex));
+                    skipVertex = skipVertex || edge.some(
+                        (vertexIndex) => vertsToSkip.has(vertexIndex));
                 }
                 return !skipVertex;
             }
@@ -207,7 +215,8 @@ class SectorPolygonBuilder {
             centerPoint.add(sectorVertex.position);
         });
         centerPoint.divideScalar(vertexCount);
-        // Sort clockwise
+        // Find angles between the rightmost vertex, the center, and each
+        // connected vertex.
         const angles = rightMostConnectedVertices.map((vertex) => {
             const rightMostVector = rightMostVertex.position;
             const vertexVector = vertex.position;
@@ -325,14 +334,13 @@ class SectorPolygonBuilder {
         const sectorPolygons: number[][] = [startEdge];
         // Vertices that have already been added to a polygon
         const vertsToSkip: Set<number> = new Set();
+        // "Visit" each vertex in the first polygon
         for(const vertex of sectorPolygons[curPolygon]){
             if(this.visitVertex(vertex)){
                 vertsToSkip.add(vertex);
             }
         }
-        // let clockwise = false;
-        // NOTE: All vertices are stored as indices in the VERTEXES lump
-        for(let vertexIteration = 2; // Start with 2 vertices in the "polygon"
+        for(let vertexIteration = 2; // Start with 2 vertices in the polygon
             vertexIteration < this.sectorEdges.length; vertexIteration++){
             // The vertex from which to start the search for the next vertex
             const [prevVertex, lastVertex] = (
@@ -343,29 +351,21 @@ class SectorPolygonBuilder {
             // nextVertex is null - no more vertices left in this polygon
             if(nextVertex == null ||
                     this.isPolygonComplete(sectorPolygons[curPolygon])){
+                // Add another polygon
                 curPolygon += 1;
+                // Find the first edge of the next polygon, and add it to the
+                // polygons that make up this sector
                 const nextStartEdge = this.findNextStartEdge(vertsToSkip);
-                // Is the current polygon within another?
-                /*
-                const containerPolygons = sectorPolygons.filter((polygon) => {
-                    const polygonVertices = polygon.map(
-                        (vertexIndex) => this.vectorFor(vertexIndex));
-                    return nextStartEdge.every((vertexIndex) => {
-                        const vertexPos = this.vectorFor(vertexIndex);
-                        return MapGeometryBuilder.pointInPolygon(
-                            vertexPos, polygonVertices);
-                    });
-                });
-                if(!clockwise){
-                    nextStartEdge.reverse();
-                }
-                */
                 sectorPolygons.push(nextStartEdge);
+                // "Visit" each vertex of the starting edge
                 for(const edgeVertex of nextStartEdge){
                     if(this.visitVertex(edgeVertex)){
                         vertsToSkip.add(edgeVertex);
                     }
                 }
+                // A new polygon was added, and vertexIteration was already
+                // incremented by the for loop, so 1 should be added, since an
+                // edge contains two vertices
                 vertexIteration += 1;
             }else{
                 // There is another vertex in the polygon
@@ -374,11 +374,6 @@ class SectorPolygonBuilder {
                 }
                 sectorPolygons[curPolygon].push(nextVertex);
             }
-            /*
-            clockwise = THREE.ShapeUtils.isClockWise(
-                sectorPolygons[curPolygon].map(
-                    (vertex) => this.vectorFor(vertex)));
-            */
         }
         return sectorPolygons;
     }
@@ -413,8 +408,8 @@ enum TextureAlignment {
     // Back-side midtexture quad
     BackMidtexture = 3,
     World = 4, // Doom 64
-    LowerUnpegged = 8, // Flag
-    TwoSided = 16, // Flag
+    LowerUnpegged = 8, // Lower Unpegged Flag
+    TwoSided = 16, // Two-Sided Flag
 }
 
 // Generic 4-sided polygon
@@ -424,16 +419,6 @@ interface DoomLighting {
     // Sector light level
     lightLevel: THREE.Color;
 }
-
-/*
-interface Doom64Lighting {
-    // Upper and lower vertex colors (for Doom 64 style lighting)
-    upperColor: THREE.Color;
-    lowerColor: THREE.Color;
-}
-
-interface GZDoomLighting extends DoomLighting, Doom64Lighting {}
-*/
 
 // A quad on a line or side
 interface LineQuad extends Quad, DoomLighting {
