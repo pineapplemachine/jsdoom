@@ -229,7 +229,7 @@ export class WADPicture {
             };
             // Get ready to read the next post
             dataOffset = nextDataOffset;
-            lastPostOffset = postOffset;
+            lastPostOffset = yPosition;
         }
     }
 }
