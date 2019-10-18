@@ -1,5 +1,5 @@
 import {WADFileType} from "./fileType";
-import {WADLump} from "./lump";
+import {WADLump, WADCategory} from "./lump";
 
 import {writePaddedString, readPaddedString, readPaddedString8} from "./string";
 
@@ -57,6 +57,7 @@ export class WADFile {
         // the first time any lump is found not to be aligned on a 4-byte
         // boundary.
         this.padLumps = true;
+        let category: WADCategory = WADCategory.None;
         while(this.lumps.length < numEntries && dirPosition < data.length){
             // Read lump metadata: lump name; data offset and length.
             const lumpStart: number = data.readUInt32LE(dirPosition);
@@ -74,6 +75,10 @@ export class WADFile {
                 lumpStart === lumpEnd ? null : data.slice(lumpStart, lumpEnd)
             );
             // Read the next lump and add it to the list
+            const currentCategory = WADLump.categoryOf(lumpName);
+            if(currentCategory !== WADCategory.None){
+                category = currentCategory;
+            }
             const lump: WADLump = new WADLump({
                 file: this,
                 name: lumpName,
@@ -82,8 +87,13 @@ export class WADFile {
                 dataOffset: lumpStart,
                 dataLength: lumpSize,
                 noDataOffset: lumpStart === 0,
+                category,
             });
             this.addLump(lump);
+            // Reset namespace if the current lump is the end of a namespace
+            if(currentCategory === WADCategory.End){
+                category = WADCategory.None;
+            }
             // Update padLumps flag
             if(lumpStart % 4 !== 0){
                 this.padLumps = false;

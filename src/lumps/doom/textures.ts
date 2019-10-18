@@ -1,5 +1,5 @@
 import {WADFileList} from "@src/wad/fileList";
-import {WADLump} from "@src/wad/lump";
+import {WADLump, WADCategory} from "@src/wad/lump";
 import {readPaddedString8} from "@src/wad/string";
 
 import {WADColors} from "@src/lumps/doom/colors";
@@ -131,7 +131,7 @@ export class WADTexture {
                 }
             }
             // Otherwise, look for the patch lump
-            const lump: (WADLump | null) = files.map.get(name);
+            const lump: (WADLump | null) = files.map.get(name, WADCategory.Patches);
             // Lump is missing
             if(!lump){
                 pictures.push(null);
@@ -173,6 +173,41 @@ export class WADTexture {
             }
         }
         return posts;
+    }
+    
+    // Tell whether or not this texture has transparent pixels in it
+    isTransparent(files: WADFileList): boolean {
+        const patchPictures = this.getPatchPictures(files);
+        const patchPosts = this.getPatchPosts(patchPictures);
+        // Set up alpha map
+        const data = new Uint8Array(this.width * this.height);
+        // Blit alpha channel of patch on to alpha map
+        for(let patchIndex = this.patches.length - 1; patchIndex >= 0; patchIndex--){
+            const y = this.patches[patchIndex].y;
+            if(y >= this.height){ break; } // Outside of texture Y bounds
+            for(let column = 0; column < patchPosts[patchIndex].length; column++){
+                const x = column + this.patches[patchIndex].x;
+                if(x >= this.width){ break; } // Outside of texture X bounds
+                for(const post of patchPosts[patchIndex][column]){
+                    for(let pixelY = post.y + y; pixelY < post.length + post.y + y; pixelY++){
+                        if(pixelY >= this.height){ break; }
+                        data[pixelY * this.width + x] = 255;
+                    }
+                }
+            }
+        }
+        // Look at data and see if any pixels are transparent
+        for(let i = 0; i < data.length; i++){
+            if(data[i] < 255){
+                // console.log(`${this.name} is transparent.`);
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    get worldPanning(): boolean {
+        return (this.flags & 0x8000) > 0;
     }
 }
 

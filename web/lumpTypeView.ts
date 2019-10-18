@@ -1,18 +1,69 @@
+import * as THREE from "three";
+
+import {MapGeometryBuilder} from "@src/convert/3DMapBuilder";
+import {KeyboardListener} from "./keyboardListener";
+
 import * as lumps from "@src/lumps/index";
 import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
+
+import {TextureLibrary} from "@src/lumps/index";
 
 import {getPng64, bufferbtoa} from "@web/png64";
 import * as util from "@web/util";
 
 const win: any = window as any;
 
-// Get WAD file list
-// Makes this file easier to maintain when the proper implementation is added
-function getWadFileList(lump: WADLump): WADFileList {
-    return new WADFileList([lump.file as WADFile]);
+// Manages data for these views, so that stuff like the WAD file list and texture library can be reused between views.
+class DataManager {
+    // The last WAD file loaded
+    private lastWadFile: WADFile | null;
+    // The WAD file list
+    private wadFileList: WADFileList | null;
+    // The texture library
+    private textureLibrary: TextureLibrary | null;
+    constructor(){
+        this.lastWadFile = null;
+        this.wadFileList = null;
+        this.textureLibrary = null;
+    }
+    // Get WAD file list
+    // Makes this file easier to maintain when the proper implementation is added
+    getWadFileList(lump: WADLump): WADFileList {
+        if(lump.file){
+            if(lump.file !== this.lastWadFile || !this.wadFileList){
+                this.lastWadFile = lump.file;
+                this.wadFileList = new WADFileList([lump.file]);
+            }
+            return this.wadFileList;
+        }else{
+            if(!this.wadFileList){
+                this.wadFileList = new WADFileList();
+            }
+            return this.wadFileList;
+        }
+        return new WADFileList();
+    }
+    // Get the texture library. If the WAD File list changes, a new texture library is needed.
+    getTextureLibrary(lump: WADLump): TextureLibrary {
+        // Decide if a new texture library is needed
+        let newLibraryNeeded = this.textureLibrary == null;
+        // If there is no WAD file list, or the map lump is from a different WAD
+        if(this.lastWadFile !== lump.file || this.wadFileList == null){
+            newLibraryNeeded = true;
+            this.wadFileList = this.getWadFileList(lump);
+        }
+        // Make a new texture library
+        if(newLibraryNeeded){
+            console.log("New texture library using", this.wadFileList);
+            this.textureLibrary = new TextureLibrary(this.wadFileList);
+        }
+        return this.textureLibrary!;
+    }
 }
+
+const sharedDataManager = new DataManager();
 
 // Warn the user before previewing lumps this big
 export const BigLumpThreshold: number = 10000;
@@ -162,7 +213,7 @@ export const LumpTypeViewTextures = new LumpTypeView({
     icon: "assets/icons/lump-textures.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.getWadFileList(lump);
         const textures = lumps.WADTextures.from(lump);
         const viewRoot = util.createElement({
             tag: "div",
@@ -211,7 +262,7 @@ export const LumpTypeViewFlatImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.getWadFileList(lump);
         const flat: lumps.WADFlat = lumps.WADFlat.from(lump);
         return util.createElement({
             tag: "img",
@@ -227,7 +278,7 @@ export const LumpTypeViewPictureImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.getWadFileList(lump);
         const picture: lumps.WADPicture = lumps.WADPicture.from(lump);
         return util.createElement({
             tag: "img",
@@ -478,6 +529,132 @@ function drawMapGeometry(
     }
 }
 
+interface Map3DOptions {
+    // The vertical FOV to use
+    fov?: number;
+}
+
+export const LumpTypeViewMap3D = function(
+    options: Map3DOptions
+): LumpTypeView {
+    const fov: number = options.fov || 90;
+    // Pointer lock related stuff
+    let mouseController: ((event: MouseEvent) => void) | null = null;
+    const makeMouseController = (direction: THREE.Spherical): (event: MouseEvent) => void => {
+        mouseController = (event: MouseEvent) => {
+            direction.theta -= event.movementX / (180 / Math.PI);
+            direction.phi -= event.movementY / (180 / Math.PI);
+            direction.makeSafe();
+        };
+        return mouseController;
+    };
+    let hasPointerLock = false;
+    const lockPointer = () => {
+        if(!mouseController){
+            return;
+        }
+        if(hasPointerLock){
+            document.removeEventListener("mousemove", mouseController);
+        }else{
+            document.addEventListener("mousemove", mouseController);
+        }
+        hasPointerLock = !hasPointerLock;
+    };
+    let mapBuilder: MapGeometryBuilder | null = null;
+    return new LumpTypeView({
+        name: "Map (3D)",
+        icon: "assets/icons/lump-map.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
+            if(!mapLump){
+                return;
+            }
+            // Initialize map and texture library
+            const map = lumps.WADMap.from(mapLump);
+            const textureLibrary = sharedDataManager.getTextureLibrary(mapLump);
+            const canvas = util.createElement({
+                tag: "canvas",
+                class: "lump-view-map-geometry",
+                onleftclick: () => {
+                    // Lock pointer if user left-clicks on 3D view
+                    if(!hasPointerLock){
+                        canvas.requestPointerLock();
+                    }
+                },
+                appendTo: root,
+            });
+            // Prefer WebGL2 context, since that allows non-power-of-2 textures to tile
+            let context = canvas.getContext("webgl2", {
+                alpha: true,
+            });
+            // Fall back to WebGL context if WebGL2 is unavailable
+            if(!context){
+                context = canvas.getContext("webgl", {
+                    alpha: true,
+                });
+            }
+            document.addEventListener("pointerlockchange", lockPointer);
+            // Initialize scene, renderer, and camera
+            const scene = new THREE.Scene();
+            const renderer = new THREE.WebGLRenderer({canvas, context});
+            renderer.setSize(root.clientWidth, root.clientHeight);
+            const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
+            // Build map mesh
+            mapBuilder = new MapGeometryBuilder(map, textureLibrary);
+            const mesh = mapBuilder.rebuild();
+            if(mesh != null){
+                const vnh = new THREE.VertexNormalsHelper(mesh, 5, 0x3884fa, 2);
+                scene.add(mesh);
+                scene.add(vnh);
+            }
+            const keyboardControls = new KeyboardListener();
+            // Set viewpoint from player 1 start
+            const viewHead = new THREE.Object3D(); // Also for VR camera
+            const playerStart = map.getPlayerStart(1);
+            viewHead.position.set(playerStart ? playerStart.x : 0, 0, playerStart ? -playerStart.y : 0);
+            viewHead.add(camera);
+            scene.add(viewHead);
+            // Direction control
+            const playerAngle = playerStart ? playerStart.angle / (180 / Math.PI) : 0; // Player angle is 0-360 degrees
+            const directionSphere = new THREE.Spherical(1, 90 / (180 / Math.PI), playerAngle);
+            makeMouseController(directionSphere);
+            const render = () => {
+                // WASD controls - moves camera around
+                if(keyboardControls.keyState["w"]){
+                    viewHead.translateZ(-10); // Forward
+                }
+                if(keyboardControls.keyState["s"]){
+                    viewHead.translateZ(10); // Backward
+                }
+                if(keyboardControls.keyState["a"]){
+                    viewHead.translateX(-10); // Left
+                }
+                if(keyboardControls.keyState["d"]){
+                    viewHead.translateX(10); // Right
+                }
+                // Set view head direction (for non-VR users)
+                // if(!VR){
+                const lookAtMe = new THREE.Vector3();
+                lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
+                viewHead.lookAt(lookAtMe);
+                // }
+                // Render
+                camera.updateProjectionMatrix();
+                renderer.render(scene, camera);
+            };
+            renderer.setAnimationLoop(render); // Needed for VR support
+        },
+        clear: () => {
+            if(mouseController){
+                document.removeEventListener("mousemove", mouseController);
+            }
+            if(mapBuilder){
+                mapBuilder.dispose();
+            }
+        }
+    });
+};
+
 // Options used by makeSequentialView
 interface SequentialViewOptions {
     root: HTMLElement;
@@ -616,7 +793,7 @@ export function LumpTypeViewColormapAll(scaleX: number = 2, scaleY: number = 2) 
         name: "Image",
         icon: "assets/icons/view-image.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const files = getWadFileList(lump);
+            const files = sharedDataManager.getWadFileList(lump);
             const colormap: lumps.WADColorMap = lumps.WADColorMap.from(lump);
             const playpal: lumps.WADPalette = files.getPlaypal();
             // Set up canvas and rendering context
@@ -657,7 +834,7 @@ export function LumpTypeViewColormapByMap(
         name: "Colormap",
         icon: "assets/icons/lump-colormap.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const files = getWadFileList(lump);
+            const files = sharedDataManager.getWadFileList(lump);
             const playpal = files.getPlaypal();
             const colormap = lumps.WADColorMap.from(lump);
             // Create a canvas element and a rendering context
