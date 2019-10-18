@@ -57,8 +57,8 @@ export class WADLump {
     
     // Gets the namespace associated with this lump
     static categoryOf(name: string): WADCategory {
-        const patchNamespace = /^P[123]?_START$/;
-        const flatNamespace = /^F[123]?_START$/;
+        const patchNamespace = /^P[123P]?_START$/;
+        const flatNamespace = /^F[123F]?_START$/;
         const spriteNamespace = "S_START";
         const endNamespace = /_END$/;
         if(patchNamespace.test(name)){
