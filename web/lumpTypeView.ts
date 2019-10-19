@@ -572,6 +572,25 @@ export const LumpTypeViewMap3D = function(
             // Initialize map and texture library
             const map = lumps.WADMap.from(mapLump);
             const textureLibrary = sharedDataManager.getTextureLibrary(mapLump);
+            // Build map mesh
+            mapBuilder = new MapGeometryBuilder(map, textureLibrary);
+            const scene = new THREE.Scene();
+            try{
+                const mapMeshGroup = mapBuilder.rebuild();
+                if(mapMeshGroup != null){
+                    const vnh = new THREE.VertexNormalsHelper(mapMeshGroup, 5, 0x3884fa, 2);
+                    scene.add(mapMeshGroup);
+                    scene.add(vnh);
+                }
+            }catch(error){
+                const errorMessage = util.createElement({
+                    tag: "p",
+                    class: "lump-view-error-message",
+                    innerText: `Error: ${error}`,
+                    appendTo: root,
+                });
+                return;
+            }
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",
@@ -595,18 +614,9 @@ export const LumpTypeViewMap3D = function(
             }
             document.addEventListener("pointerlockchange", lockPointer);
             // Initialize scene, renderer, and camera
-            const scene = new THREE.Scene();
             const renderer = new THREE.WebGLRenderer({canvas, context});
             renderer.setSize(root.clientWidth, root.clientHeight);
             const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
-            // Build map mesh
-            mapBuilder = new MapGeometryBuilder(map, textureLibrary);
-            const mapMeshGroup = mapBuilder.rebuild();
-            if(mapMeshGroup != null){
-                const vnh = new THREE.VertexNormalsHelper(mapMeshGroup, 5, 0x3884fa, 2);
-                scene.add(mapMeshGroup);
-                scene.add(vnh);
-            }
             const keyboardControls = new KeyboardListener();
             // Set viewpoint from player 1 start
             const viewHead = new THREE.Object3D(); // Also for VR camera

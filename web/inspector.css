@@ -422,3 +422,14 @@ body {
     display: block;
     margin: 8px auto;
 }
+
+/*Error messages*/
+.lump-view-error-message {
+    display: block;
+    margin: 10px auto;
+    background-color: #822;
+    border: 1px solid #f66;
+    border-radius: 7px;
+    padding: 10px;
+    width: max-content;
+}
