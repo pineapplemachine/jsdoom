@@ -797,7 +797,7 @@ export class MapGeometryBuilder {
     }
 
     // Build the 3D mesh for the map
-    public rebuild(callback?: (mesh: THREE.Mesh) => void): THREE.Mesh | null {
+    public rebuild(callback?: (mesh: THREE.Group) => void): THREE.Group | null {
         // The map is missing one of the necessary data lumps
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
             return null;
@@ -1184,7 +1184,9 @@ export class MapGeometryBuilder {
             `hsl(${Math.floor(Math.random() * 360)}, 100%, 50%)`);
         const tempMaterial = new THREE.MeshBasicMaterial(
             {color: tempMaterialColor.getHex(), wireframe: true});
+        const mapMeshGroup = new THREE.Group();
         const mesh = new THREE.Mesh(bufferGeometry, tempMaterial);
+        mapMeshGroup.add(mesh);
         // Once all of the textures for the materials have been loaded, recalculate the UV coordinates.
         Promise.all(this._materialPromises).then(() => {
             // Set up group data - used by GeometryBuffer to assign multiple materials
@@ -1287,12 +1289,12 @@ export class MapGeometryBuilder {
             mesh.material = this._materialArray;
             console.log("Done assigning materials to the mesh.");
             if(callback){
-                callback(mesh);
+                callback(mapMeshGroup);
             }
         }).catch((reason: any) => {
             console.error("Could not assign materials to the mesh!", reason);
             if(callback){
-                callback(mesh);
+                callback(mapMeshGroup);
             }
         });
         // Add sector polygon positions, normals, and colors to buffers
@@ -1374,7 +1376,7 @@ export class MapGeometryBuilder {
         bufferGeometry.addAttribute("color", colorAttribute);
         console.log("Done building the mesh.");
         this._disposables.push(bufferGeometry);
-        return mesh;
+        return mapMeshGroup;
     }
 
     public dispose(): void {

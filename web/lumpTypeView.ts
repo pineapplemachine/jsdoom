@@ -601,10 +601,10 @@ export const LumpTypeViewMap3D = function(
             const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
             // Build map mesh
             mapBuilder = new MapGeometryBuilder(map, textureLibrary);
-            const mesh = mapBuilder.rebuild();
-            if(mesh != null){
-                const vnh = new THREE.VertexNormalsHelper(mesh, 5, 0x3884fa, 2);
-                scene.add(mesh);
+            const mapMeshGroup = mapBuilder.rebuild();
+            if(mapMeshGroup != null){
+                const vnh = new THREE.VertexNormalsHelper(mapMeshGroup, 5, 0x3884fa, 2);
+                scene.add(mapMeshGroup);
                 scene.add(vnh);
             }
             const keyboardControls = new KeyboardListener();
