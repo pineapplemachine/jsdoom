@@ -584,21 +584,55 @@ export class MapGeometryBuilder {
     // The map data
     protected map: WADMap;
     // The texture library
-    protected textureLibrary: TextureLibrary;
+    protected textureLibrary: TextureLibrary | null;
     // Texture for walls and flats with missing textures.
-    private static _missingTexture: THREE.Texture | nil;
+    private static _missingTexture: THREE.Texture = MapGeometryBuilder.loadPlaceholderTexture();
     protected _materials: {[name: string]: number};
     protected _materialArray: THREE.MeshBasicMaterial[];
     protected _materialPromises: Promise<TransparentTexture>[];
     protected _disposables: Disposable[];
 
-    constructor(map: WADMap, textures: TextureLibrary){
+    constructor(map: WADMap, textures: TextureLibrary | null){
         this.map = map;
-        this.textureLibrary = textures;
+        this.textureLibrary = textures || null;
         this._materials = {};
         this._materialArray = [];
         this._materialPromises = [];
         this._disposables = [];
+    }
+
+    private static loadPlaceholderTexture(): THREE.Texture {
+        const loader = new THREE.TextureLoader();
+        const tex = loader.load("assets/textures/missing.png", (texture) => {
+            texture.needsUpdate = true;
+        });
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.flipY = false;
+        return tex;
+    }
+
+    // Point-in-polygon algorithm - used to find out whether a contiguous set
+    // of vertices is a hole in a sector polygon
+    public static pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
+        // ray-casting algorithm based on
+        // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+        // Code from https://github.com/substack/point-in-polygon/blob/96ef4abc2a623c98214618418e42a68240055f2e/index.js
+        // Licensed under MIT license
+        const x = point.x, y = point.y;
+        let inside = false;
+        for(let i = 0, j = polygon.length - 1; i < polygon.length; j = i++){
+            const xi = polygon[i].x;
+            const yi = polygon[i].y;
+            const xj = polygon[j].x;
+            const yj = polygon[j].y;
+            const intersect = ((yi > y) != (yj > y))
+            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if(intersect){
+                inside = !inside;
+            }
+        }
+        return inside;
     }
 
     // Get UV coordinates for a quad
@@ -700,7 +734,7 @@ export class MapGeometryBuilder {
     // Return a promise for a texture in the library, or a missing texture material
     protected optionalTexture(texName: string, set: TextureSet): Promise<TransparentTexture> {
         const makeTexture = (wadTexture: Mappable): THREE.DataTexture => {
-            const rgba = this.textureLibrary.getRgba(texName, set);
+            const rgba = this.textureLibrary!.getRgba(texName, set);
             const threeTexture = new THREE.DataTexture(
                 rgba!, wadTexture.width, wadTexture.height, THREE.RGBAFormat,
                 THREE.UnsignedByteType, THREE.UVMapping,
@@ -716,6 +750,10 @@ export class MapGeometryBuilder {
             return threeTexture;
         };
         const promise = new Promise<TransparentTexture>((res, rej) => {
+            if(!this.textureLibrary){
+                rej("Texture library unavailable");
+                return;
+            }
             const wadTexture = this.textureLibrary.get(texName, set);
             if(wadTexture == null){
                 const threeTexture = MapGeometryBuilder._missingTexture;
@@ -771,29 +809,6 @@ export class MapGeometryBuilder {
             }
         }
         return sectorPolygons;
-    }
-
-    // Point-in-polygon algorithm - used to find out whether a contiguous set
-    // of vertices is a hole in a sector polygon
-    public static pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
-        // ray-casting algorithm based on
-        // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
-        // Code from https://github.com/substack/point-in-polygon/blob/96ef4abc2a623c98214618418e42a68240055f2e/index.js
-        // Licensed under MIT license
-        const x = point.x, y = point.y;
-        let inside = false;
-        for(let i = 0, j = polygon.length - 1; i < polygon.length; j = i++){
-            const xi = polygon[i].x;
-            const yi = polygon[i].y;
-            const xj = polygon[j].x;
-            const yj = polygon[j].y;
-            const intersect = ((yi > y) != (yj > y))
-                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-            if(intersect){
-                inside = !inside;
-            }
-        }
-        return inside;
     }
 
     // Build the 3D mesh for the map
@@ -869,11 +884,31 @@ export class MapGeometryBuilder {
                 }
                 const heights = getSideHeights(frontSector, backSector);
                 if(heights.middleTop - heights.middleBottom > 0){
-                    const frontMidtex = this.textureLibrary.get(
-                        front.middle, TextureSet.Walls) as WADTexture | nil;
-                    const backMidtex = this.textureLibrary.get(
-                        back.middle, TextureSet.Walls) as WADTexture | nil;
-                    if(frontMidtex != null){
+                    // Placeholder textures in case the texture library is unavailable
+                    let frontMidtex: WADTexture | nil = new WADTexture({
+                        name: front.middle,
+                        flags: 0,
+                        width: 64,
+                        height: 64,
+                        columnDirectory: 0,
+                        patches: [],
+                    });
+                    let backMidtex: WADTexture | nil = new WADTexture({
+                        name: back.middle,
+                        flags: 0,
+                        width: 64,
+                        height: 64,
+                        columnDirectory: 0,
+                        patches: [],
+                    });
+                    // Use the real textures if the texture library is available
+                    if(this.textureLibrary){
+                        frontMidtex = this.textureLibrary.get(
+                            front.middle, TextureSet.Walls) as WADTexture | nil;
+                        backMidtex = this.textureLibrary.get(
+                            back.middle, TextureSet.Walls) as WADTexture | nil;
+                    }
+                    if(front.middle !== "-" && frontMidtex != null){
                         // Front side midtex
                         let midQuadTop = line.lowerUnpeggedFlag ?
                             heights.middleBottom + frontMidtex.height : heights.middleTop;
@@ -903,7 +938,7 @@ export class MapGeometryBuilder {
                             reverse: false,
                         });
                     }
-                    if(backMidtex != null){
+                    if(back.middle !== "-" && backMidtex != null){
                         // Back side midtex
                         let midQuadTop = line.lowerUnpeggedFlag ?
                             heights.middleBottom + backMidtex.height : heights.middleTop;

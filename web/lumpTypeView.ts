@@ -532,12 +532,14 @@ function drawMapGeometry(
 interface Map3DOptions {
     // The vertical FOV to use
     fov?: number;
+    // Whether or not to use textures. Turning this off can provide a huge
+    // performance boost.
+    textured: boolean;
 }
 
-export const LumpTypeViewMap3D = function(
+const LumpTypeViewMap3D = function(
     options: Map3DOptions
 ): LumpTypeView {
-    const fov: number = options.fov || 90;
     // Pointer lock related stuff
     let mouseController: ((event: MouseEvent) => void) | null = null;
     const makeMouseController = (direction: THREE.Spherical): (event: MouseEvent) => void => {
@@ -571,7 +573,10 @@ export const LumpTypeViewMap3D = function(
             }
             // Initialize map and texture library
             const map = lumps.WADMap.from(mapLump);
-            const textureLibrary = sharedDataManager.getTextureLibrary(mapLump);
+            let textureLibrary: TextureLibrary | null = null;
+            if(options.textured){
+                textureLibrary = sharedDataManager.getTextureLibrary(mapLump);
+            }
             // Build map mesh
             mapBuilder = new MapGeometryBuilder(map, textureLibrary);
             const scene = new THREE.Scene();
@@ -616,7 +621,12 @@ export const LumpTypeViewMap3D = function(
             // Initialize scene, renderer, and camera
             const renderer = new THREE.WebGLRenderer({canvas, context});
             renderer.setSize(root.clientWidth, root.clientHeight);
-            const camera = new THREE.PerspectiveCamera(fov, root.clientWidth / root.clientHeight, 1, 10000);
+            const camera = new THREE.PerspectiveCamera(
+                options.fov || 90, // FOV
+                root.clientWidth / root.clientHeight, // Aspect ratio
+                1, // Near clip
+                10000, // Far clip
+            );
             const keyboardControls = new KeyboardListener();
             // Set viewpoint from player 1 start
             const viewHead = new THREE.Object3D(); // Also for VR camera
@@ -663,6 +673,18 @@ export const LumpTypeViewMap3D = function(
             }
         }
     });
+};
+
+export const LumpTypeViewMapTextured3D = function(): LumpTypeView {
+    const view = LumpTypeViewMap3D({textured: true});
+    view.name = "Map (Textured 3D)";
+    return view;
+};
+
+export const LumpTypeViewMapUntextured3D = function(): LumpTypeView {
+    const view = LumpTypeViewMap3D({textured: false});
+    view.name = "Map (Wireframe)";
+    return view;
 };
 
 // Options used by makeSequentialView
