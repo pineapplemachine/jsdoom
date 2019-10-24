@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import {OBJExporter} from "three/examples/jsm/exporters/OBJExporter";
 
 import {MapGeometryBuilder} from "@src/convert/3DMapBuilder";
 import {KeyboardListener} from "./keyboardListener";
@@ -99,6 +100,20 @@ export function createWarning(message: string, callback: any): any {
         class: "lump-view-warning",
         innerText: message + " (Click here to proceed anyway.)",
         onleftclick: callback,
+    });
+}
+
+export function createError(message: string, parent: HTMLElement): HTMLElement {
+    const container = util.createElement({
+        tag: "div",
+        class: "lump-view-error-container",
+        appendTo: parent,
+    });
+    return util.createElement({
+        tag: "p",
+        content: message,
+        class: "lump-view-error-message",
+        appendTo: container,
     });
 }
 
@@ -529,7 +544,33 @@ function drawMapGeometry(
     }
 }
 
-interface Map3DOptions {
+interface ConvertedMap {
+    // The map geometry builder. Needed for disposal after clearing the view.
+    builder: MapGeometryBuilder;
+    // The object containing the 3D map model pieces. (transparent+opaque)
+    group: THREE.Group;
+}
+
+// This function will make the builder build the map in 3D
+function ConvertMapTo3D(lump: WADLump, textured: boolean, callback?: (group: THREE.Group) => void): ConvertedMap | null {
+    // Initialize map
+    const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
+    if(!mapLump){
+        return null;
+    }
+    const map = lumps.WADMap.from(mapLump);
+    // Initialize texture library
+    let textureLibrary: TextureLibrary | null = null;
+    if(textured){
+        textureLibrary = sharedDataManager.getTextureLibrary(mapLump);
+    }
+    // Build map mesh
+    const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
+    const mapMeshGroup = mapBuilder.rebuild(callback);
+    return {builder: mapBuilder, group: mapMeshGroup};
+}
+
+interface Map3DViewOptions {
     // The vertical FOV to use
     fov?: number;
     // Whether or not to use textures. Turning this off can provide a huge
@@ -538,7 +579,7 @@ interface Map3DOptions {
 }
 
 const LumpTypeViewMap3D = function(
-    options: Map3DOptions
+    options: Map3DViewOptions
 ): LumpTypeView {
     // Pointer lock related stuff
     let mouseController: ((event: MouseEvent) => void) | null = null;
@@ -567,34 +608,25 @@ const LumpTypeViewMap3D = function(
         name: "Map (3D)",
         icon: "assets/icons/lump-map.png",
         view: (lump: WADLump, root: HTMLElement) => {
+            const scene = new THREE.Scene();
             const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
             if(!mapLump){
-                return;
+                createError("Could not find the map lump", root);
+                return null;
             }
-            // Initialize map and texture library
             const map = lumps.WADMap.from(mapLump);
-            let textureLibrary: TextureLibrary | null = null;
-            if(options.textured){
-                textureLibrary = sharedDataManager.getTextureLibrary(mapLump);
-            }
-            // Build map mesh
-            mapBuilder = new MapGeometryBuilder(map, textureLibrary);
-            const scene = new THREE.Scene();
             try{
-                const mapMeshGroup = mapBuilder.rebuild();
-                if(mapMeshGroup != null){
-                    const vnh = new THREE.VertexNormalsHelper(mapMeshGroup, 5, 0x3884fa, 2);
-                    scene.add(mapMeshGroup);
-                    scene.add(vnh);
+                const convertedMap = ConvertMapTo3D(lump, options.textured);
+                if(!convertedMap){
+                    createError("Could not find the map lump", root);
+                    return null;
                 }
+                const mapMeshGroup = convertedMap.group;
+                mapBuilder = convertedMap.builder;
+                scene.add(mapMeshGroup);
             }catch(error){
-                const errorMessage = util.createElement({
-                    tag: "p",
-                    class: "lump-view-error-message",
-                    innerText: `Error: ${error}`,
-                    appendTo: root,
-                });
-                return;
+                createError(`Error: ${error}`, root);
+                return null;
             }
             const canvas = util.createElement({
                 tag: "canvas",
@@ -619,7 +651,12 @@ const LumpTypeViewMap3D = function(
             }
             document.addEventListener("pointerlockchange", lockPointer);
             // Initialize scene, renderer, and camera
-            const renderer = new THREE.WebGLRenderer({canvas, context});
+            const renderer = new THREE.WebGLRenderer({
+                canvas,
+                context,
+                antialias: false,
+                powerPreference: "high-performance",
+            });
             renderer.setSize(root.clientWidth, root.clientHeight);
             const camera = new THREE.PerspectiveCamera(
                 options.fov || 90, // FOV
@@ -631,12 +668,16 @@ const LumpTypeViewMap3D = function(
             // Set viewpoint from player 1 start
             const viewHead = new THREE.Object3D(); // Also for VR camera
             const playerStart = map.getPlayerStart(1);
-            viewHead.position.set(playerStart ? playerStart.x : 0, 0, playerStart ? -playerStart.y : 0);
+            viewHead.position.set(
+                playerStart ? playerStart.x : 0,
+                0, playerStart ? -playerStart.y : 0);
             viewHead.add(camera);
             scene.add(viewHead);
             // Direction control
-            const playerAngle = playerStart ? playerStart.angle / (180 / Math.PI) : 0; // Player angle is 0-360 degrees
-            const directionSphere = new THREE.Spherical(1, 90 / (180 / Math.PI), playerAngle);
+            const playerAngle = playerStart ? // Player angle is 0-360 degrees
+                playerStart.angle / (180 / Math.PI) : 0;
+            const directionSphere = new THREE.Spherical(
+                1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
             const render = () => {
                 // WASD controls - moves camera around
@@ -665,6 +706,7 @@ const LumpTypeViewMap3D = function(
             renderer.setAnimationLoop(render); // Needed for VR support
         },
         clear: () => {
+            console.log("Clearing 3D map view");
             if(mouseController){
                 document.removeEventListener("mousemove", mouseController);
             }
@@ -685,6 +727,57 @@ export const LumpTypeViewMapUntextured3D = function(): LumpTypeView {
     const view = LumpTypeViewMap3D({textured: false});
     view.name = "Map (Wireframe)";
     return view;
+};
+
+export const LumpTypeViewMapOBJ = function(): LumpTypeView {
+    return new LumpTypeView({
+        name: "Map (OBJ)",
+        icon: "assets/icons/view-text.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            function showText(text: string): void {
+                util.createElement({
+                    tag: "pre",
+                    class: "lump-view-text",
+                    content: text,
+                    appendTo: root,
+                });
+            }
+            function addObj(group: THREE.Group){
+                const exporter = new OBJExporter();
+                const objText = exporter.parse(group);
+                if(objText.length >= BigLumpThreshold){
+                    util.removeChildren(root);
+                    root.appendChild(createWarning((
+                        "This OBJ is very large and your browser may not be " +
+                        "able to safely view it."
+                    ), () => {
+                        util.removeChildren(root);
+                        showText(objText);
+                    }));
+                }else{
+                    showText(objText);
+                }
+            }
+            try{
+                util.createElement({
+                    type: "p",
+                    class: "lump-view-text",
+                    content: "Please wait...",
+                    appendTo: root,
+                });
+                const convertedMap = ConvertMapTo3D(lump, true, addObj);
+                if(!convertedMap){
+                    util.removeChildren(root);
+                    createError("Could not find the map lump", root);
+                    return;
+                }
+                convertedMap.builder.dispose();
+            }catch(error){
+                createError(`Error: ${error}`, root);
+                return;
+            }
+        },
+    });
 };
 
 // Options used by makeSequentialView

@@ -80,6 +80,7 @@ export const LumpTypeList: LumpType[] = [
         }),
         view.LumpTypeViewMapTextured3D(),
         view.LumpTypeViewMapUntextured3D(),
+        view.LumpTypeViewMapOBJ(),
         ],
         filter: (lump: WADLump) => {
             return lumps.WADMap.match(lump);

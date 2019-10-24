@@ -812,10 +812,10 @@ export class MapGeometryBuilder {
     }
 
     // Build the 3D mesh for the map
-    public rebuild(callback?: (mesh: THREE.Group) => void): THREE.Group | null {
+    public rebuild(callback?: (mesh: THREE.Group) => void): THREE.Group {
         // The map is missing one of the necessary data lumps
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
-            return null;
+            throw new TypeError("Some map data is missing!");
         }
         // Map of sector indices to lines that form that sector
         const sectorLines: {[sector: number]: WADMapLine[]} = {};

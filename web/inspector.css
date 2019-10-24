@@ -424,12 +424,16 @@ body {
 }
 
 /*Error messages*/
+.lump-view-error-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
 .lump-view-error-message {
     display: block;
-    margin: 10px auto;
+    margin: 10px;
     background-color: #822;
     border: 1px solid #f66;
     border-radius: 7px;
     padding: 10px;
-    width: max-content;
 }
