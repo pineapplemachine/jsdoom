@@ -80,6 +80,9 @@ class SectorPolygonBuilder {
     private readonly maxVisits: {[vertex: number]: number};
     // The number of times a particular vertex has been added to a polygon
     private visitCount: {[vertex: number]: number};
+    // The edges that are part of the sector, and whether or not they have been
+    // traced yet.
+    private edgesLeft: {[edge: string]: boolean};
     // Vertices used by the sector's lines
     private readonly sectorVertices: SectorVertex[];
     // Map vertex index -> Sector vertex index mapping
@@ -93,8 +96,10 @@ class SectorPolygonBuilder {
     constructor(sectorLines: WADMapLine[], mapVertices: WADMapVertex[]){
         // Get sector edges
         this.sectorEdges = [];
+        this.edgesLeft = {};
         for(const line of sectorLines){
             this.sectorEdges.push([line.startVertex, line.endVertex]);
+            this.edgesLeft[`${line.startVertex} ${line.endVertex}`] = false;
         }
         // Sector to map indices
         const sectorVertexIndices: number[] = [];
@@ -379,107 +384,6 @@ class SectorPolygonBuilder {
     }
 }
 
-// Any textured thing
-interface Textured {
-    // The index of the material for this thing
-    materialIndex: number;
-}
-
-// Mappable thing - image or quad
-interface Mappable {
-    // The width of the quad/texture in map units
-    width: number;
-    // The height of the quad/texture in map units
-    height: number;
-    // The X scale of the quad or texture.
-    xScale?: number;
-    // The Y scale of the quad or texture.
-    yScale?: number;
-}
-
-// Different alignment types for textures
-enum TextureAlignment {
-    // Middle texture for one-sided walls, or upper or lower texture for two-sided walls
-    Normal = 0,
-    // Upper texture that is not unpegged
-    Upper = 1,
-    // Midtexture quad
-    Midtexture = 2,
-    // Back-side midtexture quad
-    BackMidtexture = 3,
-    World = 4, // Doom 64
-    LowerUnpegged = 8, // Lower Unpegged Flag
-    TwoSided = 16, // Two-Sided Flag
-}
-
-// Generic 4-sided polygon
-interface Quad extends Mappable, Textured {}
-
-interface DoomLighting {
-    // Sector light level
-    lightLevel: THREE.Color;
-}
-
-// A quad on a line or side
-interface LineQuad extends Quad, DoomLighting {
-    // A combination of an enum value and a bitfield. The lowest three bits
-    // store an enum value containing the alignment type, and the other bits
-    // store flags, such as whether the quad is "lower unpegged" or two-sided
-    alignment: TextureAlignment;
-    // X of start vertex
-    startX: number;
-    // Y of start vertex
-    startY: number;
-    // X of end vertex
-    endX: number;
-    // Y of end vertex
-    endY: number;
-    // NOTE: The following fields are for handling walls on sloped floors
-    // Absolute Z height of the bottom of the quad at the start vertex
-    // startBottomHeight: number;
-    // Absolute Z height of the top of the quad at the start vertex
-    // startTopHeight: number;
-    // Absolute Z height of the bottom of the quad at the end vertex
-    // endBottomHeight: number;
-    // Absolute Z height of the top of the quad at the end vertex
-    // endTopHeight: number;
-    // Absolute Z height of the bottom of the quad
-    bottomHeight: number;
-    // Absolute Z height of the top of the quad
-    topHeight: number;
-    // Height of the sector (ceiling height - floor height)
-    sectorHeight: number;
-    // Whether scaled texture offsets are applied in world space or texel space
-    worldPanning: boolean;
-    // The X offset of the texture on the quad
-    xOffset: number;
-    // The Y offset of the texture on the quad
-    yOffset: number;
-    // Whether or not to reverse the order of the vertices so as to make the face point in the right direction
-    reverse: boolean;
-}
-
-interface SectorTriangle extends Textured {
-    // Sector light level, or floor/ceiling color
-    color: THREE.Color;
-    // Vertices that make this triangle
-    vertices: THREE.Vector2[];
-    // Absolute height
-    height: number;
-    // The triangle normal vector
-    normalVector: THREE.Vector3;
-    // Whether the triangle's vertices should be reversed so as to point inwards
-    reverse: boolean;
-}
-
-// A texture that may or may not be transparent. Transparent textures are rendered last.
-interface TransparentTexture {
-    // The texture to use
-    texture: THREE.Texture;
-    // Whether or not this texture is transparent
-    transparent: boolean;
-}
-
 // Represents a bounding box
 interface IBoundingBox {
     minX: number;
@@ -563,53 +467,153 @@ interface SectorPolygon {
     isHole: boolean;
 }
 
-interface BufferOffsets {
-    // The offset of the specified element in the vertex buffer
-    vertex: number;
-    // The offset of the specified element in the vertex normal buffer
-    // normal: number; // Vertex buffer and normal buffer are the same size
-    // The offset of the specified element in the UV buffer
-    uv: number;
-    // The offset of the specified element in the vertex color buffer
-    color: number;
+// Anything that uses a named texture
+interface DoomTextured {
+    // The name of the texture
+    texture: string;
+    // The preferred texture set
+    textureSet: TextureSet;
 }
 
-interface Disposable {
-    // Dispose of the object's WebGL data
-    dispose(): void;
+// Mappable thing - image or quad
+export interface Mappable {
+    // The width of the quad/texture in map units
+    width: number;
+    // The height of the quad/texture in map units
+    // For quads, negative values will force the height to be re-calculated
+    // based on the texture's height
+    height: number;
+    // The X scale of the quad or texture.
+    xScale?: number;
+    // The Y scale of the quad or texture.
+    yScale?: number;
+}
+
+export enum TextureAlignmentType {
+    // Middle texture for one-sided walls, or upper or lower texture for two-sided walls
+    Normal,
+    // Upper texture that is not unpegged
+    Upper,
+    // Midtexture quad
+    Midtexture,
+    // Back-side midtexture quad
+    BackMidtexture,
+}
+
+export enum TextureAlignmentFlags {
+    Normal = 0,
+    World = 1, // Doom 64
+    LowerUnpegged = 2, // Lower Unpegged Flag
+    TwoSided = 4, // Two-Sided Flag
+}
+
+// Different alignment types for textures
+export interface TextureAlignment {
+    type: TextureAlignmentType;
+    flags: TextureAlignmentFlags;
+}
+
+// Generic 4-sided polygon
+interface Quad extends Mappable, DoomTextured {}
+
+interface DoomLighting {
+    // Sector light level
+    lightLevel: number;
+}
+
+// A quad on a line or side
+export interface LineQuad extends Quad, DoomLighting {
+    // A mini-interface specifying how the texture on this quad should be
+    // aligned. The "type" field stores an enum value containing the alignment 
+    // type, and the "flags" field stores flags, such as whether the quad is
+    // "lower unpegged" or two-sided
+    alignment: TextureAlignment;
+    // X of start vertex
+    startX: number;
+    // Y of start vertex
+    startY: number;
+    // X of end vertex
+    endX: number;
+    // Y of end vertex
+    endY: number;
+    // NOTE: The following fields are for handling walls on sloped floors
+    // Absolute Z height of the bottom of the quad at the start vertex
+    // startBottomHeight: number;
+    // Absolute Z height of the top of the quad at the start vertex
+    // startTopHeight: number;
+    // Absolute Z height of the bottom of the quad at the end vertex
+    // endBottomHeight: number;
+    // Absolute Z height of the top of the quad at the end vertex
+    // endTopHeight: number;
+    // Absolute Z height of the top of the quad
+    topHeight: number;
+    // Absolute Z height for the ceiling of the sector that this quad's side
+    // belongs to. Useful for calculating the quad height for midtextures
+    ceilingHeight: number;
+    // Absolute Z height for the floor of the sector that this quad's side
+    // belongs to
+    floorHeight: number;
+    // Whether scaled texture offsets are applied in world space or texel space
+    worldPanning: boolean;
+    // The X offset of the texture on the quad
+    xOffset: number;
+    // The Y offset of the texture on the quad
+    yOffset: number;
+    // Whether or not to reverse the order of the vertices so as to make the face point in the right direction
+    reverse: boolean;
+}
+
+export interface SectorTriangle extends DoomTextured, DoomLighting {
+    // Sector floor/ceiling color
+    color: THREE.Color;
+    // Vertices that make this triangle
+    vertices: THREE.Vector2[];
+    // Absolute height
+    height: number;
+    // The triangle normal vector
+    normalVector: THREE.Vector3;
+    // Whether the triangle's vertices should be reversed so as to point inwards
+    reverse: boolean;
+}
+
+export interface MapGeometry {
+    // Array of quads for each line
+    wallQuads: LineQuad[];
+    // Array of triangles for each sector
+    sectorTriangles: SectorTriangle[];
+}
+
+export enum QuadVertexPosition {
+    UpperLeft,
+    UpperRight,
+    LowerLeft,
+    LowerRight,
 }
 
 // This class takes map data, and creates a 3D mesh from it.
 export class MapGeometryBuilder {
     // The map data
     protected map: WADMap;
+    protected vertices: WADMapVertex[];
+    /*
     // The texture library
     protected textureLibrary: TextureLibrary | null;
     // Texture for walls and flats with missing textures.
-    private static _missingTexture: THREE.Texture = MapGeometryBuilder.loadPlaceholderTexture();
     protected _materials: {[name: string]: number};
     protected _materialArray: THREE.MeshBasicMaterial[];
     protected _materialPromises: Promise<TransparentTexture>[];
     protected _disposables: Disposable[];
+    */
 
-    constructor(map: WADMap, textures: TextureLibrary | null){
+    constructor(map: WADMap){
         this.map = map;
-        this.textureLibrary = textures || null;
+        this.vertices = [];
+        /*
         this._materials = {};
         this._materialArray = [];
         this._materialPromises = [];
         this._disposables = [];
-    }
-
-    private static loadPlaceholderTexture(): THREE.Texture {
-        const loader = new THREE.TextureLoader();
-        const tex = loader.load("assets/textures/missing.png", (texture) => {
-            texture.needsUpdate = true;
-        });
-        tex.wrapS = THREE.RepeatWrapping;
-        tex.wrapT = THREE.RepeatWrapping;
-        tex.flipY = false;
-        return tex;
+        */
     }
 
     // Point-in-polygon algorithm - used to find out whether a contiguous set
@@ -619,6 +623,7 @@ export class MapGeometryBuilder {
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
         // Code from https://github.com/substack/point-in-polygon/blob/96ef4abc2a623c98214618418e42a68240055f2e/index.js
         // Licensed under MIT license
+        // (c) 2011 James Halliday
         const x = point.x, y = point.y;
         let inside = false;
         for(let i = 0, j = polygon.length - 1; i < polygon.length; j = i++){
@@ -636,14 +641,14 @@ export class MapGeometryBuilder {
     }
 
     // Get UV coordinates for a quad
-    protected getQuadUVs(
+    public static getQuadUVs(
             texture: Mappable, // UV coordinates depend on texture size
-            vertexIndex: number, // Index of vertex in quad
+            vertexIndex: QuadVertexPosition, // Index of vertex in quad
             quad: LineQuad // The data representing the quad
         ){
         // Separate quad.alignment into type and flags
-        const alignType = quad.alignment & 7;
-        const alignFlags = quad.alignment ^ alignType;
+        const alignType = quad.alignment.type;
+        const alignFlags = quad.alignment.flags;
         // For the following 2 arrays:
         // 0 = Upper left
         // 1 = Upper right
@@ -660,24 +665,26 @@ export class MapGeometryBuilder {
         const texelY = 1 / texture.height;
         let uvX = texelX * quad.width * xScale;
         let uvY = texelY * uvFactorY[vertexIndex] * quad.height * yScale;
-        if(alignType === TextureAlignment.BackMidtexture){
+        if(alignType === TextureAlignmentType.BackMidtexture){
             uvX *= 1 - uvFactorX[vertexIndex];
         }else{
             uvX *= uvFactorX[vertexIndex];
         }
         uvX += quad.xOffset * texelX;
-        if((alignType !== TextureAlignment.Midtexture &&
-            alignType !== TextureAlignment.BackMidtexture) ||
+        if((alignType !== TextureAlignmentType.Midtexture &&
+            alignType !== TextureAlignmentType.BackMidtexture) ||
                 quad.height < texture.height){
-            if((alignFlags & TextureAlignment.LowerUnpegged) !== 0){
-                if(!((alignFlags & TextureAlignment.TwoSided) !== 0)){
+            if((alignFlags & TextureAlignmentFlags.LowerUnpegged) !== 0){
+                if((alignFlags & TextureAlignmentFlags.TwoSided) === 0){
                     // One-sided - bottom of texture is at bottom of quad
                     uvY += 1 - texelY * quad.height;
                 }else{
                     // Two-sided - top of texture is at top of sector
-                    uvY += (quad.sectorHeight - quad.height) * texelY;
+                    // uvY += (quad.sectorHeight - quad.height) * texelY;
+                    const sectorHeight = quad.ceilingHeight - quad.floorHeight;
+                    uvY += (sectorHeight - quad.height) * texelY;
                 }
-            }else if(alignType === TextureAlignment.Upper){
+            }else if(alignType === TextureAlignmentType.Upper){
                 uvY += 1 - quad.height * texelY;
             }
             uvY += quad.yOffset * texelY;
@@ -686,7 +693,7 @@ export class MapGeometryBuilder {
     }
 
     // Get UV coordinates for a sector vertex
-    protected getSectorVertexUVs(
+    public static getSectorVertexUVs(
         position: THREE.Vector2, // 2D position of the vertex
         texture: Mappable, // UV coordinates depend on texture size
     ){
@@ -695,6 +702,7 @@ export class MapGeometryBuilder {
         return [uvX, uvY];
     }
 
+    /*
     // Get the material index for a texture in a specific set
     protected getMaterialIndex(texName: string, set: TextureSet): number {
         // Get texture, or add it if it has not already been added.
@@ -790,13 +798,14 @@ export class MapGeometryBuilder {
         });
         return promise;
     }
+    */
 
     // Turn a list of sector lines into a list of vertex indices
     protected getPolygonsFromLines(sectorLines: WADMapLine[],
             sector?: string): number[][] {
-        const vertices = Array.from(this.map.enumerateVertexes());
-        const sectorPolygonBuilder = new SectorPolygonBuilder(sectorLines,
-                                                              vertices);
+        const sectorPolygonBuilder = new SectorPolygonBuilder(
+            sectorLines, this.vertices,
+        );
         const sectorPolygons  = sectorPolygonBuilder.getPolygons();
         if(sector){ // Debug stuff
             console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
@@ -811,366 +820,405 @@ export class MapGeometryBuilder {
         return sectorPolygons;
     }
 
-    // Build the 3D mesh for the map
-    public rebuild(callback?: (mesh: THREE.Group) => void): THREE.Group {
-        // The map is missing one of the necessary data lumps
-        if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
-            throw new TypeError("Some map data is missing!");
+    // Get quads for a particular line
+    protected getQuadsForLine(line: WADMapLine): LineQuad[] {
+        // Ensure line has a valid front sidedef
+        if(line.frontSidedef === 0xffff){
+            return [];
         }
-        // Map of sector indices to lines that form that sector
-        const sectorLines: {[sector: number]: WADMapLine[]} = {};
-        // Array of quads - used for rendering walls
-        const wallQuads: LineQuad[] = [];
-        // Vertices
-        const vertices: WADMapVertex[] = Array.from(this.map.enumerateVertexes());
-        // Construct array of quads from lines and sides
-        for(const line of this.map.enumerateLines()){
-            // All lines are made of 1-3 quads - A top quad, and/or bottom quad,
-            // and an optional middle quad for two-sided lines, and a middle quad
-            // for one-sided lines.
-            const front = this.map.sides.getSide(line.frontSidedef);
-            const frontSector = this.map.sectors.getSector(front.sector);
-            const frontLight = new THREE.Color(
-                `rgb(${frontSector.light}, ${frontSector.light}, ${frontSector.light})`);
-            let back = null;
-            // Calculate line length - the "width" of quad(s) for the line.
-            const lineLength: number = (() => {
-                const lineX = vertices[line.endVertex].x - vertices[line.startVertex].x;
-                const lineY = vertices[line.endVertex].y - vertices[line.startVertex].y;
-                return Math.sqrt(lineX * lineX + lineY * lineY);
-            })();
-            if(!line.twoSidedFlag){
-                // No back side
-                if(sectorLines[front.sector] == null){
-                    sectorLines[front.sector] = [];
+        // All lines are made of 1-3 quads - A top quad, and/or bottom quad,
+        // and an optional middle quad for two-sided lines, and a middle quad
+        // for one-sided lines.
+        const front = this.map.sides!.getSide(line.frontSidedef);
+        const frontSector = this.map.sectors!.getSector(front.sector);
+        const frontLight = frontSector.light;
+        let back = null;
+        // Calculate line length - the "width" of quad(s) for the line.
+        const lineLength: number = (() => {
+            const lineX = this.vertices[line.endVertex].x - this.vertices[line.startVertex].x;
+            const lineY = this.vertices[line.endVertex].y - this.vertices[line.startVertex].y;
+            return Math.sqrt(lineX * lineX + lineY * lineY);
+        })();
+        const frontHeight = frontSector.ceilingHeight - frontSector.floorHeight;
+        if(!line.twoSidedFlag){
+            // No back side
+            // The line is the same height as the sector
+            const alignment = {
+                type: TextureAlignmentType.Normal,
+                flags: line.lowerUnpeggedFlag ?
+                    TextureAlignmentFlags.LowerUnpegged :
+                    TextureAlignmentFlags.Normal,
+            };
+            return[{
+                width: lineLength,
+                height: frontHeight,
+                xOffset: front.x,
+                yOffset: front.y,
+                texture: front.middle,
+                textureSet: TextureSet.Walls,
+                startX: this.vertices[line.startVertex].x,
+                startY: -this.vertices[line.startVertex].y,
+                endX: this.vertices[line.endVertex].x,
+                endY: -this.vertices[line.endVertex].y,
+                topHeight: frontSector.ceilingHeight,
+                ceilingHeight: frontSector.ceilingHeight,
+                floorHeight: frontSector.floorHeight,
+                alignment,
+                worldPanning: true,
+                lightLevel: frontLight,
+                reverse: false,
+            }];
+        }else{
+            // This line is a two-sided line. In other words, it has a sector
+            // on both sides.
+            if(line.backSidedef === 0xffff){
+                // A two-sided line without a back sidedef shouldn't exist.
+                return [];
+            }
+            // A 2-sided line may have up to 3 quads - top, middle, and bottom.
+            const lineQuads: LineQuad[] = [];
+            // It is known that the side will not be null because the sidedef
+            // index is not 0xffff
+            back = this.map.sides!.getSide(line.backSidedef);
+            const backSector = this.map.sectors!.getSector(back.sector);
+            const backHeight = backSector.ceilingHeight - backSector.floorHeight;
+            const backLight = backSector.light;
+            const heights = getSideHeights(frontSector, backSector);
+            if(heights.middleTop - heights.middleBottom > 0){
+                if(front.middle !== "-"){
+                    // Front side midtex
+                    let midQuadTop = line.lowerUnpeggedFlag ?
+                        heights.middleBottom : heights.middleTop;
+                    midQuadTop += front.y;
+                    midQuadTop = Math.min(heights.middleTop, midQuadTop);
+                    const alignment = {
+                        type: TextureAlignmentType.Midtexture,
+                        flags: line.lowerUnpeggedFlag ? TextureAlignmentFlags.LowerUnpegged : 0,
+                    };
+                    lineQuads.push({
+                        width: lineLength,
+                        height: -1, // Calculate height based on texture height
+                        xOffset: front.x,
+                        yOffset: front.y,
+                        texture: front.middle,
+                        textureSet: TextureSet.Walls,
+                        startX: this.vertices[line.startVertex].x,
+                        startY: -this.vertices[line.startVertex].y,
+                        endX: this.vertices[line.endVertex].x,
+                        endY: -this.vertices[line.endVertex].y,
+                        topHeight: midQuadTop,
+                        ceilingHeight: frontSector.ceilingHeight,
+                        floorHeight: frontSector.floorHeight,
+                        alignment,
+                        worldPanning: true,
+                        lightLevel: frontLight,
+                        reverse: false,
+                    });
                 }
-                sectorLines[front.sector].push(line);
-                const lineHeight = frontSector.ceilingHeight - frontSector.floorHeight;
-                const lineTexture = this.getMaterialIndex(front.middle, TextureSet.Walls);
-                wallQuads.push({
+                if(back.middle !== "-"){
+                    // Back side midtex
+                    let midQuadTop = line.lowerUnpeggedFlag ?
+                        heights.middleBottom : heights.middleTop;
+                    midQuadTop += back.y;
+                    midQuadTop = Math.min(heights.middleTop, midQuadTop);
+                    const alignment = {
+                        type: TextureAlignmentType.BackMidtexture,
+                        flags: line.lowerUnpeggedFlag ? TextureAlignmentFlags.LowerUnpegged : 0,
+                    };
+                    lineQuads.push({
+                        width: lineLength,
+                        height: -1,
+                        xOffset: back.x,
+                        yOffset: back.y,
+                        texture: back.middle,
+                        textureSet: TextureSet.Walls,
+                        startX: this.vertices[line.startVertex].x,
+                        startY: -this.vertices[line.startVertex].y,
+                        endX: this.vertices[line.endVertex].x,
+                        endY: -this.vertices[line.endVertex].y,
+                        topHeight: midQuadTop,
+                        ceilingHeight: backSector.ceilingHeight,
+                        floorHeight: backSector.floorHeight,
+                        alignment,
+                        worldPanning: true,
+                        lightLevel: backLight,
+                        reverse: true,
+                    });
+                }
+            }
+            if(heights.front.upperTop > heights.front.upperBottom){
+                // Upper quad on front side
+                const alignment = {
+                    // Normal alignment is equivalent to upper unpegged
+                    type: line.upperUnpeggedFlag ?
+                        TextureAlignmentType.Normal :
+                        TextureAlignmentType.Upper,
+                    flags: 0,
+                };
+                lineQuads.push({
                     width: lineLength,
-                    height: lineHeight,
+                    height: heights.front.upperTop - heights.front.upperBottom,
                     xOffset: front.x,
                     yOffset: front.y,
-                    materialIndex: lineTexture,
-                    startX: vertices[line.startVertex].x,
-                    startY: -vertices[line.startVertex].y,
-                    endX: vertices[line.endVertex].x,
-                    endY: -vertices[line.endVertex].y,
-                    bottomHeight: frontSector.floorHeight,
-                    topHeight: frontSector.ceilingHeight,
-                    sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
-                    alignment: line.lowerUnpeggedFlag ?
-                        TextureAlignment.LowerUnpegged :
-                        TextureAlignment.Normal,
+                    texture: front.upper,
+                    textureSet: TextureSet.Walls,
+                    startX: this.vertices[line.startVertex].x,
+                    startY: -this.vertices[line.startVertex].y,
+                    endX: this.vertices[line.endVertex].x,
+                    endY: -this.vertices[line.endVertex].y,
+                    topHeight: heights.front.upperTop,
+                    ceilingHeight: frontSector.ceilingHeight,
+                    floorHeight: frontSector.floorHeight,
+                    alignment,
                     worldPanning: true,
                     lightLevel: frontLight,
                     reverse: false,
                 });
-            }else{
-                back = this.map.sides.getSide(line.backSidedef);
-                const backSector = this.map.sectors.getSector(back.sector);
-                const backLight = new THREE.Color(
-                    `rgb(${backSector.light}, ${backSector.light}, ${backSector.light})`);
-                if(front.sector !== back.sector){
+            }
+            if(heights.front.lowerTop > heights.front.lowerBottom){
+                // Lower quad on front side
+                const alignment = {
+                    type: TextureAlignmentType.Normal,
+                    flags: TextureAlignmentFlags.TwoSided |
+                        (line.lowerUnpeggedFlag ?
+                        TextureAlignmentFlags.LowerUnpegged : 0),
+                };
+                lineQuads.push({
+                    width: lineLength,
+                    height: heights.front.lowerTop - heights.front.lowerBottom,
+                    xOffset: front.x,
+                    yOffset: front.y,
+                    texture: front.lower,
+                    textureSet: TextureSet.Walls,
+                    startX: this.vertices[line.startVertex].x,
+                    startY: -this.vertices[line.startVertex].y,
+                    endX: this.vertices[line.endVertex].x,
+                    endY: -this.vertices[line.endVertex].y,
+                    topHeight: heights.front.lowerTop,
+                    ceilingHeight: frontSector.ceilingHeight,
+                    floorHeight: frontSector.floorHeight,
+                    alignment,
+                    worldPanning: true,
+                    lightLevel: frontLight,
+                    reverse: false,
+                });
+            }
+            if(heights.back.upperTop > heights.back.upperBottom){
+                // Upper quad on back side
+                const alignment = {
+                    type: line.upperUnpeggedFlag ?
+                        TextureAlignmentType.Normal :
+                        TextureAlignmentType.Upper,
+                    flags: 0,
+                };
+                lineQuads.push({
+                    width: lineLength,
+                    height: heights.back.upperTop - heights.back.upperBottom,
+                    xOffset: back.x,
+                    yOffset: back.y,
+                    texture: back.upper,
+                    textureSet: TextureSet.Walls,
+                    startX: this.vertices[line.endVertex].x,
+                    startY: -this.vertices[line.endVertex].y,
+                    endX: this.vertices[line.startVertex].x,
+                    endY: -this.vertices[line.startVertex].y,
+                    topHeight: heights.back.upperTop,
+                    ceilingHeight: backSector.ceilingHeight,
+                    floorHeight: backSector.floorHeight,
+                    alignment,
+                    worldPanning: true,
+                    lightLevel: backLight,
+                    reverse: false,
+                });
+            }
+            if(heights.back.lowerTop > heights.back.lowerBottom){
+                // Lower quad on back side
+                const alignment = {
+                    type: TextureAlignmentType.Normal,
+                    flags: TextureAlignmentFlags.TwoSided |
+                        (line.lowerUnpeggedFlag ?
+                        TextureAlignmentFlags.LowerUnpegged : 0),
+                };
+                lineQuads.push({
+                    width: lineLength,
+                    height: heights.back.lowerTop - heights.back.lowerBottom,
+                    xOffset: back.x,
+                    yOffset: back.y,
+                    texture: back.lower,
+                    textureSet: TextureSet.Walls,
+                    startX: this.vertices[line.endVertex].x,
+                    startY: -this.vertices[line.endVertex].y,
+                    endX: this.vertices[line.startVertex].x,
+                    endY: -this.vertices[line.startVertex].y,
+                    topHeight: heights.back.lowerTop,
+                    ceilingHeight: backSector.ceilingHeight,
+                    floorHeight: backSector.floorHeight,
+                    alignment,
+                    worldPanning: true,
+                    lightLevel: backLight,
+                    reverse: false,
+                });
+            }
+            return lineQuads;
+        }
+        return [];
+    }
+
+    // Create all of the sector triangles for the map
+    protected getSectorTriangles(sector: number, lines: WADMapLine[]): SectorTriangle[] {
+        // if(hasGlNodes){  // GL nodes contain data useful for triangulating sectors
+        // }else{
+        // Get sector polygons and triangulate the sector
+        const sectorRawPolygons = this.getPolygonsFromLines(lines);
+        const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
+        (rawPolygon) => {
+            // Convert indices to positions
+            const polygonVertices = rawPolygon.map((vertexIndex) => {
+                return new THREE.Vector2(
+                    this.vertices[vertexIndex].x, -this.vertices[vertexIndex].y);
+            });
+            return {
+                vertices: polygonVertices,
+                holeVertices: [],
+                boundingBox: BoundingBox.from(polygonVertices),
+                isHole: false,
+            };
+        });
+        // Sort by area in descending order.
+        // I think this will make it faster to build the sector
+        // ceiling/floor triangles.
+        sectorPolygons.sort((polyA, polyB) =>
+            polyB.boundingBox.area() - polyA.boundingBox.area());
+        // Find holes
+        sectorPolygons.forEach((polygon, polygonIndex) => {
+            // Find out which polygons "contain" this one
+            let containerPolygons = sectorPolygons.slice(0, polygonIndex);
+            containerPolygons = containerPolygons.filter((otherPolygon) => {
+                if(otherPolygon.boundingBox.area() === polygon.boundingBox.area()){
+                    return false;
+                }
+                const boundBoxComparison = otherPolygon.boundingBox.compare(polygon.boundingBox);
+                if(boundBoxComparison === BoundingBoxComparison.Contains){
+                    return polygon.vertices.some((point) => {
+                        return MapGeometryBuilder.pointInPolygon(point, otherPolygon.vertices);
+                    });
+                }
+                return false;
+            });
+            // Get the smallest polygon containing this one, and make this
+            // polygon a hole if the smallest polygon containing this one is not.
+            const smallestContainerPolygon: SectorPolygon | undefined = (
+                containerPolygons[containerPolygons.length - 1]);
+            if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
+                smallestContainerPolygon.holeVertices.push(polygon.vertices);
+                polygon.isHole = true;
+            }
+        });
+        const mapSector = this.map.sectors!.getSector(sector);
+        // White by default, but could be coloured in Doom 64/PSX/ZDoom maps
+        const lightColor = new THREE.Color("rgb(255, 255, 255)");
+        const sectorTriangles: SectorTriangle[] = [];
+        sectorPolygons.forEach((poly) => {
+            if(poly.isHole){
+                return;
+            }
+            // triangulateShape expects data structures like this:
+            // (contour) [{x: 10, y: 10}, {x: -10, y: 10}, {x: -10, y: -10}, {x: 10, y: -10}]
+            // (holes) [[{x: 5, y: 5}, {x: -5, y: 5}, {x: -5, y: -5}, {x: 5, y: -5}], etc.]
+            const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holeVertices);
+            // console.log(`triangles for sector ${sector}`, triangles);
+            // triangulateShape returns an array of arrays of vertex indices
+            const polyVertices = poly.vertices.concat(
+                poly.holeVertices.reduce((flat, arr) => flat.concat(arr), [])
+            );
+            triangles.forEach((triangle) => {
+                const triangleVertices = [];
+                for(const triangleVertex of triangle){
+                    triangleVertices.push(polyVertices[triangleVertex]);
+                }
+                sectorTriangles.push({ // Floor
+                    color: lightColor,
+                    lightLevel: mapSector.light,
+                    vertices: triangleVertices,
+                    height: mapSector.floorHeight,
+                    texture: mapSector.floorFlat,
+                    textureSet: TextureSet.Flats,
+                    normalVector: new THREE.Vector3(0, 1, 0),
+                    reverse: true,
+                }, { // Ceiling
+                    color: lightColor,
+                    lightLevel: mapSector.light,
+                    vertices: triangleVertices,
+                    height: mapSector.ceilingHeight,
+                    texture: mapSector.ceilingFlat,
+                    textureSet: TextureSet.Flats,
+                    normalVector: new THREE.Vector3(0, -1, 0),
+                    reverse: false,
+                });
+            });
+        });
+        return sectorTriangles;
+    }
+
+    // Build the 3D mesh for the map
+    public rebuild(): MapGeometry {
+        // The map is missing one of the necessary data lumps
+        if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
+            throw new TypeError("Some map data is missing!");
+        }
+        // If the map has GL nodes, use them instead of trying to triangulate the sector manually.
+        const hasGlNodes = false;
+        // Map of sector indices to lines that form that sector
+        const sectorLines: {[sector: number]: WADMapLine[]} = {};
+        // Vertices
+        this.vertices = Array.from(this.map.enumerateVertexes());
+        // Array of quads - used for rendering walls
+        const wallQuads: LineQuad[] = [];
+        // Construct all of the quads for the lines on this map
+        for(const line of this.map.enumerateLines()){
+            for(const quad of this.getQuadsForLine(line)){
+                wallQuads.push(quad);
+            }
+            if(line.frontSidedef !== 0xffff){  // 0xffff means no sidedef.
+                const front = this.map.sides.getSide(line.frontSidedef);
+                if(!line.twoSidedFlag){
                     if(sectorLines[front.sector] == null){
                         sectorLines[front.sector] = [];
                     }
-                    if(sectorLines[back.sector] == null){
-                        sectorLines[back.sector] = [];
-                    }
                     sectorLines[front.sector].push(line);
-                    sectorLines[back.sector].push(line);
-                }
-                const heights = getSideHeights(frontSector, backSector);
-                if(heights.middleTop - heights.middleBottom > 0){
-                    // Placeholder textures in case the texture library is unavailable
-                    let frontMidtex: WADTexture | nil = new WADTexture({
-                        name: front.middle,
-                        flags: 0,
-                        width: 64,
-                        height: 64,
-                        columnDirectory: 0,
-                        patches: [],
-                    });
-                    let backMidtex: WADTexture | nil = new WADTexture({
-                        name: back.middle,
-                        flags: 0,
-                        width: 64,
-                        height: 64,
-                        columnDirectory: 0,
-                        patches: [],
-                    });
-                    // Use the real textures if the texture library is available
-                    if(this.textureLibrary){
-                        frontMidtex = this.textureLibrary.get(
-                            front.middle, TextureSet.Walls) as WADTexture | nil;
-                        backMidtex = this.textureLibrary.get(
-                            back.middle, TextureSet.Walls) as WADTexture | nil;
+                }else{
+                    if(line.backSidedef !== 0xffff){
+                        const back = this.map.sides.getSide(line.backSidedef);
+                        // Line is two-sided
+                        if(front.sector !== back.sector){
+                            if(sectorLines[front.sector] == null){
+                                sectorLines[front.sector] = [];
+                            }
+                            if(sectorLines[back.sector] == null){
+                                sectorLines[back.sector] = [];
+                            }
+                            sectorLines[front.sector].push(line);
+                            sectorLines[back.sector].push(line);
+                        }
                     }
-                    if(front.middle !== "-" && frontMidtex != null){
-                        // Front side midtex
-                        let midQuadTop = line.lowerUnpeggedFlag ?
-                            heights.middleBottom + frontMidtex.height : heights.middleTop;
-                        midQuadTop += front.y;
-                        midQuadTop = Math.min(heights.middleTop, midQuadTop);
-                        let midQuadBottom = midQuadTop - frontMidtex.height;
-                        midQuadBottom = Math.max(heights.middleBottom, midQuadBottom);
-                        const lineHeight = midQuadTop - midQuadBottom;
-                        const alignment = TextureAlignment.Midtexture |
-                            (line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : 0);
-                        wallQuads.push({
-                            width: lineLength,
-                            height: lineHeight,
-                            xOffset: front.x,
-                            yOffset: front.y,
-                            materialIndex: this.getMaterialIndex(front.middle, TextureSet.Walls),
-                            startX: vertices[line.startVertex].x,
-                            startY: -vertices[line.startVertex].y,
-                            endX: vertices[line.endVertex].x,
-                            endY: -vertices[line.endVertex].y,
-                            bottomHeight: midQuadBottom,
-                            topHeight: midQuadTop,
-                            sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
-                            alignment,
-                            worldPanning: frontMidtex.worldPanning,
-                            lightLevel: frontLight,
-                            reverse: false,
-                        });
-                    }
-                    if(back.middle !== "-" && backMidtex != null){
-                        // Back side midtex
-                        let midQuadTop = line.lowerUnpeggedFlag ?
-                            heights.middleBottom + backMidtex.height : heights.middleTop;
-                        midQuadTop += back.y;
-                        midQuadTop = Math.min(heights.middleTop, midQuadTop);
-                        let midQuadBottom = midQuadTop - backMidtex.height;
-                        midQuadBottom = Math.max(heights.middleBottom, midQuadBottom);
-                        const lineHeight = midQuadTop - midQuadBottom;
-                        const alignment = TextureAlignment.BackMidtexture |
-                            (line.lowerUnpeggedFlag ? TextureAlignment.LowerUnpegged : 0);
-                        wallQuads.push({
-                            width: lineLength,
-                            height: lineHeight,
-                            xOffset: back.x,
-                            yOffset: back.y,
-                            materialIndex: this.getMaterialIndex(back.middle, TextureSet.Walls),
-                            startX: vertices[line.startVertex].x,
-                            startY: -vertices[line.startVertex].y,
-                            endX: vertices[line.endVertex].x,
-                            endY: -vertices[line.endVertex].y,
-                            bottomHeight: midQuadBottom,
-                            topHeight: midQuadTop,
-                            sectorHeight: backSector.ceilingHeight - backSector.floorHeight,
-                            alignment,
-                            worldPanning: backMidtex.worldPanning,
-                            lightLevel: backLight,
-                            reverse: true,
-                        });
-                    }
-                }
-                if(heights.front.upperTop > heights.front.upperBottom){
-                    // Upper quad on front side
-                    wallQuads.push({
-                        width: lineLength,
-                        height: heights.front.upperTop - heights.front.upperBottom,
-                        xOffset: front.x,
-                        yOffset: front.y,
-                        materialIndex: this.getMaterialIndex(front.upper, TextureSet.Walls),
-                        startX: vertices[line.startVertex].x,
-                        startY: -vertices[line.startVertex].y,
-                        endX: vertices[line.endVertex].x,
-                        endY: -vertices[line.endVertex].y,
-                        bottomHeight: heights.front.upperBottom,
-                        topHeight: heights.front.upperTop,
-                        sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
-                        // Normal alignment is equivalent to upper unpegged
-                        alignment: line.upperUnpeggedFlag ?
-                            TextureAlignment.Normal : TextureAlignment.Upper,
-                        worldPanning: true,
-                        lightLevel: frontLight,
-                        reverse: false,
-                    });
-                }
-                if(heights.front.lowerTop > heights.front.lowerBottom){
-                    // Lower quad on front side
-                    wallQuads.push({
-                        width: lineLength,
-                        height: heights.front.lowerTop - heights.front.lowerBottom,
-                        xOffset: front.x,
-                        yOffset: front.y,
-                        materialIndex: this.getMaterialIndex(front.lower, TextureSet.Walls),
-                        startX: vertices[line.startVertex].x,
-                        startY: -vertices[line.startVertex].y,
-                        endX: vertices[line.endVertex].x,
-                        endY: -vertices[line.endVertex].y,
-                        bottomHeight: heights.front.lowerBottom,
-                        topHeight: heights.front.lowerTop,
-                        sectorHeight: frontSector.ceilingHeight - frontSector.floorHeight,
-                        alignment: TextureAlignment.Normal | (line.lowerUnpeggedFlag ?
-                            TextureAlignment.LowerUnpegged : 0) | TextureAlignment.TwoSided,
-                        worldPanning: true,
-                        lightLevel: frontLight,
-                        reverse: false,
-                    });
-                }
-                if(heights.back.upperTop > heights.back.upperBottom){
-                    // Upper quad on back side
-                    wallQuads.push({
-                        width: lineLength,
-                        height: heights.back.upperTop - heights.back.upperBottom,
-                        xOffset: back.x,
-                        yOffset: back.y,
-                        materialIndex: this.getMaterialIndex(back.upper, TextureSet.Walls),
-                        /*
-                        startX: vertices[line.startVertex].x,
-                        startY: -vertices[line.startVertex].y,
-                        endX: vertices[line.endVertex].x,
-                        endY: -vertices[line.endVertex].y,
-                        */
-                        startX: vertices[line.endVertex].x,
-                        startY: -vertices[line.endVertex].y,
-                        endX: vertices[line.startVertex].x,
-                        endY: -vertices[line.startVertex].y,
-                        bottomHeight: heights.back.upperBottom,
-                        topHeight: heights.back.upperTop,
-                        sectorHeight: backSector.ceilingHeight - backSector.floorHeight,
-                        alignment: line.upperUnpeggedFlag ?
-                            TextureAlignment.Normal : TextureAlignment.Upper,
-                        worldPanning: true,
-                        lightLevel: backLight,
-                        reverse: false,
-                    });
-                }
-                if(heights.back.lowerTop > heights.back.lowerBottom){
-                    // Lower quad on back side
-                    wallQuads.push({
-                        width: lineLength,
-                        height: heights.back.lowerTop - heights.back.lowerBottom,
-                        xOffset: back.x,
-                        yOffset: back.y,
-                        materialIndex: this.getMaterialIndex(back.lower, TextureSet.Walls),
-                        /*
-                        startX: vertices[line.startVertex].x,
-                        startY: -vertices[line.startVertex].y,
-                        endX: vertices[line.endVertex].x,
-                        endY: -vertices[line.endVertex].y,
-                        */
-                        startX: vertices[line.endVertex].x,
-                        startY: -vertices[line.endVertex].y,
-                        endX: vertices[line.startVertex].x,
-                        endY: -vertices[line.startVertex].y,
-                        bottomHeight: heights.back.lowerBottom,
-                        topHeight: heights.back.lowerTop,
-                        sectorHeight: backSector.ceilingHeight - backSector.floorHeight,
-                        alignment: TextureAlignment.Normal | (line.lowerUnpeggedFlag ?
-                            TextureAlignment.LowerUnpegged : 0) | TextureAlignment.TwoSided,
-                        worldPanning: true,
-                        lightLevel: backLight,
-                        reverse: false,
-                    });
                 }
             }
         }
-        let totalSectorTriangleCount = 0;
         // Sector triangles - used for rendering sectors
         const sectorTriangles: SectorTriangle[] = [];
         for(const sector in sectorLines){
-            const badSectors = [84].map((badSector) => badSector.toString(10)); // Heretic E2M6
-            // Determine whether this sector is one of the "bad" ones (Debugging)
-            const sectorIsBad = badSectors.includes(sector);
-            // Get sector polygons and triangulate the sector
-            const sectorRawPolygons = this.getPolygonsFromLines(
-                sectorLines[sector], sectorIsBad ? sector : undefined);
-            console.log(`sectorRawPolygons for sector ${sector}`, sectorRawPolygons);
-            const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
-            (rawPolygon) => {
-                // Convert indices to positions
-                const polygonVertices = rawPolygon.map((vertexIndex) => {
-                    return new THREE.Vector2(
-                        vertices[vertexIndex].x, -vertices[vertexIndex].y);
-                });
-                return {
-                    vertices: polygonVertices,
-                    holeVertices: [],
-                    boundingBox: BoundingBox.from(polygonVertices),
-                    isHole: false,
-                };
-            });
-            // Sort by area in descending order.
-            // I think this will make it faster to build the sector
-            // ceiling/floor triangles.
-            sectorPolygons.sort((polyA, polyB) =>
-                polyB.boundingBox.area() - polyA.boundingBox.area());
-            // Find holes
-            sectorPolygons.forEach((polygon, polygonIndex) => {
-                // Find out which polygons "contain" this one
-                let containerPolygons = sectorPolygons.slice(0, polygonIndex);
-                containerPolygons = containerPolygons.filter((otherPolygon) => {
-                    if(otherPolygon.boundingBox.area() === polygon.boundingBox.area()){
-                        return false;
-                    }
-                    const boundBoxComparison = otherPolygon.boundingBox.compare(polygon.boundingBox);
-                    if(boundBoxComparison === BoundingBoxComparison.Contains){
-                        return polygon.vertices.some((point) => {
-                            return MapGeometryBuilder.pointInPolygon(point, otherPolygon.vertices);
-                        });
-                    }
-                    return false;
-                });
-                // Get the smallest polygon containing this one, and make this
-                // polygon a hole if the smallest polygon containing this one is not.
-                const smallestContainerPolygon: SectorPolygon | undefined = (
-                    containerPolygons[containerPolygons.length - 1]);
-                if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
-                    smallestContainerPolygon.holeVertices.push(polygon.vertices);
-                    polygon.isHole = true;
-                }
-            });
-            // Number.parseInt is required because for..in uses strings and not numbers
-            const mapSector = this.map.sectors.getSector(Number.parseInt(sector, 10));
-            const lightColor = new THREE.Color(
-                `rgb(${mapSector.light},${mapSector.light},${mapSector.light})`);
-            sectorPolygons.forEach((poly) => {
-                if(poly.isHole){
-                    return;
-                }
-                // triangulateShape expects data structures like this:
-                // (contour) [{x: 10, y: 10}, {x: -10, y: 10}, {x: -10, y: -10}, {x: 10, y: -10}]
-                // (holes) [[{x: 5, y: 5}, {x: -5, y: 5}, {x: -5, y: -5}, {x: 5, y: -5}], etc.]
-                // console.log(`sector ${sector} vertices`, poly.vertices);
-                // "as any" is necessary to compile this code, unless you've fixed your THREE.js type definitions.
-                const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holeVertices as any);
-                // console.log(`triangles for sector ${sector}`, triangles);
-                // triangulateShape returns an array of arrays of vertex indices
-                totalSectorTriangleCount += triangles.length * 2; // x2 for floor and ceiling
-                const polyVertices = poly.vertices.concat(
-                    poly.holeVertices.reduce((flat, arr) => flat.concat(arr), [])
-                );
-                triangles.forEach((triangle) => {
-                    const triangleVertices = [];
-                    for(const triangleVertex of triangle){
-                        triangleVertices.push(polyVertices[triangleVertex]);
-                    }
-                    sectorTriangles.push({ // Floor
-                        color: lightColor,
-                        vertices: triangleVertices,
-                        height: mapSector.floorHeight,
-                        materialIndex: this.getMaterialIndex(mapSector.floorFlat, TextureSet.Flats),
-                        normalVector: new THREE.Vector3(0, 1, 0),
-                        reverse: true,
-                    }, { // Ceiling
-                        color: lightColor,
-                        vertices: triangleVertices,
-                        height: mapSector.ceilingHeight,
-                        materialIndex: this.getMaterialIndex(mapSector.ceilingFlat, TextureSet.Flats),
-                        normalVector: new THREE.Vector3(0, -1, 0),
-                        reverse: false,
-                    });
-                });
-            });
+            // Number.parseInt is required because object keys are strings
+            const sectorNumber = Number.parseInt(sector, 10);
+            for(const triangle of this.getSectorTriangles(sectorNumber, sectorLines[sector])){
+                sectorTriangles.push(triangle);
+            }
         }
-        // Quad triangle vertex indices are laid out like this:
+        return {
+            wallQuads,
+            sectorTriangles,
+        };
+        /*
+        // Wall quad triangle vertex indices are laid out like this:
         // 0 ----- 1
         // |     / |
         // |   /   |
@@ -1304,17 +1352,6 @@ export class MapGeometryBuilder {
             }
             // Add the last group
             groups.push({lastIndex, lastCount, lastMaterialIndex});
-            /*
-            if(this._materialArray.length !== groups.length){
-                console.warn("Different numbers of materials and groups! " +
-                    "The map will not be textured.");
-            }
-            if(lastIndex + lastCount !== totalSectorTriangleCount * verticesPerTriangle +
-                    wallQuads.length * verticesPerQuad){
-                console.warn("lastCount does not cover the whole mesh! " +
-                    "The map will not be textured.");
-            }
-            */
             for(const group of groups){
                 bufferGeometry.addGroup(group.lastIndex, group.lastCount, group.lastMaterialIndex);
             }
@@ -1412,8 +1449,10 @@ export class MapGeometryBuilder {
         console.log("Done building the mesh.");
         this._disposables.push(bufferGeometry);
         return mapMeshGroup;
+        */
     }
 
+    /*
     public dispose(): void {
         for(const thing of this._disposables){
             thing.dispose();
@@ -1422,4 +1461,5 @@ export class MapGeometryBuilder {
             thing.dispose();
         }
     }
+    */
 }

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import {OBJExporter} from "three/examples/jsm/exporters/OBJExporter";
 
-import {MapGeometryBuilder} from "@src/convert/3DMapBuilder";
+import * as map3D from "@src/convert/3DMapBuilder";
 import {KeyboardListener} from "./keyboardListener";
 
 import * as lumps from "@src/lumps/index";
@@ -9,7 +9,7 @@ import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";
 
-import {TextureLibrary} from "@src/lumps/index";
+import {TextureSet, TextureLibrary} from "@src/lumps/index";
 
 import {getPng64, bufferbtoa} from "@web/png64";
 import * as util from "@web/util";
@@ -544,30 +544,17 @@ function drawMapGeometry(
     }
 }
 
-interface ConvertedMap {
-    // The map geometry builder. Needed for disposal after clearing the view.
-    builder: MapGeometryBuilder;
-    // The object containing the 3D map model pieces. (transparent+opaque)
-    group: THREE.Group;
-}
-
 // This function will make the builder build the map in 3D
-function ConvertMapTo3D(lump: WADLump, textured: boolean, callback?: (group: THREE.Group) => void): ConvertedMap | null {
+function ConvertMapTo3D(lump: WADLump): map3D.MapGeometry | null {
     // Initialize map
     const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
     if(!mapLump){
         return null;
     }
     const map = lumps.WADMap.from(mapLump);
-    // Initialize texture library
-    let textureLibrary: TextureLibrary | null = null;
-    if(textured){
-        textureLibrary = sharedDataManager.getTextureLibrary(mapLump);
-    }
     // Build map mesh
-    const mapBuilder = new MapGeometryBuilder(map, textureLibrary);
-    const mapMeshGroup = mapBuilder.rebuild(callback);
-    return {builder: mapBuilder, group: mapMeshGroup};
+    const mapBuilder = new map3D.MapGeometryBuilder(map);
+    return mapBuilder.rebuild();
 }
 
 interface Map3DViewOptions {
@@ -603,7 +590,7 @@ const LumpTypeViewMap3D = function(
         }
         hasPointerLock = !hasPointerLock;
     };
-    let mapBuilder: MapGeometryBuilder | null = null;
+    const disposables: {dispose(): void}[] = [];
     return new LumpTypeView({
         name: "Map (3D)",
         icon: "assets/icons/lump-map.png",
@@ -615,15 +602,13 @@ const LumpTypeViewMap3D = function(
                 return null;
             }
             const map = lumps.WADMap.from(mapLump);
+            let convertedMap: map3D.MapGeometry | null = null;
             try{
-                const convertedMap = ConvertMapTo3D(lump, options.textured);
+                convertedMap = ConvertMapTo3D(lump);
                 if(!convertedMap){
                     createError("Could not find the map lump", root);
                     return null;
                 }
-                const mapMeshGroup = convertedMap.group;
-                mapBuilder = convertedMap.builder;
-                scene.add(mapMeshGroup);
             }catch(error){
                 createError(`Error: ${error}`, root);
                 return null;
@@ -706,12 +691,11 @@ const LumpTypeViewMap3D = function(
             renderer.setAnimationLoop(render); // Needed for VR support
         },
         clear: () => {
-            console.log("Clearing 3D map view");
             if(mouseController){
                 document.removeEventListener("mousemove", mouseController);
             }
-            if(mapBuilder){
-                mapBuilder.dispose();
+            for(const disposableThing of disposables){
+                disposableThing.dispose();
             }
         }
     });
@@ -729,7 +713,200 @@ export const LumpTypeViewMapUntextured3D = function(): LumpTypeView {
     return view;
 };
 
-export const LumpTypeViewMapOBJ = function(): LumpTypeView {
+// Side of an OBJ face
+interface OBJFaceSide {
+    // Absolute (positive) 1-based index of the vertex
+    vertexIndex: number;
+    // Absolute 1-based index of the UV coordinate associated with the vertex
+    uvIndex: number;
+    // Absolute 1-based index of the normal vector associated with the vertex
+    normalIndex: number;
+}
+
+interface OBJFace {
+    // Sides
+    sides: OBJFaceSide[];
+    // Name of OBJ material
+    material: string;
+}
+
+export function ConvertMapToOBJ(
+    convertedMap: map3D.MapGeometry,
+    textureLibrary: TextureLibrary,
+    rawMtlNames: boolean = false,
+): string {
+    function* getUVsForQuad(
+        texture: map3D.Mappable,
+        wall: map3D.LineQuad,
+        positions?: map3D.QuadVertexPosition[]
+    ): Iterable<number[]> {
+        let vertexPositions: map3D.QuadVertexPosition[];
+        if(positions){
+            vertexPositions = positions;
+        }else{
+            vertexPositions = [
+                map3D.QuadVertexPosition.UpperLeft,
+                map3D.QuadVertexPosition.LowerLeft,
+                map3D.QuadVertexPosition.LowerRight,
+                map3D.QuadVertexPosition.UpperRight,
+            ];
+        }
+        for(const position of vertexPositions){
+            yield map3D.MapGeometryBuilder.getQuadUVs(texture, position, wall);
+        }
+    }
+    // Mappable for null texture and "-" on lower/upper parts
+    const nullMappable = {width: 64, height: 64};
+    // OBJ faces, vertices, UVs, and normals
+    const objFaces: OBJFace[] = [];
+    const objVertices: number[] = [];
+    const objUVs: number[] = [];
+    const objNormals: number[] = [];
+    // Angle to normal index mapping
+    const angleNormals: {[angle: number]: number} = {};
+    // Flat normal vector to normal index mapping
+    const flatNormals: {[vectorString: string]: number} = {};
+    // Current vertex, UV, and normal indices
+    let objVertexIndex = 1;
+    let objUvIndex = 1;
+    let objNormalIndex = 1;
+    // Get all of the textures used by the map
+    const objTextures: {[name: string]: map3D.Mappable} = {};
+    for(const wall of convertedMap.wallQuads){
+        // Get the texture
+        const textureKey = rawMtlNames ? wall.texture : `${TextureSet[wall.textureSet]}[${wall.texture}]`;
+        if(!objTextures[textureKey]){
+            const texture = textureLibrary.get(wall.texture, wall.textureSet);
+            objTextures[textureKey] = texture ? texture : nullMappable;
+        }
+        // Calculate height for midtextures
+        let bottomHeight = wall.topHeight - wall.height;
+        if(wall.height < 0){
+            const fromHeight = (wall.alignment.flags & map3D.TextureAlignmentFlags.LowerUnpegged) !== 0 ?
+                wall.floorHeight + wall.yOffset : wall.ceilingHeight + wall.yOffset;
+            bottomHeight = fromHeight - objTextures[textureKey].height;
+            if(bottomHeight < wall.floorHeight){
+                bottomHeight = wall.floorHeight;
+            }else if(bottomHeight > wall.ceilingHeight){
+                bottomHeight = wall.ceilingHeight;
+            }
+            wall.height = wall.topHeight - bottomHeight;
+        }
+        // 4 vertices
+        objVertices.push(
+            wall.startX, wall.topHeight, wall.startY, // Upper left
+            wall.startX, bottomHeight, wall.startY, // Lower left
+            wall.endX, bottomHeight, wall.endY, // Lower right
+            wall.endX, wall.topHeight, wall.endY, // Upper right
+        );
+        for(const quadUVs of getUVsForQuad(objTextures[textureKey], wall)){
+            for(const uvCoordinate of quadUVs){
+                objUVs.push(uvCoordinate);
+            }
+        }
+        // wall.width is the same as the length
+        const wallAngle = Math.atan2(
+            (wall.startY - wall.endY) / wall.width,
+            (wall.startX - wall.endX) / wall.width,
+        ) + Math.PI / 2;
+        if(angleNormals[wallAngle] == null){
+            angleNormals[wallAngle] = objNormalIndex;
+            objNormals.push(
+                // Normals are the same for every vertex on this wall
+                Math.cos(wallAngle), 0, Math.sin(wallAngle)
+            );
+            objNormalIndex++;
+        }
+        const face: OBJFace = {
+            material: textureKey,
+            sides: [],
+        };
+        for(let sideIndex = 0; sideIndex < 4; sideIndex++){
+            face.sides.push({
+                vertexIndex: objVertexIndex,
+                uvIndex: objUvIndex,
+                normalIndex: angleNormals[wallAngle],
+            });
+            objVertexIndex++;
+            objUvIndex++;
+        }
+        objFaces.push(face);
+    }
+    for(const flat of convertedMap.sectorTriangles){
+        const textureKey = rawMtlNames ? flat.texture : `${TextureSet[flat.textureSet]}[${flat.texture}]`;
+        if(!objTextures[textureKey]){
+            const texture = textureLibrary.get(flat.texture, flat.textureSet);
+            objTextures[textureKey] = texture ? texture : nullMappable;
+        }
+        const face: OBJFace = {
+            material: textureKey,
+            sides: [],
+        };
+        const normalString = `${flat.normalVector.x} ${flat.normalVector.y} ${flat.normalVector.z}`;
+        if(flatNormals[normalString] == null){
+            flatNormals[normalString] = objNormalIndex;
+            objNormals.push(flat.normalVector.x, flat.normalVector.y, flat.normalVector.z);
+            objNormalIndex++;
+        }
+        for(const vertexVector of flat.vertices){
+            objVertices.push(vertexVector.x, flat.height, vertexVector.y);
+            const uv = map3D.MapGeometryBuilder.getSectorVertexUVs(
+                vertexVector, objTextures[textureKey]);
+            objUVs.push(uv[0], uv[1]);
+            face.sides.push({
+                vertexIndex: objVertexIndex,
+                uvIndex: objUvIndex,
+                normalIndex: flatNormals[normalString],
+            });
+            objVertexIndex++;
+            objUvIndex++;
+        }
+        if(flat.reverse){
+            face.sides.reverse();
+        }
+        objFaces.push(face);
+    }
+    // stringify the OBJ
+    let objText = "# OBJ generated by jsdoom\n";
+    // Add vertices
+    objVertices.forEach((coordinate, index) => {
+        if(index % 3 === 0){
+            objText += "\nv";
+        }
+        objText += ` ${coordinate}`;
+    });
+    // Add UVs
+    objUVs.forEach((coordinate, index) => {
+        if(index % 2 === 0){
+            objText += "\nvt";
+        }
+        objText += ` ${coordinate}`;
+    });
+    // Add normals
+    objNormals.forEach((coordinate, index) => {
+        if(index % 3 === 0){
+            objText += "\nvn";
+        }
+        objText += ` ${coordinate}`;
+    });
+    // Sort by material name
+    objFaces.sort((a, b) => a.material.localeCompare(b.material));
+    let currentMaterial = "";
+    // Add faces
+    for(const face of objFaces){
+        if(face.material !== currentMaterial){
+            objText += `\nusemtl ${face.material}`;
+            currentMaterial = face.material;
+        }
+        objText += "\nf";
+        for(const side of face.sides){
+            objText += ` ${side.vertexIndex}/${side.uvIndex}/${side.normalIndex}`;
+        }
+    }
+    return objText;
+}
+
+export const LumpTypeViewMapOBJ = function(rawMtlNames: boolean = false): LumpTypeView {
     return new LumpTypeView({
         name: "Map (OBJ)",
         icon: "assets/icons/view-text.png",
@@ -742,9 +919,7 @@ export const LumpTypeViewMapOBJ = function(): LumpTypeView {
                     appendTo: root,
                 });
             }
-            function addObj(group: THREE.Group){
-                const exporter = new OBJExporter();
-                const objText = exporter.parse(group);
+            function addObj(objText: string){
                 if(objText.length >= BigLumpThreshold){
                     util.removeChildren(root);
                     root.appendChild(createWarning((
@@ -758,23 +933,112 @@ export const LumpTypeViewMapOBJ = function(): LumpTypeView {
                     showText(objText);
                 }
             }
+            util.createElement({
+                type: "p",
+                class: "lump-view-text",
+                content: "Please wait...",
+                appendTo: root,
+            });
+            let convertedMap: map3D.MapGeometry | null = null;
             try{
-                util.createElement({
-                    type: "p",
-                    class: "lump-view-text",
-                    content: "Please wait...",
-                    appendTo: root,
-                });
-                const convertedMap = ConvertMapTo3D(lump, true, addObj);
+                convertedMap = ConvertMapTo3D(lump);
                 if(!convertedMap){
                     util.removeChildren(root);
                     createError("Could not find the map lump", root);
                     return;
                 }
-                convertedMap.builder.dispose();
             }catch(error){
-                createError(`Error: ${error}`, root);
+                createError(`${error}`, root);
                 return;
+            }
+            const textureLibrary = sharedDataManager.getTextureLibrary(lump);
+            const objString = ConvertMapToOBJ(convertedMap, textureLibrary, rawMtlNames);
+            addObj(objString);
+        },
+    });
+};
+
+interface MTLLibName {
+    // Name of OBJ material
+    texture: string;
+    // Name of image file, without the extension
+    file: string;
+}
+
+export const LumpTypeViewMapMTL = function(): LumpTypeView {
+    return new LumpTypeView({
+        name: "Map (MTL)",
+        icon: "assets/icons/view-text.png",
+        view: (lump: WADLump, root: HTMLElement) => {
+            function showText(text: string): void {
+                util.createElement({
+                    tag: "pre",
+                    class: "lump-view-text",
+                    content: text,
+                    appendTo: root,
+                });
+            }
+            util.createElement({
+                type: "p",
+                class: "lump-view-text",
+                content: "Please wait...",
+                appendTo: root,
+            });
+            let convertedMap: map3D.MapGeometry | null = null;
+            try{
+                convertedMap = ConvertMapTo3D(lump);
+                if(!convertedMap){
+                    util.removeChildren(root);
+                    createError("Could not find the map lump", root);
+                    return;
+                }
+            }catch(error){
+                createError(`${error}`, root);
+                return;
+            }
+            const textureNames: MTLLibName[] = [];
+            const quadCountByTexture: {[texture: string]: number} = {};
+            const flatCountByTexture: {[texture: string]: number} = {};
+            // Get all of the quad texture names
+            for(const quad of convertedMap.wallQuads){
+                const textureKey = `${TextureSet[quad.textureSet]}[${quad.texture}]`;
+                if(quadCountByTexture[textureKey] == null){
+                    quadCountByTexture[textureKey] = 1;
+                    textureNames.push({
+                        texture: textureKey,
+                        file: quad.texture,
+                    });
+                }else{
+                    quadCountByTexture[textureKey] += 1;
+                }
+            }
+            for(const flat of convertedMap.sectorTriangles){
+                const textureKey = `${TextureSet[flat.textureSet]}[${flat.texture}]`;
+                if(flatCountByTexture[textureKey] == null){
+                    flatCountByTexture[textureKey] = 1;
+                    textureNames.push({
+                        texture: textureKey,
+                        file: flat.texture,
+                    });
+                }
+            }
+            let mtlText = `# MTL for ${lump.name}.obj\n\n`;
+            for(const name of textureNames){
+                mtlText += (
+                    `newmtl ${name.texture}\n` +
+                    "Kd 1.0 1.0 1.0\n" +
+                    "illum 1\n" +
+                    `map_Kd ${name.file}.png\n\n`
+                );
+            }
+            if(mtlText.length >= BigLumpThreshold){
+                root.appendChild(createWarning((
+                    "This lump is very large and your browser may not be " +
+                    "able to safely view it."
+                ), () => {
+                    util.removeChildren(root);
+                    showText(mtlText);
+                }));
             }
         },
     });
