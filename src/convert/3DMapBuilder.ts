@@ -489,6 +489,7 @@ export interface Mappable {
     yScale?: number;
 }
 
+// Different alignment types for textures on a line quad
 export enum TextureAlignmentType {
     // Middle texture for one-sided walls, or upper or lower texture for two-sided walls
     Normal,
@@ -500,6 +501,7 @@ export enum TextureAlignmentType {
     BackMidtexture,
 }
 
+// Different settings that apply to line quad texture alignment
 export enum TextureAlignmentFlags {
     Normal = 0,
     World = 1, // Doom 64
@@ -507,7 +509,7 @@ export enum TextureAlignmentFlags {
     TwoSided = 4, // Two-Sided Flag
 }
 
-// Different alignment types for textures
+// 
 export interface TextureAlignment {
     type: TextureAlignmentType;
     flags: TextureAlignmentFlags;
@@ -519,6 +521,21 @@ interface Quad extends Mappable, DoomTextured {}
 interface DoomLighting {
     // Sector light level
     lightLevel: number;
+}
+
+// Whether a line quad is an upper, middle, lower, or 3D floor line quad.
+// Currently used to help connect the vertices in an OBJ.
+export enum LineQuadPlace {
+    // Upper quad
+    Upper,
+    // One-sided line quad
+    Middle,
+    // Midtexture quad
+    Midtexture,
+    // Lower quad
+    Lower,
+    // 3D floor quad (same as middle, but with floor and ceiling swapped)
+    ThreeDeeFloor,
 }
 
 // A quad on a line or side
@@ -561,6 +578,17 @@ export interface LineQuad extends Quad, DoomLighting {
     yOffset: number;
     // Whether or not to reverse the order of the vertices so as to make the face point in the right direction
     reverse: boolean;
+    // Where the line quad is with regards to
+    place: LineQuadPlace;
+}
+
+// Whether a sector triangle is on the floor or ceiling
+export enum SectorTrianglePlace {
+    // Triangle is on the floor
+    Floor,
+    // Triangle is on the ceiling
+    Ceiling,
+    // The top of a 3D floor is a floor, and the bottom is a ceiling
 }
 
 export interface SectorTriangle extends DoomTextured, DoomLighting {
@@ -574,6 +602,8 @@ export interface SectorTriangle extends DoomTextured, DoomLighting {
     normalVector: THREE.Vector3;
     // Whether the triangle's vertices should be reversed so as to point inwards
     reverse: boolean;
+    // Whether the triangle is on the floor or ceiling
+    place: SectorTrianglePlace;
 }
 
 export interface MapGeometry {
@@ -671,10 +701,11 @@ export class MapGeometryBuilder {
             uvX *= uvFactorX[vertexIndex];
         }
         uvX += quad.xOffset * texelX;
-        if((alignType !== TextureAlignmentType.Midtexture &&
-            alignType !== TextureAlignmentType.BackMidtexture) ||
+        if((alignType !== TextureAlignmentType.Midtexture) &&
+            (alignType !== TextureAlignmentType.BackMidtexture) ||
                 quad.height < texture.height){
             if((alignFlags & TextureAlignmentFlags.LowerUnpegged) !== 0){
+                // Quad is lower unpegged
                 if((alignFlags & TextureAlignmentFlags.TwoSided) === 0){
                     // One-sided - bottom of texture is at bottom of quad
                     uvY += 1 - texelY * quad.height;
@@ -867,6 +898,7 @@ export class MapGeometryBuilder {
                 worldPanning: true,
                 lightLevel: frontLight,
                 reverse: false,
+                place: LineQuadPlace.Middle,
             }];
         }else{
             // This line is a two-sided line. In other words, it has a sector
@@ -913,6 +945,7 @@ export class MapGeometryBuilder {
                         worldPanning: true,
                         lightLevel: frontLight,
                         reverse: false,
+                        place: LineQuadPlace.Midtexture,
                     });
                 }
                 if(back.middle !== "-"){
@@ -943,6 +976,7 @@ export class MapGeometryBuilder {
                         worldPanning: true,
                         lightLevel: backLight,
                         reverse: true,
+                        place: LineQuadPlace.Midtexture,
                     });
                 }
             }
@@ -973,6 +1007,7 @@ export class MapGeometryBuilder {
                     worldPanning: true,
                     lightLevel: frontLight,
                     reverse: false,
+                    place: LineQuadPlace.Upper,
                 });
             }
             if(heights.front.lowerTop > heights.front.lowerBottom){
@@ -1001,6 +1036,7 @@ export class MapGeometryBuilder {
                     worldPanning: true,
                     lightLevel: frontLight,
                     reverse: false,
+                    place: LineQuadPlace.Lower,
                 });
             }
             if(heights.back.upperTop > heights.back.upperBottom){
@@ -1029,6 +1065,7 @@ export class MapGeometryBuilder {
                     worldPanning: true,
                     lightLevel: backLight,
                     reverse: false,
+                    place: LineQuadPlace.Upper,
                 });
             }
             if(heights.back.lowerTop > heights.back.lowerBottom){
@@ -1057,6 +1094,7 @@ export class MapGeometryBuilder {
                     worldPanning: true,
                     lightLevel: backLight,
                     reverse: false,
+                    place: LineQuadPlace.Lower,
                 });
             }
             return lineQuads;
@@ -1145,6 +1183,7 @@ export class MapGeometryBuilder {
                     textureSet: TextureSet.Flats,
                     normalVector: new THREE.Vector3(0, 1, 0),
                     reverse: true,
+                    place: SectorTrianglePlace.Floor,
                 }, { // Ceiling
                     color: lightColor,
                     lightLevel: mapSector.light,
@@ -1154,6 +1193,7 @@ export class MapGeometryBuilder {
                     textureSet: TextureSet.Flats,
                     normalVector: new THREE.Vector3(0, -1, 0),
                     reverse: false,
+                    place: SectorTrianglePlace.Ceiling,
                 });
             });
         });

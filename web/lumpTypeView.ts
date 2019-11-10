@@ -730,31 +730,11 @@ interface OBJFace {
     material: string;
 }
 
-export function ConvertMapToOBJ(
+function ConvertMapToOBJ(
     convertedMap: map3D.MapGeometry,
     textureLibrary: TextureLibrary,
     rawMtlNames: boolean = false,
 ): string {
-    function* getUVsForQuad(
-        texture: map3D.Mappable,
-        wall: map3D.LineQuad,
-        positions?: map3D.QuadVertexPosition[]
-    ): Iterable<number[]> {
-        let vertexPositions: map3D.QuadVertexPosition[];
-        if(positions){
-            vertexPositions = positions;
-        }else{
-            vertexPositions = [
-                map3D.QuadVertexPosition.UpperLeft,
-                map3D.QuadVertexPosition.LowerLeft,
-                map3D.QuadVertexPosition.LowerRight,
-                map3D.QuadVertexPosition.UpperRight,
-            ];
-        }
-        for(const position of vertexPositions){
-            yield map3D.MapGeometryBuilder.getQuadUVs(texture, position, wall);
-        }
-    }
     // Mappable for null texture and "-" on lower/upper parts
     const nullMappable = {width: 64, height: 64};
     // OBJ faces, vertices, UVs, and normals
@@ -766,7 +746,11 @@ export function ConvertMapToOBJ(
     const angleNormals: {[angle: number]: number} = {};
     // Flat normal vector to normal index mapping
     const flatNormals: {[vectorString: string]: number} = {};
-    // Current vertex, UV, and normal indices
+    // Vertex vector to vertex index mapping
+    const vertices: {[vectorString: string]: number} = {};
+    // UV vector to UV index mapping
+    const uvs: {[vectorString: string]: number} = {};
+    // OBJ index of last vertex/UV/normal
     let objVertexIndex = 1;
     let objUvIndex = 1;
     let objNormalIndex = 1;
@@ -783,7 +767,7 @@ export function ConvertMapToOBJ(
         let bottomHeight = wall.topHeight - wall.height;
         if(wall.height < 0){
             const fromHeight = (wall.alignment.flags & map3D.TextureAlignmentFlags.LowerUnpegged) !== 0 ?
-                wall.floorHeight + wall.yOffset : wall.ceilingHeight + wall.yOffset;
+                (wall.floorHeight + wall.yOffset) : (wall.ceilingHeight + wall.yOffset);
             bottomHeight = fromHeight - objTextures[textureKey].height;
             if(bottomHeight < wall.floorHeight){
                 bottomHeight = wall.floorHeight;
@@ -793,22 +777,98 @@ export function ConvertMapToOBJ(
             wall.height = wall.topHeight - bottomHeight;
         }
         // 4 vertices
-        objVertices.push(
-            wall.startX, wall.topHeight, wall.startY, // Upper left
-            wall.startX, bottomHeight, wall.startY, // Lower left
-            wall.endX, bottomHeight, wall.endY, // Lower right
-            wall.endX, wall.topHeight, wall.endY, // Upper right
-        );
-        for(const quadUVs of getUVsForQuad(objTextures[textureKey], wall)){
-            for(const uvCoordinate of quadUVs){
-                objUVs.push(uvCoordinate);
+        const vertexPositions: map3D.QuadVertexPosition[] = [
+            map3D.QuadVertexPosition.UpperRight,
+            map3D.QuadVertexPosition.UpperLeft,
+            map3D.QuadVertexPosition.LowerLeft,
+            map3D.QuadVertexPosition.LowerRight,
+        ];
+        const vertexIndices: number[] = [0, 0, 0, 0];
+        const uvIndices: number[] = [0, 0, 0, 0];
+        for(let vertexIterIndex: number = 0;
+            vertexIterIndex < vertexPositions.length; vertexIterIndex++
+        ){
+            const vertexPosition = vertexPositions[vertexIterIndex];
+            let wallPlaceChar = "c";
+            if(wall.place !== map3D.LineQuadPlace.Middle){
+                // All vertices of an upper quad are connected to ceilings on
+                // both sides. Likewise, all vertices of a lower quad are
+                // connected to floors on both sides.
+                if((wall.place === map3D.LineQuadPlace.Lower) ||
+                    (wall.topHeight - wall.height === wall.floorHeight)
+                ){
+                    wallPlaceChar = "f";
+                }
+            }else{
+                // This is a one-sided line quad.
+                if((vertexPosition === map3D.QuadVertexPosition.LowerLeft) ||
+                    (vertexPosition === map3D.QuadVertexPosition.LowerRight)
+                ){
+                    wallPlaceChar = "f";
+                }
             }
+            if(wall.reverse){
+                // Separates back midtextures from front midtextures
+                wallPlaceChar += "r";
+            }
+            // XYZ coordinates for the vertex
+            const x = (() => {
+                if((vertexPosition === map3D.QuadVertexPosition.UpperLeft) ||
+                    (vertexPosition === map3D.QuadVertexPosition.LowerLeft)
+                ){
+                    // Left
+                    return wall.startX;
+                }
+                // Right
+                return wall.endX;
+            })();
+            const z = (() => {
+                if((vertexPosition === map3D.QuadVertexPosition.UpperLeft) ||
+                    (vertexPosition === map3D.QuadVertexPosition.LowerLeft)
+                ){
+                    // Left
+                    return wall.startY;
+                }
+                // Right
+                return wall.endY;
+            })();
+            const y = (() => {
+                if((vertexPosition === map3D.QuadVertexPosition.UpperLeft) ||
+                    (vertexPosition === map3D.QuadVertexPosition.UpperRight)
+                ){
+                    // Upper
+                    return wall.topHeight;
+                }
+                // Lower
+                return bottomHeight;
+            })();
+            const vertexKey = `${x} ${y} ${z}${wallPlaceChar}`;
+            if(vertices[vertexKey] == null){
+                objVertices.push(x, y, z);
+                vertices[vertexKey] = objVertexIndex;
+                objVertexIndex++;
+            }
+            vertexIndices[vertexIterIndex] = vertices[vertexKey];
+            const quadUVs = map3D.MapGeometryBuilder.getQuadUVs(
+                objTextures[textureKey], vertexPosition, wall
+            );
+            // OBJ UV Y coordinates seem to be inverted.
+            quadUVs[1] = 1 - quadUVs[1];
+            const uvKey = `${quadUVs[0]} ${quadUVs[1]}`;
+            if(uvs[uvKey] == null){
+                uvs[uvKey] = objUvIndex;
+                objUVs.push(quadUVs[0], quadUVs[1]);
+                objUvIndex++;
+            }
+            uvIndices[vertexIterIndex] = uvs[uvKey];
         }
         // wall.width is the same as the length
-        const wallAngle = Math.atan2(
+        const wallAngle = ((reverse: boolean) => {
+            const wallAngle = Math.atan2(
             (wall.startY - wall.endY) / wall.width,
-            (wall.startX - wall.endX) / wall.width,
-        ) + Math.PI / 2;
+            (wall.startX - wall.endX) / wall.width);
+            return reverse ? wallAngle + Math.PI / 2 : wallAngle - Math.PI / 2;
+        })(wall.reverse);
         if(angleNormals[wallAngle] == null){
             angleNormals[wallAngle] = objNormalIndex;
             objNormals.push(
@@ -823,12 +883,10 @@ export function ConvertMapToOBJ(
         };
         for(let sideIndex = 0; sideIndex < 4; sideIndex++){
             face.sides.push({
-                vertexIndex: objVertexIndex,
-                uvIndex: objUvIndex,
+                vertexIndex: vertexIndices[sideIndex],
+                uvIndex: uvIndices[sideIndex],
                 normalIndex: angleNormals[wallAngle],
             });
-            objVertexIndex++;
-            objUvIndex++;
         }
         objFaces.push(face);
     }
@@ -849,17 +907,27 @@ export function ConvertMapToOBJ(
             objNormalIndex++;
         }
         for(const vertexVector of flat.vertices){
-            objVertices.push(vertexVector.x, flat.height, vertexVector.y);
+            const [x, y, z] = [vertexVector.x, flat.height, vertexVector.y];
+            const placeChar = flat.place === map3D.SectorTrianglePlace.Floor ? "f" : "c";
+            const vertexKey = `${x} ${y} ${z}${placeChar}`;
+            if(vertices[vertexKey] == null){
+                vertices[vertexKey] = objVertexIndex;
+                objVertices.push(vertexVector.x, flat.height, vertexVector.y);
+                objVertexIndex++;
+            }
             const uv = map3D.MapGeometryBuilder.getSectorVertexUVs(
                 vertexVector, objTextures[textureKey]);
-            objUVs.push(uv[0], uv[1]);
+            const uvKey = `${uv[0]} ${uv[1]}`;
+            if(uvs[uvKey] == null){
+                uvs[uvKey] = objUvIndex;
+                objUVs.push(uv[0], uv[1]);
+                objUvIndex++;
+            }
             face.sides.push({
-                vertexIndex: objVertexIndex,
-                uvIndex: objUvIndex,
+                vertexIndex: vertices[vertexKey],
+                uvIndex: uvs[uvKey],
                 normalIndex: flatNormals[normalString],
             });
-            objVertexIndex++;
-            objUvIndex++;
         }
         if(flat.reverse){
             face.sides.reverse();
@@ -919,20 +987,6 @@ export const LumpTypeViewMapOBJ = function(rawMtlNames: boolean = false): LumpTy
                     appendTo: root,
                 });
             }
-            function addObj(objText: string){
-                if(objText.length >= BigLumpThreshold){
-                    util.removeChildren(root);
-                    root.appendChild(createWarning((
-                        "This OBJ is very large and your browser may not be " +
-                        "able to safely view it."
-                    ), () => {
-                        util.removeChildren(root);
-                        showText(objText);
-                    }));
-                }else{
-                    showText(objText);
-                }
-            }
             util.createElement({
                 type: "p",
                 class: "lump-view-text",
@@ -952,8 +1006,19 @@ export const LumpTypeViewMapOBJ = function(rawMtlNames: boolean = false): LumpTy
                 return;
             }
             const textureLibrary = sharedDataManager.getTextureLibrary(lump);
-            const objString = ConvertMapToOBJ(convertedMap, textureLibrary, rawMtlNames);
-            addObj(objString);
+            const objText = ConvertMapToOBJ(convertedMap, textureLibrary, rawMtlNames);
+            util.removeChildren(root);
+            if(objText.length >= BigLumpThreshold){
+                root.appendChild(createWarning((
+                    "This OBJ is very large and your browser may not be " +
+                    "able to safely view it."
+                ), () => {
+                    util.removeChildren(root);
+                    showText(objText);
+                }));
+            }else{
+                showText(objText);
+            }
         },
     });
 };
@@ -963,6 +1028,43 @@ interface MTLLibName {
     texture: string;
     // Name of image file, without the extension
     file: string;
+}
+
+function ConvertMapToMTL(convertedMap: map3D.MapGeometry, rawMtlNames: boolean = false): string {
+    const textureNames: MTLLibName[] = [];
+    const quadCountByTexture: {[texture: string]: number} = {};
+    const flatCountByTexture: {[texture: string]: number} = {};
+    // Get all of the quad texture names
+    for(const quad of convertedMap.wallQuads){
+        const textureKey = `${TextureSet[quad.textureSet]}[${quad.texture}]`;
+        if(quadCountByTexture[textureKey] == null){
+            quadCountByTexture[textureKey] = 1;
+            textureNames.push({
+                texture: rawMtlNames ? quad.texture : textureKey,
+                file: quad.texture,
+            });
+        }
+    }
+    for(const flat of convertedMap.sectorTriangles){
+        const textureKey = `${TextureSet[flat.textureSet]}[${flat.texture}]`;
+        if(flatCountByTexture[textureKey] == null){
+            flatCountByTexture[textureKey] = 1;
+            textureNames.push({
+                texture: rawMtlNames ? flat.texture : textureKey,
+                file: flat.texture,
+            });
+        }
+    }
+    let mtlText = "# MTL generated by jsdoom\n\n";
+    for(const name of textureNames){
+        mtlText += (
+            `newmtl ${name.texture}\n` +
+            "Kd 1.0 1.0 1.0\n" +
+            "illum 1\n" +
+            `map_Kd ${name.file}.png\n\n`
+        );
+    }
+    return mtlText;
 }
 
 export const LumpTypeViewMapMTL = function(): LumpTypeView {
@@ -996,41 +1098,8 @@ export const LumpTypeViewMapMTL = function(): LumpTypeView {
                 createError(`${error}`, root);
                 return;
             }
-            const textureNames: MTLLibName[] = [];
-            const quadCountByTexture: {[texture: string]: number} = {};
-            const flatCountByTexture: {[texture: string]: number} = {};
-            // Get all of the quad texture names
-            for(const quad of convertedMap.wallQuads){
-                const textureKey = `${TextureSet[quad.textureSet]}[${quad.texture}]`;
-                if(quadCountByTexture[textureKey] == null){
-                    quadCountByTexture[textureKey] = 1;
-                    textureNames.push({
-                        texture: textureKey,
-                        file: quad.texture,
-                    });
-                }else{
-                    quadCountByTexture[textureKey] += 1;
-                }
-            }
-            for(const flat of convertedMap.sectorTriangles){
-                const textureKey = `${TextureSet[flat.textureSet]}[${flat.texture}]`;
-                if(flatCountByTexture[textureKey] == null){
-                    flatCountByTexture[textureKey] = 1;
-                    textureNames.push({
-                        texture: textureKey,
-                        file: flat.texture,
-                    });
-                }
-            }
-            let mtlText = `# MTL for ${lump.name}.obj\n\n`;
-            for(const name of textureNames){
-                mtlText += (
-                    `newmtl ${name.texture}\n` +
-                    "Kd 1.0 1.0 1.0\n" +
-                    "illum 1\n" +
-                    `map_Kd ${name.file}.png\n\n`
-                );
-            }
+            const mtlText = ConvertMapToMTL(convertedMap);
+            util.removeChildren(root);
             if(mtlText.length >= BigLumpThreshold){
                 root.appendChild(createWarning((
                     "This lump is very large and your browser may not be " +
@@ -1039,6 +1108,8 @@ export const LumpTypeViewMapMTL = function(): LumpTypeView {
                     util.removeChildren(root);
                     showText(mtlText);
                 }));
+            }else{
+                showText(mtlText);
             }
         },
     });
