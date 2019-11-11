@@ -75,21 +75,11 @@ class SectorPolygonBuilder {
     private edgesLeft: {[edge: string]: boolean};
     // The "edges" (start/end vertex of each line, as number arrays)
     private readonly sectorEdges: number[][];
-    // Number of connections to each vertex
-    private readonly vertexRefCount: {[vertex: number]: number};
-    // Maximum number of times a vertex can be added to any polygon
-    private readonly maxVisits: {[vertex: number]: number};
-    // The number of times a particular vertex has been added to a polygon
-    private visitCount: {[vertex: number]: number};
     // Vertices used by the sector's lines
     private readonly sectorVertices: SectorVertex[];
     // Map vertex index -> Sector vertex index mapping
     // For getting the index of a particular vertex in the sectorVertices array
     private readonly mapToSectorIndices: {[vertex: number]: number};
-    // Number of edges
-    public get sectorEdgeCount(){
-        return this.sectorEdges.length;
-    }
 
     constructor(sectorLines: WADMapLine[], mapVertices: WADMapVertex[]){
         // Get sector edges
@@ -124,26 +114,6 @@ class SectorPolygonBuilder {
                 index
             });
         }
-        // Get number of references to each vertex
-        this.vertexRefCount = {};
-        this.maxVisits = {};
-        this.visitCount = {};
-        this.sectorEdges.forEach((edge) => {
-            edge.forEach((vertexIndex) => {
-                if(this.vertexRefCount[vertexIndex] == null){
-                    this.vertexRefCount[vertexIndex] = 1;
-                }else{
-                    this.vertexRefCount[vertexIndex] += 1;
-                    if(this.vertexRefCount[vertexIndex] > 2){
-                        // Each vertex for a convex sector polygon is
-                        // referenced at least twice
-                        this.maxVisits[vertexIndex] = (
-                            this.vertexRefCount[vertexIndex] / 2);
-                        this.visitCount[vertexIndex] = 0;
-                    }
-                }
-            });
-        });
     }
 
     // Get the clockwise or counterclockwise angle between three points
@@ -787,10 +757,6 @@ export class MapGeometryBuilder {
             let sectorPolygonsCombined: number[][] = [];
             sectorPolygons.forEach((poly) =>
                 sectorPolygonsCombined = sectorPolygonsCombined.concat(poly));
-            if(sectorPolygonsCombined.length !== sectorPolygonBuilder.sectorEdgeCount){
-                console.log("Sector polygons is not the same length as " +
-                    "sectorLines!", sectorLines, sectorPolygons);
-            }
         }
         return sectorPolygons;
     }
