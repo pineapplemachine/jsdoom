@@ -76,10 +76,7 @@ class SectorPolygonBuilder {
     // The "edges" (start/end vertex of each line, as number arrays)
     private readonly sectorEdges: number[][];
     // Vertices used by the sector's lines
-    private readonly sectorVertices: SectorVertex[];
-    // Map vertex index -> Sector vertex index mapping
-    // For getting the index of a particular vertex in the sectorVertices array
-    private readonly mapToSectorIndices: {[vertex: number]: number};
+    private readonly mapVertices: WADMapVertex[];
 
     constructor(sectorLines: WADMapLine[], mapVertices: WADMapVertex[]){
         // Get sector edges
@@ -98,22 +95,8 @@ class SectorPolygonBuilder {
                 }
             }
         }
-        // Map to sector indices - used to find vertices
-        this.mapToSectorIndices = {};
         // Sector vertices
-        this.sectorVertices = [];
-        for(let vertexIterIndex = 0;
-                vertexIterIndex < sectorVertexIndices.length;
-                vertexIterIndex++){
-            const index = sectorVertexIndices[vertexIterIndex];
-            const vertex = mapVertices[index];
-            const position = new THREE.Vector2(vertex.x, vertex.y);
-            this.mapToSectorIndices[index] = vertexIterIndex;
-            this.sectorVertices.push({
-                position,
-                index
-            });
-        }
+        this.mapVertices = mapVertices;
     }
 
     // Get the clockwise or counterclockwise angle between three points
@@ -129,16 +112,13 @@ class SectorPolygonBuilder {
         return Math.atan2(clockwise ? cross : -cross, -dot) + Math.PI;
     }
 
-    // Get the position of a vertex (map index)
-    protected vectorFor(vertexIndex: number): THREE.Vector2 {
-        const position = this.sectorVertices[
-            this.mapToSectorIndices[vertexIndex]
-        ].position;
-        return new THREE.Vector2(position.x, position.y);
-    }
-
+    // Get sector vertex info (map index)
     protected vertexFor(vertexIndex: number): SectorVertex {
-        return this.sectorVertices[this.mapToSectorIndices[vertexIndex]];
+        const {x, y} = this.mapVertices[vertexIndex];
+        return {
+            index: vertexIndex,
+            position: new THREE.Vector2(x, y),
+        };
     }
 
     protected findNextStartEdge(clockwise: boolean = false): number[] {
@@ -169,8 +149,7 @@ class SectorPolygonBuilder {
         // Get vertices connected to the rightmost vertex
         const rightMostConnectedVertices: SectorVertex[] = rightMostEdges.map(
             (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0]
-        ).map<SectorVertex>((vertexIndex) => this.sectorVertices[
-            this.mapToSectorIndices[vertexIndex]]);
+        ).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // Sort vertices in clockwise order
         // First, get center point
         const vertexCount = rightMostConnectedVertices.length;
@@ -224,11 +203,11 @@ class SectorPolygonBuilder {
             // Find the vertex that is connected by the lowest angle
             let mostAcuteAngle = Math.PI * 2;
             let mostAcuteVertex = 0;
-            const startVector = this.vectorFor(previous);
-            const midVector = this.vectorFor(from);
+            const startVector = this.vertexFor(previous).position;
+            const midVector = this.vertexFor(from).position;
             // Iterate through vertices, find which one has the lowest angle
             for(const vertexIndex of intersectionVertices){
-                const endVector = this.vectorFor(vertexIndex);
+                const endVector = this.vertexFor(vertexIndex).position;
                 const angle = SectorPolygonBuilder.angleBetween(
                         endVector, midVector, startVector, clockwise);
                 if(angle < mostAcuteAngle){
