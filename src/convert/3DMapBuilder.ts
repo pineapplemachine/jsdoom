@@ -646,6 +646,43 @@ export class MapGeometryBuilder {
         */
     }
 
+    // Recalculates quad heights, given a quad and a texture.
+    // Modifies the quad's height, topHeight, and possibly its yOffset.
+    // Does nothing to middle, upper, or lower quads.
+    // Returns the modified quad.
+    public static recalculateMidtex(quad: LineQuad, texture: Mappable): LineQuad {
+        // Midtexture height must be calculated.
+        // The bottom of Midtextures on lower unpegged linedefs are at the
+        // floor of the shortest sector,  offsetted by the Y offset
+        // If the midtexture is on a lower unpegged linedef, wall.topHeight is
+        // treated as the absolute height of the bottom of the wall rather than
+        // the absolute height of the top of the wall.
+        if((quad.alignment.type === TextureAlignmentType.Midtexture) ||
+            (quad.alignment.type === TextureAlignmentType.BackMidtexture)){
+            const startHeight = ((
+                quad.alignment.flags &
+                TextureAlignmentFlags.LowerUnpegged) !== 0 ?
+                quad.floorHeight + texture.height :
+                quad.ceilingHeight);
+            quad.topHeight = startHeight + quad.yOffset;
+            const ceilingHeightDiff = quad.ceilingHeight - quad.topHeight;
+            quad.height = texture.height;
+            if(ceilingHeightDiff < 0){
+                quad.height += ceilingHeightDiff;
+                quad.topHeight += ceilingHeightDiff;
+                quad.yOffset %= texture.height;
+                quad.yOffset += ceilingHeightDiff * 2;
+            }else{
+                quad.yOffset = 0;
+            }
+            const floorHeightDiff = (quad.topHeight - quad.height) - quad.floorHeight;
+            if(floorHeightDiff < 0){
+                quad.height += floorHeightDiff;
+            }
+        }
+        return quad;
+    }
+
     // Point-in-polygon algorithm - used to find out whether a contiguous set
     // of vertices is a hole in a sector polygon
     public static pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
