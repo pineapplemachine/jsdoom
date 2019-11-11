@@ -767,29 +767,36 @@ function ConvertMapToOBJ(
         // The bottom of Midtextures on lower unpegged linedefs are at the
         // floor of the shortest sector,  offsetted by the Y offset
         // If the midtexture is on a lower unpegged linedef, wall.topHeight is
-        // treated as the absolute height of the bottom of the wall.
+        // treated as the absolute height of the bottom of the wall rather than
+        // the absolute height of the top of the wall.
         if((wall.alignment.type === map3D.TextureAlignmentType.Midtexture) ||
             (wall.alignment.type === map3D.TextureAlignmentType.BackMidtexture)){
-                if((wall.alignment.flags & map3D.TextureAlignmentFlags.LowerUnpegged) !== 0){
-                wall.topHeight += objTextures[textureKey].height;
-                const ceilHeightDiff = wall.ceilingHeight - wall.topHeight;
-                wall.height = objTextures[textureKey].height;
-                if(ceilHeightDiff < 0){
-                    // Midtex goes above ceiling
-                    wall.topHeight = wall.ceilingHeight;
-                    wall.height += ceilHeightDiff;
-                }
+            const startHeight = ((
+                wall.alignment.flags &
+                map3D.TextureAlignmentFlags.LowerUnpegged) !== 0 ?
+                wall.floorHeight + objTextures[textureKey].height :
+                wall.ceilingHeight);
+            wall.topHeight = startHeight + wall.yOffset;
+            const ceilingHeightDiff = wall.ceilingHeight - wall.topHeight;
+            wall.height = objTextures[textureKey].height;
+            if(ceilingHeightDiff < 0){
+                wall.height += ceilingHeightDiff;
+                wall.topHeight += ceilingHeightDiff;
+                wall.yOffset %= objTextures[textureKey].height;
+                wall.yOffset += ceilingHeightDiff * 2;
             }else{
-                wall.height = objTextures[textureKey].height;
-                const floorHeightDiff = wall.topHeight - wall.height - wall.floorHeight;
-                if(floorHeightDiff < 0){
-                    // Midtex goes below floor
-                    wall.height += floorHeightDiff;
-                }
+                wall.yOffset = 0;
+            }
+            const floorHeightDiff = (wall.topHeight - wall.height) - wall.floorHeight;
+            if(floorHeightDiff < 0){
+                wall.height += floorHeightDiff;
             }
         }
-        const bottomHeight = wall.topHeight - wall.height;
-        // 4 vertices
+        const bottomHeight = Math.max(
+            wall.topHeight - wall.height,
+            wall.floorHeight
+        );
+        // 4 vertices per quad
         const vertexPositions: map3D.QuadVertexPosition[] = [
             map3D.QuadVertexPosition.UpperRight,
             map3D.QuadVertexPosition.UpperLeft,

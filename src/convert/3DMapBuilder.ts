@@ -702,8 +702,7 @@ export class MapGeometryBuilder {
         }
         uvX += quad.xOffset * texelX;
         if((alignType !== TextureAlignmentType.Midtexture) &&
-            (alignType !== TextureAlignmentType.BackMidtexture) ||
-                quad.height < texture.height){
+            (alignType !== TextureAlignmentType.BackMidtexture)){
             if((alignFlags & TextureAlignmentFlags.LowerUnpegged) !== 0){
                 // Quad is lower unpegged
                 if((alignFlags & TextureAlignmentFlags.TwoSided) === 0){
@@ -719,6 +718,11 @@ export class MapGeometryBuilder {
                 uvY += 1 - quad.height * texelY;
             }
             uvY += quad.yOffset * texelY;
+        }else{
+            if(quad.topHeight === quad.ceilingHeight && quad.height < texture.height){
+                // Quad is above the ceiling
+                uvY -= (quad.yOffset % texture.height) * texelY;
+            }
         }
         return [uvX, uvY];
     }
@@ -922,7 +926,6 @@ export class MapGeometryBuilder {
                     let midQuadTop = line.lowerUnpeggedFlag ?
                         heights.middleBottom : heights.middleTop;
                     midQuadTop += front.y;
-                    midQuadTop = Math.min(heights.middleTop, midQuadTop);
                     const alignment = {
                         type: TextureAlignmentType.Midtexture,
                         flags: line.lowerUnpeggedFlag ? TextureAlignmentFlags.LowerUnpegged : 0,
@@ -953,7 +956,6 @@ export class MapGeometryBuilder {
                     let midQuadTop = line.lowerUnpeggedFlag ?
                         heights.middleBottom : heights.middleTop;
                     midQuadTop += back.y;
-                    midQuadTop = Math.min(heights.middleTop, midQuadTop);
                     const alignment = {
                         type: TextureAlignmentType.BackMidtexture,
                         flags: line.lowerUnpeggedFlag ? TextureAlignmentFlags.LowerUnpegged : 0,
