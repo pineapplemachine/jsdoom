@@ -763,19 +763,23 @@ function ConvertMapToOBJ(
             const texture = textureLibrary.get(wall.texture, wall.textureSet);
             objTextures[textureKey] = texture ? texture : nullMappable;
         }
-        // Calculate height for midtextures
-        let bottomHeight = wall.topHeight - wall.height;
-        if(wall.height < 0){
-            const fromHeight = (wall.alignment.flags & map3D.TextureAlignmentFlags.LowerUnpegged) !== 0 ?
-                (wall.floorHeight + wall.yOffset) : (wall.ceilingHeight + wall.yOffset);
-            bottomHeight = fromHeight - objTextures[textureKey].height;
-            if(bottomHeight < wall.floorHeight){
-                bottomHeight = wall.floorHeight;
-            }else if(bottomHeight > wall.ceilingHeight){
-                bottomHeight = wall.ceilingHeight;
-            }
-            wall.height = wall.topHeight - bottomHeight;
+        // The bottom of Midtextures on lower unpegged linedefs are at the
+        // floor of the shortest sector,  offsetted by the Y offset
+        // If the midtexture is on a lower unpegged linedef, wall.topHeight is
+        // treated as the absolute height of the bottom of the wall.
+        if((wall.alignment.type === map3D.TextureAlignmentType.Midtexture) ||
+            (wall.alignment.type === map3D.TextureAlignmentType.BackMidtexture) &&
+            (wall.alignment.flags & map3D.TextureAlignmentFlags.LowerUnpegged) !== 0
+        ){
+            wall.topHeight += objTextures[textureKey].height;
+            wall.topHeight = Math.min(wall.ceilingHeight, wall.topHeight);
+            wall.height = objTextures[textureKey].height;
         }
+        // Calculate height for midtextures
+        if((wall.topHeight - wall.height) < wall.floorHeight){
+            wall.height = wall.topHeight - wall.floorHeight;
+        }
+        const bottomHeight = wall.topHeight - wall.height;
         // 4 vertices
         const vertexPositions: map3D.QuadVertexPosition[] = [
             map3D.QuadVertexPosition.UpperRight,
@@ -960,6 +964,8 @@ function ConvertMapToOBJ(
     // Sort by material name
     objFaces.sort((a, b) => a.material.localeCompare(b.material));
     let currentMaterial = "";
+    // Doom maps don't have smooth groups
+    objText += "\ns off";
     // Add faces
     for(const face of objFaces){
         if(face.material !== currentMaterial){
