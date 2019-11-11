@@ -69,9 +69,10 @@ interface SectorVertex {
     index: number;
 }
 
-// Takes line data, and converts it to polygons
 class SectorPolygonBuilder {
-
+    // Takes lines of a sector, and converts it to polygons
+    // The "edges" of a sector, and whether or not they have been added
+    private edgesLeft: {[edge: string]: boolean};
     // The "edges" (start/end vertex of each line, as number arrays)
     private readonly sectorEdges: number[][];
     // Number of connections to each vertex
@@ -93,8 +94,10 @@ class SectorPolygonBuilder {
     constructor(sectorLines: WADMapLine[], mapVertices: WADMapVertex[]){
         // Get sector edges
         this.sectorEdges = [];
+        this.edgesLeft = {};
         for(const line of sectorLines){
             this.sectorEdges.push([line.startVertex, line.endVertex]);
+            this.edgesLeft[`${line.startVertex} ${line.endVertex}`] = false;
         }
         // Sector to map indices
         const sectorVertexIndices: number[] = [];
@@ -164,48 +167,39 @@ class SectorPolygonBuilder {
         return new THREE.Vector2(position.x, position.y);
     }
 
-    protected findNextStartEdge(
-        vertsToSkip?: Set<Number>,
-        polygons?: Number[][]
-    ): number[] {
+    protected vertexFor(vertexIndex: number): SectorVertex {
+        return this.sectorVertices[this.mapToSectorIndices[vertexIndex]];
+    }
+
+    protected findNextStartEdge(clockwise: boolean = false): number[] {
         // Filter out vertices to skip
-        const usableVertices = this.sectorVertices.filter((vertex) => {
-            return vertsToSkip ? !vertsToSkip.has(vertex.index) : true;
+        const usableEdges = this.sectorEdges.filter((edge) => {
+            // Ensure I pick an edge which has not been added.
+            return this.edgesLeft[edge.join(" ")] === false;
         });
         // Find rightmost vertex
-        const rightMostVertex: SectorVertex = usableVertices.reduce<SectorVertex>(
-            (rightMostVertex, currentVertex) => {
-                if(currentVertex.position.x > rightMostVertex.position.x){
-                    return currentVertex;
-                }else{
-                    return rightMostVertex;
-                }
-            }, usableVertices[0]);
+        const usableVertices: number[] = usableEdges.reduce<number[]>((vertices, edge) => {
+            return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
+        }, usableEdges[0]);
+        const rightMostVertex: SectorVertex = usableVertices.reduce<SectorVertex>((rightMostVertex, currentIndex) => {
+            const currentVertex = this.vertexFor(currentIndex);
+            if(currentVertex.position.x > rightMostVertex.position.x){
+                return currentVertex;
+            }
+            return rightMostVertex;
+        }, this.vertexFor(usableVertices[0]));
         // Find edges connected to the rightmost vertex
         const rightMostEdges = this.sectorEdges.filter((edge) => {
             if(edge.includes(rightMostVertex.index)){
-                // What's the other vertex?
-                const otherVertex = edge.find(
-                    (vertex) => vertex !== rightMostVertex.index)!;
-                // Ensure no existing edges or "skipped" vertices are used.
-                // This code is intended to find a new edge to start from.
-                let skipVertex = false;
-                if(polygons){
-                    skipVertex = skipVertex || polygons.some(
-                        (polygon) => polygon.includes(otherVertex));
-                }
-                if(vertsToSkip){
-                    skipVertex = skipVertex || edge.some(
-                        (vertexIndex) => vertsToSkip.has(vertexIndex));
-                }
-                return !skipVertex;
+                // Ensure no used edges are picked
+                return this.edgesLeft[edge.join(" ")] === false;
             }
             return false;
         })!;
         // Get vertices connected to the rightmost vertex
         const rightMostConnectedVertices: SectorVertex[] = rightMostEdges.map(
-            (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0])
-        .map<SectorVertex>((vertexIndex) => this.sectorVertices[
+            (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0]
+        ).map<SectorVertex>((vertexIndex) => this.sectorVertices[
             this.mapToSectorIndices[vertexIndex]]);
         // Sort vertices in clockwise order
         // First, get center point
@@ -221,7 +215,7 @@ class SectorPolygonBuilder {
             const rightMostVector = rightMostVertex.position;
             const vertexVector = vertex.position;
             return SectorPolygonBuilder.angleBetween(
-                rightMostVector, centerPoint, vertexVector, false);
+                rightMostVector, centerPoint, vertexVector, clockwise);
         });
         // Find the point with the lowest angle
         const lowestAngle = Math.min.apply(null, angles);
@@ -232,13 +226,16 @@ class SectorPolygonBuilder {
     protected findNextVertex(
         from: number,
         previous: number,
-        vertsToSkip?: Set<number>,
         clockwise: boolean = false
     ): number | null {
         // Find all edges that:
+        // - Have not been added to a polygon
         // - Are attached to the "from" vertex
         // - Are not the "previous" vertex
         const edges: number[][] = this.sectorEdges.filter((edge) => {
+            if(this.edgesLeft[edge.join(" ")] === true){
+                return false;
+            }
             if(edge.includes(from) && !edge.includes(previous)){
                 return true;
             }
@@ -269,18 +266,10 @@ class SectorPolygonBuilder {
                     mostAcuteVertex = vertexIndex;
                 }
             }
-            // The vertex whose angle is the lowest is one which has been added
-            // to a polygon
-            if(vertsToSkip && vertsToSkip.has(mostAcuteVertex)){
-                return null;
-            }
             return mostAcuteVertex;
         }else if(edges.length === 1){
             // There should be at least 1 vertex that comes next in the polygon
             const otherVertex = edges[0].find((edgeVertex) => {
-                if(vertsToSkip && vertsToSkip.has(edgeVertex)){
-                    return false;
-                }
                 return edgeVertex !== from;
             });
             // otherVertex could be 0, and 0 || null === null.
@@ -293,18 +282,21 @@ class SectorPolygonBuilder {
         }
     }
 
-    // Increments the number of times a vertex has been added to a polygon
-    // Returns true if it should be added to the "vertsToSkip" array,
-    // and returns false if it should not.
-    protected visitVertex(vertex: number): boolean {
-        if(this.maxVisits[vertex]){
-            this.visitCount[vertex] += 1;
-            if(this.visitCount[vertex] === this.maxVisits[vertex]){
-                return true;
-            }
+    // Marks the given edge as being added to a polygon
+    protected visitEdge(
+        edgeStart: number, edgeEnd: number, recursive: boolean = false
+    ): boolean {
+        const edgeKey = `${edgeStart} ${edgeEnd}`;
+        if(this.edgesLeft.hasOwnProperty(edgeKey)){
+            this.edgesLeft[edgeKey] = true;
+            return true;
+        }
+        if(recursive){
+            // No edge found despite reversing arguments
             return false;
         }
-        return true;
+        // Recursively call this function with reversed arguments
+        return this.visitEdge(edgeEnd, edgeStart, true);
     }
 
     protected isPolygonComplete(polygon: number[]): boolean {
@@ -332,46 +324,38 @@ class SectorPolygonBuilder {
         // Polygon array
         // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
         const sectorPolygons: number[][] = [startEdge];
-        // Vertices that have already been added to a polygon
-        const vertsToSkip: Set<number> = new Set();
-        // "Visit" each vertex in the first polygon
-        for(const vertex of sectorPolygons[curPolygon]){
-            if(this.visitVertex(vertex)){
-                vertsToSkip.add(vertex);
-            }
-        }
+        // Mark start edge as visited.
+        this.visitEdge(startEdge[0], startEdge[1]);
         for(let vertexIteration = 2; // Start with 2 vertices in the polygon
-            vertexIteration < this.sectorEdges.length; vertexIteration++){
+            vertexIteration < this.sectorEdges.length; vertexIteration++
+        ){
             // The vertex from which to start the search for the next vertex
-            const [prevVertex, lastVertex] = (
-                sectorPolygons[curPolygon].slice(-2));
+            const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
+            this.visitEdge(prevVertex, lastVertex);
             // The next vertex to add to the polygon
-            const nextVertex = this.findNextVertex(
-                lastVertex, prevVertex, vertsToSkip);
+            const nextVertex = this.findNextVertex(lastVertex, prevVertex);
             // nextVertex is null - no more vertices left in this polygon
             if(nextVertex == null ||
                     this.isPolygonComplete(sectorPolygons[curPolygon])){
+                if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0])){
+                    // Last polygon is a dud
+                    sectorPolygons.pop();
+                }
                 // Add another polygon
                 curPolygon += 1;
                 // Find the first edge of the next polygon, and add it to the
                 // polygons that make up this sector
-                const nextStartEdge = this.findNextStartEdge(vertsToSkip);
+                const nextStartEdge = this.findNextStartEdge();
                 sectorPolygons.push(nextStartEdge);
                 // "Visit" each vertex of the starting edge
-                for(const edgeVertex of nextStartEdge){
-                    if(this.visitVertex(edgeVertex)){
-                        vertsToSkip.add(edgeVertex);
-                    }
-                }
+                this.visitEdge(nextStartEdge[0], nextStartEdge[1]);
                 // A new polygon was added, and vertexIteration was already
                 // incremented by the for loop, so 1 should be added, since an
                 // edge contains two vertices
                 vertexIteration += 1;
             }else{
                 // There is another vertex in the polygon
-                if(this.visitVertex(nextVertex)){
-                    vertsToSkip.add(nextVertex);
-                }
+                this.visitEdge(lastVertex, nextVertex);
                 sectorPolygons[curPolygon].push(nextVertex);
             }
         }
