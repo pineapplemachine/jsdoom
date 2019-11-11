@@ -763,21 +763,30 @@ function ConvertMapToOBJ(
             const texture = textureLibrary.get(wall.texture, wall.textureSet);
             objTextures[textureKey] = texture ? texture : nullMappable;
         }
+        // Midtexture height must be calculated.
         // The bottom of Midtextures on lower unpegged linedefs are at the
         // floor of the shortest sector,  offsetted by the Y offset
         // If the midtexture is on a lower unpegged linedef, wall.topHeight is
         // treated as the absolute height of the bottom of the wall.
         if((wall.alignment.type === map3D.TextureAlignmentType.Midtexture) ||
-            (wall.alignment.type === map3D.TextureAlignmentType.BackMidtexture) &&
-            (wall.alignment.flags & map3D.TextureAlignmentFlags.LowerUnpegged) !== 0
-        ){
-            wall.topHeight += objTextures[textureKey].height;
-            wall.topHeight = Math.min(wall.ceilingHeight, wall.topHeight);
-            wall.height = objTextures[textureKey].height;
-        }
-        // Calculate height for midtextures
-        if((wall.topHeight - wall.height) < wall.floorHeight){
-            wall.height = wall.topHeight - wall.floorHeight;
+            (wall.alignment.type === map3D.TextureAlignmentType.BackMidtexture)){
+                if((wall.alignment.flags & map3D.TextureAlignmentFlags.LowerUnpegged) !== 0){
+                wall.topHeight += objTextures[textureKey].height;
+                const ceilHeightDiff = wall.ceilingHeight - wall.topHeight;
+                wall.height = objTextures[textureKey].height;
+                if(ceilHeightDiff < 0){
+                    // Midtex goes above ceiling
+                    wall.topHeight = wall.ceilingHeight;
+                    wall.height += ceilHeightDiff;
+                }
+            }else{
+                wall.height = objTextures[textureKey].height;
+                const floorHeightDiff = wall.topHeight - wall.height - wall.floorHeight;
+                if(floorHeightDiff < 0){
+                    // Midtex goes below floor
+                    wall.height += floorHeightDiff;
+                }
+            }
         }
         const bottomHeight = wall.topHeight - wall.height;
         // 4 vertices
@@ -869,8 +878,8 @@ function ConvertMapToOBJ(
         // wall.width is the same as the length
         const wallAngle = ((reverse: boolean) => {
             const wallAngle = Math.atan2(
-            (wall.startY - wall.endY) / wall.width,
-            (wall.startX - wall.endX) / wall.width);
+                (wall.startY - wall.endY) / wall.width,
+                (wall.startX - wall.endX) / wall.width);
             return reverse ? wallAngle + Math.PI / 2 : wallAngle - Math.PI / 2;
         })(wall.reverse);
         if(angleNormals[wallAngle] == null){
