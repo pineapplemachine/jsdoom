@@ -587,9 +587,12 @@ class BufferModel {
     };
     static readonly nullTexture: THREE.Texture = (() => {
         const loader = new THREE.TextureLoader();
-        return loader.load("/assets/textures/missing.png", (texture: THREE.Texture) => {
+        return loader.load("/assets/textures/missing.png",
+        (texture: THREE.Texture) => {
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
+            texture.magFilter = THREE.NearestFilter;
+            texture.minFilter = THREE.LinearFilter;
         });
     })();
     static readonly nullMaterial = new THREE.MeshBasicMaterial({
