@@ -595,6 +595,7 @@ class BufferModel {
     static readonly nullMaterial = new THREE.MeshBasicMaterial({
         name: "-",
         map: BufferModel.nullTexture,
+        vertexColors: THREE.VertexColors,
     });
     // The THREE.js buffer geometry
     readonly geometry: THREE.BufferGeometry;
@@ -630,13 +631,13 @@ class BufferModel {
         this.uvElement = 0;
         this.colorElement = 0;
         this.vertexBuffer = new Float32Array(triangles * BufferModel.positionComponents * vectorsPerTriangle);
-        this.vertexBufferAttribute = new THREE.BufferAttribute(this.vertexBuffer, BufferModel.normalComponents, false);
+        this.vertexBufferAttribute = new THREE.BufferAttribute(this.vertexBuffer, BufferModel.positionComponents, false);
         this.normalBuffer = new Float32Array(triangles * BufferModel.normalComponents * vectorsPerTriangle);
         this.normalBufferAttribute = new THREE.BufferAttribute(this.normalBuffer, BufferModel.normalComponents, false);
         this.uvBuffer = new Float32Array(triangles * BufferModel.uvComponents * vectorsPerTriangle);
         this.uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, BufferModel.uvComponents, false);
         this.colorBuffer = new Float32Array(triangles * BufferModel.colorComponents * vectorsPerTriangle);
-        this.colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.normalComponents, false);
+        this.colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.colorComponents, false);
         this.vertexElement = this.normalElement = this.uvElement = this.colorElement = 0;
         this.materials = [];
         this.materialIndices = {};
@@ -797,6 +798,7 @@ class BufferModel {
                     name: wadTexture.name,
                     map: texture,
                     transparent,
+                    vertexColors: THREE.VertexColors,
                 });
                 return this.getOrAddMaterial(wadTexture.name, material);
             }else if(materialIndex >= 0){
@@ -843,6 +845,7 @@ class BufferModel {
                     name: wadTexture.name,
                     map: texture,
                     transparent: false,
+                    vertexColors: THREE.VertexColors,
                 });
                 return this.getOrAddMaterial(wadTexture.name, material);
             }else if(materialIndex >= 0){
