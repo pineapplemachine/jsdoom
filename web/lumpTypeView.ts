@@ -545,7 +545,7 @@ function drawMapGeometry(
 }
 
 // This function will make the builder build the map in 3D
-function ConvertMapTo3D(lump: WADLump): map3D.MapGeometry | null {
+function ConvertMapToGeometry(lump: WADLump): map3D.MapGeometry | null {
     // Initialize map
     const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
     if(!mapLump){
@@ -555,6 +555,395 @@ function ConvertMapTo3D(lump: WADLump): map3D.MapGeometry | null {
     // Build map mesh
     const mapBuilder = new map3D.MapGeometryBuilder(map);
     return mapBuilder.rebuild();
+}
+
+// The type of buffer to get the index of an element from
+enum BufferType {
+    Vertex,
+    Normal,
+    UV,
+    Color,
+}
+
+interface ThreeGroup {
+    // The name of the texture/material
+    material: string;
+    // The index of the starting element
+    start: number;
+    // The amount of elements this group has
+    count: number;
+}
+
+class BufferModel {
+    // Constants helpful when modifying buffers
+    static readonly positionComponents: number = 3;
+    static readonly normalComponents: number = 3;
+    static readonly uvComponents: number = 3;
+    static readonly colorComponents: number = 3;
+    // Placeholder material in case the texture is not in the library
+    static readonly nullMappable: map3D.Mappable = {
+        width: 64,
+        height: 64,
+    };
+    static readonly nullTexture: THREE.Texture = new THREE.TextureLoader().load("/assets/textures/missing.png");
+    static readonly nullMaterial = new THREE.MeshBasicMaterial({
+        name: "-",
+        map: BufferModel.nullTexture,
+    });
+    // The THREE.js buffer geometry
+    readonly geometry: THREE.BufferGeometry;
+    // The vertex buffer, and its respective attribute
+    protected vertexBuffer: Float32Array;
+    protected vertexBufferAttribute: THREE.BufferAttribute;
+    // The vertex normal buffer, and its respective attribute
+    protected normalBuffer: Float32Array;
+    protected normalBufferAttribute: THREE.BufferAttribute;
+    // The uv coordinate buffer, and its respective attribute
+    protected uvBuffer: Float32Array;
+    protected uvBufferAttribute: THREE.BufferAttribute;
+    // The color buffer, and its respective attribute
+    protected colorBuffer: Float32Array;
+    protected colorBufferAttribute: THREE.BufferAttribute;
+    // Current element indices for each buffer
+    protected vertexElement: number;
+    protected normalElement: number;
+    protected uvElement: number;
+    protected colorElement: number;
+    // Array of THREE.js materials
+    protected materials: THREE.Material[];
+    // Mapping of names to material indices
+    protected materialIndices: {[name: string]: number};
+
+    constructor(triangles: number) {
+        // Constants
+        const vectorsPerTriangle = 3;
+        // Initialize the buffer and its attributes
+        this.geometry = new THREE.BufferGeometry();
+        this.vertexElement = 0;
+        this.normalElement = 0;
+        this.uvElement = 0;
+        this.colorElement = 0;
+        this.vertexBuffer = new Float32Array(triangles * BufferModel.positionComponents * vectorsPerTriangle);
+        this.vertexBufferAttribute = new THREE.BufferAttribute(this.vertexBuffer, 3, false);
+        this.normalBuffer = new Float32Array(triangles * BufferModel.normalComponents * vectorsPerTriangle);
+        this.normalBufferAttribute = new THREE.BufferAttribute(this.normalBuffer, 3, false);
+        this.uvBuffer = new Float32Array(triangles * BufferModel.uvComponents * vectorsPerTriangle);
+        this.uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, 2, false);
+        this.colorBuffer = new Float32Array(triangles * BufferModel.colorComponents * vectorsPerTriangle);
+        this.colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, 3, false);
+        this.vertexElement = this.normalElement = this.uvElement = this.colorElement = 0;
+        this.materials = [BufferModel.nullMaterial];
+        this.materialIndices = {"-": 0};
+        this.geometry.setAttribute("position", this.vertexBufferAttribute);
+        this.geometry.setAttribute("normal", this.normalBufferAttribute);
+        this.geometry.setAttribute("uv", this.uvBufferAttribute);
+        this.geometry.setAttribute("color", this.colorBufferAttribute);
+    }
+
+    // Set an element of one of the buffers.
+    setBufferElementAt(buffer: BufferType, values: number[], elementIndex: number){
+        if(buffer === BufferType.Vertex){
+            const arrayIndex = elementIndex * BufferModel.positionComponents;
+            this.vertexBuffer.set(values, arrayIndex);
+        }else if(buffer === BufferType.Normal){
+            const arrayIndex = elementIndex * BufferModel.normalComponents;
+            this.normalBuffer.set(values, arrayIndex);
+        }else if(buffer === BufferType.UV){
+            const arrayIndex = elementIndex * BufferModel.uvComponents;
+            this.uvBuffer.set(values, arrayIndex);
+        }else if(buffer === BufferType.Color){
+            const arrayIndex = elementIndex * BufferModel.colorComponents;
+            this.colorBuffer.set(values, arrayIndex);
+        }
+    }
+
+    // Set an element of one of the buffers, incrementing the buffer index in the process.
+    setBufferElement(buffer: BufferType, values: number[], increment: boolean = true){
+        if(buffer === BufferType.Vertex){
+            if(values.length > 0 && values.length % 3 === 0){
+                this.setBufferElementAt(buffer, values, this.vertexElement);
+                if(increment){
+                    this.vertexElement += values.length / 3;
+                }
+            }
+        }else if(buffer === BufferType.Normal){
+            if(values.length > 0 && values.length % 3 === 0){
+                this.setBufferElementAt(buffer, values, this.normalElement);
+                if(increment){
+                    this.normalElement += values.length / 3;
+                }
+            }
+        }else if(buffer === BufferType.UV){
+            if(values.length > 0 && values.length % 2 === 0){
+                this.setBufferElementAt(buffer, values, this.uvElement);
+                if(increment){
+                    this.uvElement += values.length / 2;
+                }
+            }
+        }else if(buffer === BufferType.Color){
+            if(values.length > 0 && values.length % 3 === 0){
+                this.setBufferElementAt(buffer, values, this.colorElement);
+                if(increment){
+                    this.colorElement += values.length / 2;
+                }
+            }
+        }
+    }
+
+    // Signal that the buffers have been changed, and need to be updated on
+    // the next rendered frame.
+    update(){
+        this.vertexBufferAttribute.needsUpdate = true;
+        this.normalBufferAttribute.needsUpdate = true;
+        this.uvBufferAttribute.needsUpdate = true;
+        this.colorBufferAttribute.needsUpdate = true;
+    }
+
+    // Add a material to the material array
+    addMaterial(material: THREE.Material){
+        if(!this.materialIndices[material.name]){
+            this.materialIndices[material.name] = this.materials.length;
+            this.materials.push(material);
+        }
+    }
+
+    // Get the material index for the given material. Return -1 if the material
+    // is not in the materials array
+    getMaterialIndex(name: string): number {
+        if(!this.materialIndices[name]){
+            return -1;
+        }
+        return this.materialIndices[name];
+    }
+
+    // Get the material index for the given material, or add it if it is not in
+    // the material array. Return the index of the material in the material array.
+    getOrAddMaterial(name: string, material: THREE.Material): number {
+        if(!this.materialIndices[name]){
+            this.materialIndices[name] = this.materials.length;
+            this.materials.push(material);
+        }
+        return this.materialIndices[name];
+    }
+
+    // Add a "group" to the buffer geometry. This method is largely the same as
+    // BufferGeometry.addGroup, but takes a string instead of a number for the
+    // material index
+    addGroup(group: ThreeGroup){
+        const {start, count} = group;
+        const materialIndex = this.materialIndices[group.material];
+        this.geometry.addGroup(start, count, materialIndex);
+    }
+
+    // Dispose of the geometry
+    dispose(){
+        this.geometry.dispose();
+    }
+
+    // Add a quad to the buffer.
+    addQuad(quad: map3D.LineQuad, library: TextureLibrary){
+        function xyzFor(position: map3D.QuadVertexPosition): number[] {
+            // Note that midtexture quads MUST be recalculated before
+            // calling this function
+            // Y position
+            const y = ((position === map3D.QuadVertexPosition.UpperLeft) ||
+                (position === map3D.QuadVertexPosition.UpperRight)) ?
+                quad.topHeight :
+                // Bottom height
+                quad.topHeight - quad.height;
+            // X position
+            const x = ((position === map3D.QuadVertexPosition.UpperLeft) ||
+                (position === map3D.QuadVertexPosition.LowerLeft)) ?
+                quad.startX : quad.endX;
+            // Z position
+            const z = ((position === map3D.QuadVertexPosition.UpperLeft) ||
+                (position === map3D.QuadVertexPosition.LowerLeft)) ?
+                quad.startY : quad.endY;
+            return [x, y, z];
+        }
+        // Wall quad triangle vertex indices are laid out like this:
+        // 0 ----- 1
+        // |     / |
+        // |   /   |
+        // | /     |
+        // 2 ----- 3
+        const quadTriVertices: map3D.QuadVertexPosition[] = [
+            map3D.QuadVertexPosition.UpperLeft,
+            map3D.QuadVertexPosition.LowerLeft,
+            map3D.QuadVertexPosition.UpperRight,
+            map3D.QuadVertexPosition.LowerRight,
+            map3D.QuadVertexPosition.UpperRight,
+            map3D.QuadVertexPosition.LowerLeft,
+        ];
+        const wadTexture = library.get(quad.texture, quad.textureSet);
+        const materialIndex: number = (() => {
+            const materialName: string = wadTexture ? wadTexture.name : "-";
+            const materialIndex = this.getMaterialIndex(materialName);
+            if(wadTexture && materialIndex === -1){
+                const textureData = library.getRgba(quad.texture, quad.textureSet);
+                const texture = new THREE.DataTexture(textureData!,
+                    wadTexture.width, wadTexture.height, THREE.RGBAFormat,
+                    THREE.UnsignedByteType, THREE.UVMapping, THREE.RepeatWrapping,
+                    THREE.RepeatWrapping, THREE.NearestFilter, THREE.LinearFilter,
+                    4);
+                const transparent = library.isTransparent(quad.texture, quad.textureSet);
+                const material = new THREE.MeshBasicMaterial({
+                    name: wadTexture.name,
+                    map: texture,
+                    transparent,
+                });
+                return this.getOrAddMaterial(wadTexture.name, material);
+            }else if(materialIndex > 0){
+                return materialIndex;
+            }
+            return 0;
+        })();
+        const texture: map3D.Mappable = wadTexture ? wadTexture : BufferModel.nullMappable;
+        quad = map3D.MapGeometryBuilder.recalculateMidtex(quad, texture);
+        const wallAngle = ((reverse: boolean) => {
+            const wallAngle = Math.atan2(
+                (quad.startY - quad.endY) / quad.width,
+                (quad.startX - quad.endX) / quad.width);
+            return reverse ? wallAngle + Math.PI / 2 : wallAngle - Math.PI / 2;
+        })(quad.reverse);
+        for(let vertexIterIndex = 0; vertexIterIndex < quadTriVertices.length; vertexIterIndex++){
+            const quadTriVertex = (
+                !quad.reverse ?
+                quadTriVertices[vertexIterIndex] :
+                quadTriVertices[quadTriVertices.length - vertexIterIndex - 1]);
+            const lightLevel = quad.lightLevel / 255;
+            this.setBufferElement(BufferType.Vertex, xyzFor(quadTriVertex));
+            this.setBufferElement(BufferType.Normal, [Math.cos(wallAngle), 0, Math.sin(wallAngle)]);
+            this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getQuadUVs(texture, quadTriVertex, quad));
+            this.setBufferElement(BufferType.Color, [lightLevel, lightLevel, lightLevel]);
+        }
+        return materialIndex;
+    }
+
+    // Add a triangle to the buffer.
+    addTriangle(triangle: map3D.SectorTriangle, library: TextureLibrary){
+        const wadTexture = library.get(triangle.texture, triangle.textureSet);
+        const materialIndex: number = (() => {
+            const materialName: string = wadTexture ? wadTexture.name : "-";
+            const materialIndex = this.getMaterialIndex(materialName);
+            if(wadTexture && materialIndex === -1){
+                const textureData = library.getRgba(triangle.texture, triangle.textureSet);
+                const texture = new THREE.DataTexture(textureData!,
+                    wadTexture.width, wadTexture.height, THREE.RGBAFormat,
+                    THREE.UnsignedByteType, THREE.UVMapping, THREE.RepeatWrapping,
+                    THREE.RepeatWrapping, THREE.NearestFilter, THREE.LinearFilter,
+                    4);
+                const material = new THREE.MeshBasicMaterial({
+                    name: wadTexture.name,
+                    map: texture,
+                    transparent: false,
+                });
+                return this.getOrAddMaterial(wadTexture.name, material);
+            }else if(materialIndex > 0){
+                return materialIndex;
+            }
+            return 0;
+        })();
+        const texture: map3D.Mappable = wadTexture ? wadTexture : BufferModel.nullMappable;
+        for(let vertexIterIndex = 0; vertexIterIndex < triangle.vertices.length; vertexIterIndex++){
+            const vertexIndex = !triangle.reverse ? vertexIterIndex : triangle.vertices.length - vertexIterIndex - 1;
+            const vertex = triangle.vertices[vertexIndex];
+            const [x, y, z] = [vertex.x, triangle.height, vertex.y];
+            const lightLevel = triangle.lightLevel / 255;
+            this.setBufferElement(BufferType.Vertex, [x, y, z]);
+            this.setBufferElement(BufferType.Normal, [
+                triangle.normalVector.x,
+                triangle.normalVector.y,
+                triangle.normalVector.z,
+            ]);
+            this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getSectorVertexUVs(vertex, texture));
+            this.setBufferElement(BufferType.Color, [lightLevel, lightLevel, lightLevel]);
+        }
+        return materialIndex;
+    }
+
+    // Get the material array for use on finished meshes.
+    getMaterialArray(): THREE.Material[] {
+        return this.materials;
+    }
+}
+
+function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrary): THREE.Group {
+    // Get materials for map
+    const textureLoader = new THREE.TextureLoader();
+    const midQuads: map3D.LineQuad[] = [];
+    const wallQuads: map3D.LineQuad[] = [];
+    for(const wall of map.wallQuads){
+        if(wall.place === map3D.LineQuadPlace.Midtexture){
+            // Midtexture quads are the only quads which could possibly be transparent
+            midQuads.push(wall);
+        }else{
+            wallQuads.push(wall);
+        }
+    }
+    // Sort wall quads, midtexture quads, and sector triangles by material name
+    wallQuads.sort((a, b) => a.texture.localeCompare(b.texture));
+    midQuads.sort((a, b) => a.texture.localeCompare(b.texture));
+    map.sectorTriangles.sort((a, b) => a.texture.localeCompare(b.texture));
+    // Set up buffer geometry for each model
+    const wallModel: BufferModel = new BufferModel(wallQuads.length * 2);
+    const midModel: BufferModel = new BufferModel(midQuads.length * 2);
+    const flatModel: BufferModel = new BufferModel(map.sectorTriangles.length);
+    // Create mesh with temporary material (random color)
+    const tempMaterialColor: THREE.Color = (() => {
+        const hue = Math.floor(Math.random() * 360);
+        const lightness = Math.round(Math.random() * 50 + 20);
+        return new THREE.Color(`hsl(${hue}, 100%, ${lightness}%)`);
+    })();
+    const tempMaterial = new THREE.MeshBasicMaterial(
+        {color: tempMaterialColor.getHex(), wireframe: true});
+    const mapMeshGroup = new THREE.Group();
+    const currentGroup: ThreeGroup = {
+        material: map.sectorTriangles[0].texture,
+        start: 0,
+        count: 0,
+    };
+    // Add sector polygon positions, normals, and colors to buffers
+    for(const triangle of map.sectorTriangles){
+        if(triangle.texture !== currentGroup.material){
+            flatModel.addGroup(currentGroup);
+            currentGroup.start += currentGroup.count;
+            currentGroup.count = 0;
+            currentGroup.material = triangle.texture;
+        }
+        flatModel.addTriangle(triangle, textureLibrary);
+        currentGroup.count += 1;
+    }
+    const flatMesh = new THREE.Mesh(flatModel.geometry, flatModel.getMaterialArray());
+    mapMeshGroup.add(flatMesh);
+    currentGroup.start = 0;
+    for(const wall of wallQuads){
+        if(wall.texture !== currentGroup.material){
+            currentGroup.start += currentGroup.count;
+            currentGroup.count = 0;
+            currentGroup.material = wall.texture;
+            wallModel.addGroup(currentGroup);
+        }
+        wallModel.addQuad(wall, textureLibrary);
+        currentGroup.count += 2;
+    }
+    const wallMesh = new THREE.Mesh(wallModel.geometry, wallModel.getMaterialArray());
+    mapMeshGroup.add(wallMesh);
+    currentGroup.start = 0;
+    for(const wall of midQuads){
+        if(wall.texture !== currentGroup.material){
+            currentGroup.start += currentGroup.count;
+            currentGroup.count = 0;
+            currentGroup.material = wall.texture;
+            midModel.addGroup(currentGroup);
+        }
+        midModel.addQuad(wall, textureLibrary);
+        currentGroup.count += 2;
+    }
+    const midMesh = new THREE.Mesh(midModel.geometry, midModel.getMaterialArray());
+    mapMeshGroup.add(midMesh);
+    console.log("Done building the mesh.");
+    return mapMeshGroup;
 }
 
 interface Map3DViewOptions {
@@ -596,6 +985,7 @@ const LumpTypeViewMap3D = function(
         icon: "assets/icons/lump-map.png",
         view: (lump: WADLump, root: HTMLElement) => {
             const scene = new THREE.Scene();
+            disposables.push(scene);
             const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
             if(!mapLump){
                 createError("Could not find the map lump", root);
@@ -604,7 +994,7 @@ const LumpTypeViewMap3D = function(
             const map = lumps.WADMap.from(mapLump);
             let convertedMap: map3D.MapGeometry | null = null;
             try{
-                convertedMap = ConvertMapTo3D(lump);
+                convertedMap = ConvertMapToGeometry(lump);
                 if(!convertedMap){
                     createError("Could not find the map lump", root);
                     return null;
@@ -643,6 +1033,7 @@ const LumpTypeViewMap3D = function(
                 powerPreference: "high-performance",
             });
             renderer.setSize(root.clientWidth, root.clientHeight);
+            disposables.push(renderer);
             const camera = new THREE.PerspectiveCamera(
                 options.fov || 90, // FOV
                 root.clientWidth / root.clientHeight, // Aspect ratio
@@ -986,7 +1377,7 @@ export const LumpTypeViewMapOBJ = function(rawMtlNames: boolean = false): LumpTy
             });
             let convertedMap: map3D.MapGeometry | null = null;
             try{
-                convertedMap = ConvertMapTo3D(lump);
+                convertedMap = ConvertMapToGeometry(lump);
                 if(!convertedMap){
                     util.removeChildren(root);
                     createError("Could not find the map lump", root);
@@ -1079,7 +1470,7 @@ export const LumpTypeViewMapMTL = function(): LumpTypeView {
             });
             let convertedMap: map3D.MapGeometry | null = null;
             try{
-                convertedMap = ConvertMapTo3D(lump);
+                convertedMap = ConvertMapToGeometry(lump);
                 if(!convertedMap){
                     util.removeChildren(root);
                     createError("Could not find the map lump", root);

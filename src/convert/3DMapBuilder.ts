@@ -612,7 +612,7 @@ export class MapGeometryBuilder {
 
     // Recalculates quad heights, given a quad and a texture.
     // Modifies the quad's height, topHeight, and its yOffset.
-    // Does nothing to middle, upper, or lower quads.
+    // Does nothing to one-sided, upper, or lower quads.
     // Returns the modified quad.
     public static recalculateMidtex(quad: LineQuad, texture: Mappable): LineQuad {
         // Midtexture height must be calculated.
