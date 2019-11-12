@@ -586,43 +586,6 @@ export class MapGeometryBuilder {
         */
     }
 
-    // Recalculates quad heights, given a quad and a texture.
-    // Modifies the quad's height, topHeight, and possibly its yOffset.
-    // Does nothing to middle, upper, or lower quads.
-    // Returns the modified quad.
-    public static recalculateMidtex(quad: LineQuad, texture: Mappable): LineQuad {
-        // Midtexture height must be calculated.
-        // The bottom of Midtextures on lower unpegged linedefs are at the
-        // floor of the shortest sector,  offsetted by the Y offset
-        // If the midtexture is on a lower unpegged linedef, wall.topHeight is
-        // treated as the absolute height of the bottom of the wall rather than
-        // the absolute height of the top of the wall.
-        if((quad.alignment.type === TextureAlignmentType.Midtexture) ||
-            (quad.alignment.type === TextureAlignmentType.BackMidtexture)){
-            const startHeight = ((
-                quad.alignment.flags &
-                TextureAlignmentFlags.LowerUnpegged) !== 0 ?
-                quad.floorHeight + texture.height :
-                quad.ceilingHeight);
-            quad.topHeight = startHeight + quad.yOffset;
-            const ceilingHeightDiff = quad.ceilingHeight - quad.topHeight;
-            quad.height = texture.height;
-            if(ceilingHeightDiff < 0){
-                quad.height += ceilingHeightDiff;
-                quad.topHeight += ceilingHeightDiff;
-                quad.yOffset %= texture.height;
-                quad.yOffset += ceilingHeightDiff * 2;
-            }else{
-                quad.yOffset = 0;
-            }
-            const floorHeightDiff = (quad.topHeight - quad.height) - quad.floorHeight;
-            if(floorHeightDiff < 0){
-                quad.height += floorHeightDiff;
-            }
-        }
-        return quad;
-    }
-
     // Point-in-polygon algorithm - used to find out whether a contiguous set
     // of vertices is a hole in a sector polygon
     public static pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
@@ -645,6 +608,53 @@ export class MapGeometryBuilder {
             }
         }
         return inside;
+    }
+
+    // Recalculates quad heights, given a quad and a texture.
+    // Modifies the quad's height, topHeight, and its yOffset.
+    // Does nothing to middle, upper, or lower quads.
+    // Returns the modified quad.
+    public static recalculateMidtex(quad: LineQuad, texture: Mappable): LineQuad {
+        // Midtexture height must be calculated.
+        // The bottom of Midtextures on lower unpegged linedefs are at the
+        // floor of the shortest sector,  offsetted by the Y offset
+        // If the midtexture is on a lower unpegged linedef, wall.topHeight is
+        // treated as the absolute height of the bottom of the wall rather than
+        // the absolute height of the top of the wall.
+        if((quad.alignment.type === TextureAlignmentType.Midtexture) ||
+            (quad.alignment.type === TextureAlignmentType.BackMidtexture)
+        ){
+            const startHeight = ((
+                quad.alignment.flags &
+                TextureAlignmentFlags.LowerUnpegged) !== 0 ?
+                quad.floorHeight + texture.height :
+                quad.ceilingHeight);
+            quad.topHeight = startHeight + quad.yOffset;
+            quad.height = texture.height;
+            // Difference between quad top height and ceiling height
+            const ceilingDifference = quad.ceilingHeight - quad.topHeight;
+            if(ceilingDifference < 0){
+                // Quad top is above the ceiling
+                quad.height += ceilingDifference;
+                quad.topHeight = quad.ceilingHeight;
+                // Y offset will be positive, ceilingDifference is negative
+                quad.yOffset = -ceilingDifference;
+            }else{
+                // No need to apply Y offset
+                quad.yOffset = 0;
+            }
+            // Difference between floor height and quad bottom height
+            const floorDifference = quad.floorHeight - (quad.topHeight - quad.height);
+            if(floorDifference > 0){
+                // Quad bottom is beneath the floor
+                quad.height -= floorDifference;
+            }
+            // Just in case quad is completely below the floor
+            if(quad.height < 0){
+                quad.height = 0;
+            }
+        }
+        return quad;
     }
 
     // Get UV coordinates for a quad
@@ -680,6 +690,7 @@ export class MapGeometryBuilder {
         uvX += quad.xOffset * texelX;
         if((alignType !== TextureAlignmentType.Midtexture) &&
             (alignType !== TextureAlignmentType.BackMidtexture)){
+            // Quad is NOT a midtexture
             if((alignFlags & TextureAlignmentFlags.LowerUnpegged) !== 0){
                 // Quad is lower unpegged
                 if((alignFlags & TextureAlignmentFlags.TwoSided) === 0){
@@ -694,13 +705,12 @@ export class MapGeometryBuilder {
             }else if(alignType === TextureAlignmentType.Upper){
                 uvY += 1 - quad.height * texelY;
             }
-            uvY += quad.yOffset * texelY;
-        }else{
-            if(quad.topHeight === quad.ceilingHeight && quad.height < texture.height){
-                // Quad is above the ceiling
-                uvY -= (quad.yOffset % texture.height) * texelY;
-            }
         }
+        // Apply Y offset regardless.
+        // The Y offset for midtextures is modified by recalculateMidtex, since
+        // Y offsets for midtextures won't modify the UV coordinates if the
+        // midtexture in question is shorter than the sector.
+        uvY += quad.yOffset * texelY;
         return [uvX, uvY];
     }
 
