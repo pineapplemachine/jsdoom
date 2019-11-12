@@ -642,8 +642,8 @@ class BufferModel {
         this.colorBuffer = new Float32Array(triangles * BufferModel.colorComponents * vectorsPerTriangle);
         this.colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.colorComponents, false);
         this.vertexElement = this.normalElement = this.uvElement = this.colorElement = 0;
-        this.materials = [];
-        this.materialIndices = {};
+        this.materials = [BufferModel.nullMaterial];
+        this.materialIndices = {"-": 0};
         this.geometry.setAttribute("position", this.vertexBufferAttribute);
         this.geometry.setAttribute("normal", this.normalBufferAttribute);
         this.geometry.setAttribute("uv", this.uvBufferAttribute);
@@ -707,14 +707,6 @@ class BufferModel {
         this.normalBufferAttribute.needsUpdate = true;
         this.uvBufferAttribute.needsUpdate = true;
         this.colorBufferAttribute.needsUpdate = true;
-    }
-
-    // Add a material to the material array
-    addMaterial(material: THREE.Material){
-        if(!this.materialIndices[material.name]){
-            this.materialIndices[material.name] = this.materials.length;
-            this.materials.push(material);
-        }
     }
 
     // Get the material index for the given material. Return -1 if the material
