@@ -578,7 +578,7 @@ class BufferModel {
     // Constants helpful when modifying buffers
     static readonly positionComponents: number = 3;
     static readonly normalComponents: number = 3;
-    static readonly uvComponents: number = 3;
+    static readonly uvComponents: number = 2;
     static readonly colorComponents: number = 3;
     // Placeholder material in case the texture is not in the library
     static readonly nullMappable: map3D.Mappable = {
@@ -624,13 +624,13 @@ class BufferModel {
         this.uvElement = 0;
         this.colorElement = 0;
         this.vertexBuffer = new Float32Array(triangles * BufferModel.positionComponents * vectorsPerTriangle);
-        this.vertexBufferAttribute = new THREE.BufferAttribute(this.vertexBuffer, 3, false);
+        this.vertexBufferAttribute = new THREE.BufferAttribute(this.vertexBuffer, BufferModel.normalComponents, false);
         this.normalBuffer = new Float32Array(triangles * BufferModel.normalComponents * vectorsPerTriangle);
-        this.normalBufferAttribute = new THREE.BufferAttribute(this.normalBuffer, 3, false);
+        this.normalBufferAttribute = new THREE.BufferAttribute(this.normalBuffer, BufferModel.normalComponents, false);
         this.uvBuffer = new Float32Array(triangles * BufferModel.uvComponents * vectorsPerTriangle);
-        this.uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, 2, false);
+        this.uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, BufferModel.uvComponents, false);
         this.colorBuffer = new Float32Array(triangles * BufferModel.colorComponents * vectorsPerTriangle);
-        this.colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, 3, false);
+        this.colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.normalComponents, false);
         this.vertexElement = this.normalElement = this.uvElement = this.colorElement = 0;
         this.materials = [BufferModel.nullMaterial];
         this.materialIndices = {"-": 0};
@@ -660,31 +660,31 @@ class BufferModel {
     // Set an element of one of the buffers, incrementing the buffer index in the process.
     setBufferElement(buffer: BufferType, values: number[], increment: boolean = true){
         if(buffer === BufferType.Vertex){
-            if(values.length > 0 && values.length % 3 === 0){
+            if(values.length > 0 && values.length % BufferModel.positionComponents === 0){
                 this.setBufferElementAt(buffer, values, this.vertexElement);
                 if(increment){
-                    this.vertexElement += values.length / 3;
+                    this.vertexElement += values.length / BufferModel.positionComponents;
                 }
             }
         }else if(buffer === BufferType.Normal){
-            if(values.length > 0 && values.length % 3 === 0){
+            if(values.length > 0 && values.length % BufferModel.normalComponents === 0){
                 this.setBufferElementAt(buffer, values, this.normalElement);
                 if(increment){
-                    this.normalElement += values.length / 3;
+                    this.normalElement += values.length / BufferModel.normalComponents;
                 }
             }
         }else if(buffer === BufferType.UV){
-            if(values.length > 0 && values.length % 2 === 0){
+            if(values.length > 0 && values.length % BufferModel.uvComponents === 0){
                 this.setBufferElementAt(buffer, values, this.uvElement);
                 if(increment){
-                    this.uvElement += values.length / 2;
+                    this.uvElement += values.length / BufferModel.uvComponents;
                 }
             }
         }else if(buffer === BufferType.Color){
-            if(values.length > 0 && values.length % 3 === 0){
+            if(values.length > 0 && values.length % BufferModel.colorComponents === 0){
                 this.setBufferElementAt(buffer, values, this.colorElement);
                 if(increment){
-                    this.colorElement += values.length / 2;
+                    this.colorElement += values.length / BufferModel.colorComponents;
                 }
             }
         }
