@@ -868,7 +868,15 @@ class BufferModel {
     }
 }
 
-function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrary): THREE.Group {
+// Disposable container for a THREE.js model group
+interface DisposableGroup {
+    // The group
+    group: THREE.Group;
+    // And the function to dispose of it
+    dispose: () => void;
+}
+
+function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrary): DisposableGroup {
     // Get materials for map
     const textureLoader = new THREE.TextureLoader();
     const midQuads: map3D.LineQuad[] = [];
@@ -897,12 +905,12 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
     })();
     const tempMaterial = new THREE.MeshBasicMaterial(
         {color: tempMaterialColor.getHex(), wireframe: true});
-    const mapMeshGroup = new THREE.Group();
     const currentGroup: ThreeGroup = {
         material: map.sectorTriangles[0].texture,
         start: 0,
         count: 0,
     };
+    const mapMeshGroup = new THREE.Group();
     // Add sector polygon positions, normals, and colors to buffers
     for(const triangle of map.sectorTriangles){
         if(triangle.texture !== currentGroup.material){
@@ -914,8 +922,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         flatModel.addTriangle(triangle, textureLibrary);
         currentGroup.count += 1;
     }
-    const flatMesh = new THREE.Mesh(flatModel.geometry, flatModel.getMaterialArray());
-    mapMeshGroup.add(flatMesh);
+    mapMeshGroup.add(new THREE.Mesh(flatModel.geometry, flatModel.getMaterialArray()));
     currentGroup.start = 0;
     for(const wall of wallQuads){
         if(wall.texture !== currentGroup.material){
@@ -927,8 +934,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         wallModel.addQuad(wall, textureLibrary);
         currentGroup.count += 2;
     }
-    const wallMesh = new THREE.Mesh(wallModel.geometry, wallModel.getMaterialArray());
-    mapMeshGroup.add(wallMesh);
+    mapMeshGroup.add(new THREE.Mesh(wallModel.geometry, wallModel.getMaterialArray()));
     currentGroup.start = 0;
     for(const wall of midQuads){
         if(wall.texture !== currentGroup.material){
@@ -940,10 +946,15 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         midModel.addQuad(wall, textureLibrary);
         currentGroup.count += 2;
     }
-    const midMesh = new THREE.Mesh(midModel.geometry, midModel.getMaterialArray());
-    mapMeshGroup.add(midMesh);
-    console.log("Done building the mesh.");
-    return mapMeshGroup;
+    mapMeshGroup.add(new THREE.Mesh(midModel.geometry, midModel.getMaterialArray()));
+    return {
+        group: mapMeshGroup,
+        dispose: () => {
+            flatModel.geometry.dispose();
+            wallModel.geometry.dispose();
+            midModel.geometry.dispose();
+        }
+    };
 }
 
 interface Map3DViewOptions {
@@ -1003,6 +1014,12 @@ const LumpTypeViewMap3D = function(
                 createError(`Error: ${error}`, root);
                 return null;
             }
+            const meshGroup = ConvertMapToThree(
+                convertedMap,
+                sharedDataManager.getTextureLibrary(lump)
+            );
+            scene.add(meshGroup.group);
+            disposables.push(meshGroup);
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",
