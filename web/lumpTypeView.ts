@@ -585,7 +585,13 @@ class BufferModel {
         width: 64,
         height: 64,
     };
-    static readonly nullTexture: THREE.Texture = new THREE.TextureLoader().load("/assets/textures/missing.png");
+    static readonly nullTexture: THREE.Texture = (() => {
+        const loader = new THREE.TextureLoader();
+        return loader.load("/assets/textures/missing.png", (texture: THREE.Texture) => {
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+        });
+    })();
     static readonly nullMaterial = new THREE.MeshBasicMaterial({
         name: "-",
         map: BufferModel.nullTexture,
@@ -632,8 +638,8 @@ class BufferModel {
         this.colorBuffer = new Float32Array(triangles * BufferModel.colorComponents * vectorsPerTriangle);
         this.colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.normalComponents, false);
         this.vertexElement = this.normalElement = this.uvElement = this.colorElement = 0;
-        this.materials = [BufferModel.nullMaterial];
-        this.materialIndices = {"-": 0};
+        this.materials = [];
+        this.materialIndices = {};
         this.geometry.setAttribute("position", this.vertexBufferAttribute);
         this.geometry.setAttribute("normal", this.normalBufferAttribute);
         this.geometry.setAttribute("uv", this.uvBufferAttribute);
@@ -793,10 +799,10 @@ class BufferModel {
                     transparent,
                 });
                 return this.getOrAddMaterial(wadTexture.name, material);
-            }else if(materialIndex > 0){
+            }else if(materialIndex >= 0){
                 return materialIndex;
             }
-            return 0;
+            return this.getOrAddMaterial(materialName, BufferModel.nullMaterial);
         })();
         const texture: map3D.Mappable = wadTexture ? wadTexture : BufferModel.nullMappable;
         quad = map3D.MapGeometryBuilder.recalculateMidtex(quad, texture);
@@ -839,10 +845,10 @@ class BufferModel {
                     transparent: false,
                 });
                 return this.getOrAddMaterial(wadTexture.name, material);
-            }else if(materialIndex > 0){
+            }else if(materialIndex >= 0){
                 return materialIndex;
             }
-            return 0;
+            return this.getOrAddMaterial(materialName, BufferModel.nullMaterial);
         })();
         const texture: map3D.Mappable = wadTexture ? wadTexture : BufferModel.nullMappable;
         for(let vertexIterIndex = 0; vertexIterIndex < triangle.vertices.length; vertexIterIndex++){
@@ -878,7 +884,6 @@ interface DisposableGroup {
 
 function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrary): DisposableGroup {
     // Get materials for map
-    const textureLoader = new THREE.TextureLoader();
     const midQuads: map3D.LineQuad[] = [];
     const wallQuads: map3D.LineQuad[] = [];
     for(const wall of map.wallQuads){
@@ -897,14 +902,6 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
     const wallModel: BufferModel = new BufferModel(wallQuads.length * 2);
     const midModel: BufferModel = new BufferModel(midQuads.length * 2);
     const flatModel: BufferModel = new BufferModel(map.sectorTriangles.length);
-    // Create mesh with temporary material (random color)
-    const tempMaterialColor: THREE.Color = (() => {
-        const hue = Math.floor(Math.random() * 360);
-        const lightness = Math.round(Math.random() * 50 + 20);
-        return new THREE.Color(`hsl(${hue}, 100%, ${lightness}%)`);
-    })();
-    const tempMaterial = new THREE.MeshBasicMaterial(
-        {color: tempMaterialColor.getHex(), wireframe: true});
     const currentGroup: ThreeGroup = {
         material: map.sectorTriangles[0].texture,
         start: 0,
@@ -920,33 +917,43 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
             currentGroup.material = triangle.texture;
         }
         flatModel.addTriangle(triangle, textureLibrary);
-        currentGroup.count += 1;
+        currentGroup.count += 3;
     }
+    flatModel.addGroup(currentGroup);
     mapMeshGroup.add(new THREE.Mesh(flatModel.geometry, flatModel.getMaterialArray()));
     currentGroup.start = 0;
+    currentGroup.count = 0;
+    currentGroup.material = wallQuads[0].texture;
     for(const wall of wallQuads){
         if(wall.texture !== currentGroup.material){
+            wallModel.addGroup(currentGroup);
             currentGroup.start += currentGroup.count;
             currentGroup.count = 0;
             currentGroup.material = wall.texture;
-            wallModel.addGroup(currentGroup);
         }
         wallModel.addQuad(wall, textureLibrary);
-        currentGroup.count += 2;
+        currentGroup.count += 6;
     }
+    wallModel.addGroup(currentGroup);
     mapMeshGroup.add(new THREE.Mesh(wallModel.geometry, wallModel.getMaterialArray()));
     currentGroup.start = 0;
+    currentGroup.count = 0;
+    currentGroup.material = midQuads.length > 0 ? midQuads[0].texture : "-";
     for(const wall of midQuads){
         if(wall.texture !== currentGroup.material){
+            midModel.addGroup(currentGroup);
             currentGroup.start += currentGroup.count;
             currentGroup.count = 0;
             currentGroup.material = wall.texture;
-            midModel.addGroup(currentGroup);
         }
         midModel.addQuad(wall, textureLibrary);
-        currentGroup.count += 2;
+        currentGroup.count += 6;
     }
+    midModel.addGroup(currentGroup);
     mapMeshGroup.add(new THREE.Mesh(midModel.geometry, midModel.getMaterialArray()));
+    flatModel.update();
+    wallModel.update();
+    midModel.update();
     return {
         group: mapMeshGroup,
         dispose: () => {
@@ -1018,6 +1025,21 @@ const LumpTypeViewMap3D = function(
                 convertedMap,
                 sharedDataManager.getTextureLibrary(lump)
             );
+            // Create temporary material with random color
+            /*
+            const tempMaterialColor: THREE.Color = (() => {
+                const hue = Math.floor(Math.random() * 360);
+                const lightness = Math.round(Math.random() * 50 + 20);
+                return new THREE.Color(`hsl(${hue}, 100%, ${lightness}%)`);
+            })();
+            const tempMaterial = new THREE.MeshBasicMaterial(
+                {color: tempMaterialColor.getHex(), wireframe: true});
+            for(const object of meshGroup.group.children){
+                const mesh = object as THREE.Mesh;
+                mesh.material = tempMaterial;
+            }
+            */
+            // Add group to scene and disposables array
             scene.add(meshGroup.group);
             disposables.push(meshGroup);
             const canvas = util.createElement({
