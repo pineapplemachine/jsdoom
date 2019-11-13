@@ -601,7 +601,7 @@ class BufferModel {
         vertexColors: THREE.VertexColors,
     });
     // The THREE.js buffer geometry
-    readonly geometry: THREE.BufferGeometry;
+    protected geometry: THREE.BufferGeometry;
     // The vertex buffer, and its respective attribute
     protected vertexBuffer: Float32Array;
     // protected vertexBufferAttribute: THREE.BufferAttribute;
@@ -877,9 +877,9 @@ class BufferModel {
         return materialIndex;
     }
 
-    // Get the material array for use on finished meshes.
-    getMaterialArray(): THREE.Material[] {
-        return this.materials;
+    // Get the finished THREE.js mesh
+    getMesh(): THREE.Mesh {
+        return new THREE.Mesh(this.geometry, this.materials);
     }
 }
 
@@ -907,7 +907,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
     wallQuads.sort((a, b) => a.texture.localeCompare(b.texture));
     midQuads.sort((a, b) => a.texture.localeCompare(b.texture));
     map.sectorTriangles.sort((a, b) => a.texture.localeCompare(b.texture));
-    // Set up buffer geometry for each model
+    // Set up each model, and group helper
     const wallModel: BufferModel = new BufferModel(wallQuads.length * 2);
     const midModel: BufferModel = new BufferModel(midQuads.length * 2);
     const flatModel: BufferModel = new BufferModel(map.sectorTriangles.length);
@@ -929,7 +929,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         currentGroup.count += 3;
     }
     flatModel.addGroup(currentGroup);
-    mapMeshGroup.add(new THREE.Mesh(flatModel.geometry, flatModel.getMaterialArray()));
+    mapMeshGroup.add(flatModel.getMesh());
     // Now add the one-sided/upper/lower quads
     currentGroup.start = 0;
     currentGroup.count = 0;
@@ -945,7 +945,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         currentGroup.count += 6;
     }
     wallModel.addGroup(currentGroup);
-    mapMeshGroup.add(new THREE.Mesh(wallModel.geometry, wallModel.getMaterialArray()));
+    mapMeshGroup.add(wallModel.getMesh());
     // Add the midtexture quads
     currentGroup.start = 0;
     currentGroup.count = 0;
@@ -961,7 +961,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         currentGroup.count += 6;
     }
     midModel.addGroup(currentGroup);
-    mapMeshGroup.add(new THREE.Mesh(midModel.geometry, midModel.getMaterialArray()));
+    mapMeshGroup.add(midModel.getMesh());
     return {
         group: mapMeshGroup,
         dispose: () => {
