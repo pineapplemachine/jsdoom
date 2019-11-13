@@ -604,16 +604,16 @@ class BufferModel {
     readonly geometry: THREE.BufferGeometry;
     // The vertex buffer, and its respective attribute
     protected vertexBuffer: Float32Array;
-    protected vertexBufferAttribute: THREE.BufferAttribute;
+    // protected vertexBufferAttribute: THREE.BufferAttribute;
     // The vertex normal buffer, and its respective attribute
     protected normalBuffer: Float32Array;
-    protected normalBufferAttribute: THREE.BufferAttribute;
+    // protected normalBufferAttribute: THREE.BufferAttribute;
     // The uv coordinate buffer, and its respective attribute
     protected uvBuffer: Float32Array;
-    protected uvBufferAttribute: THREE.BufferAttribute;
+    // protected uvBufferAttribute: THREE.BufferAttribute;
     // The color buffer, and its respective attribute
     protected colorBuffer: Float32Array;
-    protected colorBufferAttribute: THREE.BufferAttribute;
+    // protected colorBufferAttribute: THREE.BufferAttribute;
     // Current element indices for each buffer
     protected vertexElement: number;
     protected normalElement: number;
@@ -621,33 +621,39 @@ class BufferModel {
     protected colorElement: number;
     // Array of THREE.js materials
     protected materials: THREE.Material[];
+    // Array of THREE.js textures, for disposal
+    protected textures: THREE.Texture[];
     // Mapping of names to material indices
     protected materialIndices: {[name: string]: number};
 
     constructor(triangles: number) {
         // Constants
         const vectorsPerTriangle = 3;
-        // Initialize the buffer and its attributes
-        this.geometry = new THREE.BufferGeometry();
+        // Initialize buffer element index helpers
         this.vertexElement = 0;
         this.normalElement = 0;
         this.uvElement = 0;
         this.colorElement = 0;
+        // Initialize the buffer and its attributes
+        this.geometry = new THREE.BufferGeometry();
         this.vertexBuffer = new Float32Array(triangles * BufferModel.positionComponents * vectorsPerTriangle);
-        this.vertexBufferAttribute = new THREE.BufferAttribute(this.vertexBuffer, BufferModel.positionComponents, false);
+        const vertexBufferAttribute = new THREE.BufferAttribute(this.vertexBuffer, BufferModel.positionComponents);
         this.normalBuffer = new Float32Array(triangles * BufferModel.normalComponents * vectorsPerTriangle);
-        this.normalBufferAttribute = new THREE.BufferAttribute(this.normalBuffer, BufferModel.normalComponents, false);
+        const normalBufferAttribute = new THREE.BufferAttribute(this.normalBuffer, BufferModel.normalComponents);
         this.uvBuffer = new Float32Array(triangles * BufferModel.uvComponents * vectorsPerTriangle);
-        this.uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, BufferModel.uvComponents, false);
+        const uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, BufferModel.uvComponents);
         this.colorBuffer = new Float32Array(triangles * BufferModel.colorComponents * vectorsPerTriangle);
-        this.colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.colorComponents, false);
-        this.vertexElement = this.normalElement = this.uvElement = this.colorElement = 0;
+        const colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.colorComponents);
+        this.geometry.setAttribute("position", vertexBufferAttribute);
+        this.geometry.setAttribute("normal", normalBufferAttribute);
+        this.geometry.setAttribute("uv", uvBufferAttribute);
+        this.geometry.setAttribute("color", colorBufferAttribute);
+        // Initialize material and texture arrays
+        // The null material being the first is necessary because Lilywhite
+        // Lilith MAP02 will use the wrong textures on flats.
         this.materials = [BufferModel.nullMaterial];
         this.materialIndices = {"-": 0};
-        this.geometry.setAttribute("position", this.vertexBufferAttribute);
-        this.geometry.setAttribute("normal", this.normalBufferAttribute);
-        this.geometry.setAttribute("uv", this.uvBufferAttribute);
-        this.geometry.setAttribute("color", this.colorBufferAttribute);
+        this.textures = [];
     }
 
     // Set an element of one of the buffers.
@@ -700,19 +706,10 @@ class BufferModel {
         }
     }
 
-    // Signal that the buffers have been changed, and need to be updated on
-    // the next rendered frame.
-    update(){
-        this.vertexBufferAttribute.needsUpdate = true;
-        this.normalBufferAttribute.needsUpdate = true;
-        this.uvBufferAttribute.needsUpdate = true;
-        this.colorBufferAttribute.needsUpdate = true;
-    }
-
     // Get the material index for the given material. Return -1 if the material
     // is not in the materials array
     getMaterialIndex(name: string): number {
-        if(!this.materialIndices[name]){
+        if(this.materialIndices[name] == null){
             return -1;
         }
         return this.materialIndices[name];
@@ -737,9 +734,15 @@ class BufferModel {
         this.geometry.addGroup(start, count, materialIndex);
     }
 
-    // Dispose of the geometry
+    // Dispose of the geometry, materials and textures associated with this model
     dispose(){
         this.geometry.dispose();
+        for(const material of this.materials){
+            material.dispose();
+        }
+        for(const texture of this.textures){
+            texture.dispose();
+        }
     }
 
     // Add a quad to the buffer.
@@ -782,19 +785,26 @@ class BufferModel {
             const materialName: string = wadTexture ? wadTexture.name : "-";
             const materialIndex = this.getMaterialIndex(materialName);
             if(wadTexture && materialIndex === -1){
-                const textureData = library.getRgba(quad.texture, quad.textureSet);
-                const texture = new THREE.DataTexture(textureData!,
+                // Get texture data and make a THREE.js texture out of it
+                const textureData = library.getRgba(quad.texture, quad.textureSet)!;
+                const texture = new THREE.DataTexture(textureData,
                     wadTexture.width, wadTexture.height, THREE.RGBAFormat,
                     THREE.UnsignedByteType, THREE.UVMapping, THREE.RepeatWrapping,
                     THREE.RepeatWrapping, THREE.NearestFilter, THREE.LinearFilter,
                     4);
-                const transparent = library.isTransparent(quad.texture, quad.textureSet);
+                // Is the texture transparent?
+                const transparent = (
+                    library.isTransparent(quad.texture, quad.textureSet) &&
+                    // Only midtextures can be transparent
+                    quad.place === map3D.LineQuadPlace.Midtexture
+                );
                 const material = new THREE.MeshBasicMaterial({
                     name: wadTexture.name,
                     map: texture,
                     transparent,
                     vertexColors: THREE.VertexColors,
                 });
+                this.textures.push(texture);
                 return this.getOrAddMaterial(wadTexture.name, material);
             }else if(materialIndex >= 0){
                 return materialIndex;
@@ -823,7 +833,7 @@ class BufferModel {
         return materialIndex;
     }
 
-    // Add a triangle to the buffer.
+    // Add a sector triangle to the buffer.
     addTriangle(triangle: map3D.SectorTriangle, library: TextureLibrary){
         const wadTexture = library.get(triangle.texture, triangle.textureSet);
         const materialIndex: number = (() => {
@@ -842,6 +852,7 @@ class BufferModel {
                     transparent: false,
                     vertexColors: THREE.VertexColors,
                 });
+                this.textures.push(texture);
                 return this.getOrAddMaterial(wadTexture.name, material);
             }else if(materialIndex >= 0){
                 return materialIndex;
@@ -919,6 +930,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
     }
     flatModel.addGroup(currentGroup);
     mapMeshGroup.add(new THREE.Mesh(flatModel.geometry, flatModel.getMaterialArray()));
+    // Now add the one-sided/upper/lower quads
     currentGroup.start = 0;
     currentGroup.count = 0;
     currentGroup.material = wallQuads[0].texture;
@@ -934,6 +946,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
     }
     wallModel.addGroup(currentGroup);
     mapMeshGroup.add(new THREE.Mesh(wallModel.geometry, wallModel.getMaterialArray()));
+    // Add the midtexture quads
     currentGroup.start = 0;
     currentGroup.count = 0;
     currentGroup.material = midQuads.length > 0 ? midQuads[0].texture : "-";
@@ -949,15 +962,12 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
     }
     midModel.addGroup(currentGroup);
     mapMeshGroup.add(new THREE.Mesh(midModel.geometry, midModel.getMaterialArray()));
-    flatModel.update();
-    wallModel.update();
-    midModel.update();
     return {
         group: mapMeshGroup,
         dispose: () => {
-            flatModel.geometry.dispose();
-            wallModel.geometry.dispose();
-            midModel.geometry.dispose();
+            flatModel.dispose();
+            wallModel.dispose();
+            midModel.dispose();
         }
     };
 }
