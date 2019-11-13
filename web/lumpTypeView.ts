@@ -721,7 +721,7 @@ class BufferModel {
     // Get the material index for the given material, or add it if it is not in
     // the material array. Return the index of the material in the material array.
     getOrAddMaterial(name: string, material: THREE.Material): number {
-        if(!this.materialIndices[name]){
+        if(this.materialIndices[name] == null){
             this.materialIndices[name] = this.materials.length;
             this.materials.push(material);
         }

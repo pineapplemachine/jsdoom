@@ -93,14 +93,15 @@ export class TextureLibrary {
                     let flat: WADFlat | null = null;
                     try{
                         flat = WADFlat.from(flatLump);
-                        this.textures[set][name] = flat;
+                        this.textures[set][flatLump.name] = flat;
                     }catch(err){
                         console.error(flatLump.name, err);
+                        this.textures[set][flatLump.name] = null;
                     }
                     // this.transparent[set][name] = false;
                     // this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
                     if(flatLump.name === name){
-                        return this.textures[set][name];
+                        return this.textures[set][flatLump.name];
                     }
                 }
             }
@@ -119,14 +120,15 @@ export class TextureLibrary {
                         let flat: WADFlat | null = null;
                         try{
                             flat = WADFlat.from(flatLump);
-                            this.textures[set][name] = flat;
+                            this.textures[set][flatLump.name] = flat;
                         }catch(err){
                             console.error(flatLump.name, err);
+                            this.textures[set][flatLump.name] = null;
                         }
                         // this.transparent[set][name] = false;
                         // this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
                         if(flatLump.name === name){
-                            return this.textures[set][name];
+                            return this.textures[set][flatLump.name];
                         }
                     }
                 }
