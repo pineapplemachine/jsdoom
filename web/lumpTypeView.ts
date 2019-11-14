@@ -580,6 +580,8 @@ class BufferModel {
     static readonly normalComponents: number = 3;
     static readonly uvComponents: number = 2;
     static readonly colorComponents: number = 3;
+    // Alpha test value for transparent midtextures
+    static readonly alphaTest: number = .1;
     // Placeholder material in case the texture is not in the library
     static readonly nullMappable: map3D.Mappable = {
         width: 64,
@@ -802,6 +804,7 @@ class BufferModel {
                     name: wadTexture.name,
                     map: texture,
                     transparent,
+                    alphaTest: transparent ? BufferModel.alphaTest : 0,
                     vertexColors: THREE.VertexColors,
                 });
                 this.textures.push(texture);
