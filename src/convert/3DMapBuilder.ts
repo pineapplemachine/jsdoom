@@ -83,16 +83,14 @@ class SectorPolygonBuilder {
         this.sectorEdges = [];
         this.edgesLeft = {};
         for(const line of sectorLines){
-            this.sectorEdges.push([line.startVertex, line.endVertex]);
-            this.edgesLeft[`${line.startVertex} ${line.endVertex}`] = false;
-        }
-        // Sector to map indices
-        const sectorVertexIndices: number[] = [];
-        for(const edge of this.sectorEdges){
-            for(const edgeVertex of edge){
-                if(!sectorVertexIndices.includes(edgeVertex)){
-                    sectorVertexIndices.push(edgeVertex);
-                }
+            const edge = [line.startVertex, line.endVertex];
+            // Ensure duplicate edges are not added
+            const edgeDuplicate = [line.endVertex, line.startVertex];
+            if(!this.sectorEdges.includes(edge) &&
+                !this.sectorEdges.includes(edgeDuplicate)
+            ){
+                this.sectorEdges.push([line.startVertex, line.endVertex]);
+                this.edgesLeft[edge.join(" ")] = false;
             }
         }
         // Sector vertices
@@ -121,12 +119,15 @@ class SectorPolygonBuilder {
         };
     }
 
-    protected findNextStartEdge(clockwise: boolean = false): number[] {
+    protected findNextStartEdge(clockwise: boolean = false): number[] | null {
         // Filter out vertices to skip
         const usableEdges = this.sectorEdges.filter((edge) => {
             // Ensure I pick an edge which has not been added.
             return this.edgesLeft[edge.join(" ")] === false;
         });
+        if(usableEdges.length === 0){
+            return null;
+        }
         // Find rightmost vertex
         const usableVertices: number[] = usableEdges.reduce<number[]>((vertices, edge) => {
             return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
@@ -231,21 +232,29 @@ class SectorPolygonBuilder {
         }
     }
 
-    // Marks the given edge as being added to a polygon
-    protected visitEdge(
-        edgeStart: number, edgeEnd: number, recursive: boolean = false
-    ): boolean {
+    // Checks whether or not the edge specified by the start and end vertices
+    // exists. Returns the key string representing the edge if it does, or an
+    // empty string if it does not.
+    protected edgeExists(edgeStart: number, edgeEnd: number): string {
         const edgeKey = `${edgeStart} ${edgeEnd}`;
+        const reversedEdgeKey = `${edgeEnd} ${edgeStart}`;
         if(this.edgesLeft.hasOwnProperty(edgeKey)){
+            return edgeKey;
+        }else if(this.edgesLeft.hasOwnProperty(reversedEdgeKey)){
+            return reversedEdgeKey;
+        }
+        return "";
+    }
+
+    // Marks the given edge as being added to a polygon
+    // Returns whether or not the given edge exists
+    protected visitEdge(edgeStart: number, edgeEnd: number): boolean {
+        const edgeKey = this.edgeExists(edgeStart, edgeEnd);
+        if(edgeKey !== ""){
             this.edgesLeft[edgeKey] = true;
             return true;
         }
-        if(recursive){
-            // No edge found despite reversing arguments
-            return false;
-        }
-        // Recursively call this function with reversed arguments
-        return this.visitEdge(edgeEnd, edgeStart, true);
+        return false;
     }
 
     protected isPolygonComplete(polygon: number[]): boolean {
@@ -255,19 +264,16 @@ class SectorPolygonBuilder {
         }
         const first = polygon[0];
         const last = polygon[polygon.length - 1];
-        // Get edges containing first vertex.
-        const firstEdges = this.sectorEdges.filter(
-            (edge) => edge.includes(first));
-        // Get edge containing both first vertex and last vertex.
-        const lastEdges = firstEdges.filter((edge) => edge.includes(last));
-        // If an edge is found, lastEdges will have at least one edge in it.
-        return lastEdges.length !== 0;
+        return this.edgeExists(first, last) !== "";
     }
 
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
     getPolygons(): number[][] {
         // Make a new array with the sector polygons
         const startEdge = this.findNextStartEdge();
+        if(!startEdge){
+            return [];
+        }
         // Current polygon index
         let curPolygon = 0;
         // Polygon array
@@ -275,8 +281,8 @@ class SectorPolygonBuilder {
         const sectorPolygons: number[][] = [startEdge];
         // Mark start edge as visited.
         this.visitEdge(startEdge[0], startEdge[1]);
-        for(let vertexIteration = 2; // Start with 2 vertices in the polygon
-            vertexIteration < this.sectorEdges.length; vertexIteration++
+        while(this.sectorEdges.some(
+            (edge) => this.edgesLeft[edge.join(" ")] === false)
         ){
             // The vertex from which to start the search for the next vertex
             const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
@@ -290,20 +296,19 @@ class SectorPolygonBuilder {
                     // Last polygon is a dud
                     sectorPolygons.pop();
                 }
-                // Add another polygon
-                curPolygon += 1;
                 // Find the first edge of the next polygon, and add it to the
                 // polygons that make up this sector
                 const nextStartEdge = this.findNextStartEdge();
+                if(nextStartEdge == null){
+                    break;
+                }
+                // Go to the next polygon
+                curPolygon += 1;
                 sectorPolygons.push(nextStartEdge);
-                // "Visit" each vertex of the starting edge
+                // Mark the starting edge as added to the polygon
                 this.visitEdge(nextStartEdge[0], nextStartEdge[1]);
-                // A new polygon was added, and vertexIteration was already
-                // incremented by the for loop, so 1 should be added, since an
-                // edge contains two vertices
-                vertexIteration += 1;
             }else{
-                // There is another vertex in the polygon
+                // There is another edge in the polygon, mark it as added.
                 this.visitEdge(lastVertex, nextVertex);
                 sectorPolygons[curPolygon].push(nextVertex);
             }
@@ -824,16 +829,15 @@ export class MapGeometryBuilder {
 
     // Turn a list of sector lines into a list of vertex indices
     protected getPolygonsFromLines(sectorLines: WADMapLine[],
-            sector?: string): number[][] {
+            sector: number): number[][] {
         const sectorPolygonBuilder = new SectorPolygonBuilder(
-            sectorLines, this.vertices,
-        );
-        const sectorPolygons  = sectorPolygonBuilder.getPolygons();
-        if(sector){ // Debug stuff
-            console.log(`sectorPolygons for sector ${sector}`, sectorPolygons);
-            let sectorPolygonsCombined: number[][] = [];
-            sectorPolygons.forEach((poly) =>
-                sectorPolygonsCombined = sectorPolygonsCombined.concat(poly));
+            sectorLines, this.vertices);
+        let sectorPolygons: number[][] = [];
+        try{
+            sectorPolygons = sectorPolygonBuilder.getPolygons();
+        }catch(err){
+            console.error(`Failed to build polygons for sector ${sector}!`);
+            return [];
         }
         return sectorPolygons;
     }
@@ -858,9 +862,10 @@ export class MapGeometryBuilder {
             return Math.sqrt(lineX * lineX + lineY * lineY);
         })();
         const frontHeight = frontSector.ceilingHeight - frontSector.floorHeight;
-        if(!line.twoSidedFlag){
-            // No back side
-            // The line is the same height as the sector
+        if(!line.twoSidedFlag || line.backSidedef === 0xffff){
+            // This line has no back side. Some maps have linedefs marked as
+            // two-sided, but without a back sidedef.
+            // The line is the same height as the sector.
             const alignment = {
                 type: TextureAlignmentType.Normal,
                 flags: line.lowerUnpeggedFlag ?
@@ -890,10 +895,6 @@ export class MapGeometryBuilder {
         }else{
             // This line is a two-sided line. In other words, it has a sector
             // on both sides.
-            if(line.backSidedef === 0xffff){
-                // A two-sided line without a back sidedef shouldn't exist.
-                return [];
-            }
             // A 2-sided line may have up to 3 quads - top, middle, and bottom.
             const lineQuads: LineQuad[] = [];
             // It is known that the side will not be null because the sidedef
@@ -1092,7 +1093,7 @@ export class MapGeometryBuilder {
         // if(hasGlNodes){  // GL nodes contain data useful for triangulating sectors
         // }else{
         // Get sector polygons and triangulate the sector
-        const sectorRawPolygons = this.getPolygonsFromLines(lines);
+        const sectorRawPolygons = this.getPolygonsFromLines(lines, sector);
         const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
         (rawPolygon) => {
             // Convert indices to positions
@@ -1202,7 +1203,10 @@ export class MapGeometryBuilder {
             }
             if(line.frontSidedef !== 0xffff){  // 0xffff means no sidedef.
                 const front = this.map.sides.getSide(line.frontSidedef);
-                if(!line.twoSidedFlag){
+                if(!line.twoSidedFlag || line.backSidedef === 0xffff){
+                    // Ancient aliens MAP24 has some one-sided sidedefs marked
+                    // as two-sided. There may be other maps that suffer from
+                    // this issue as well.
                     if(sectorLines[front.sector] == null){
                         sectorLines[front.sector] = [];
                     }
