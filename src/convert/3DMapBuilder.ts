@@ -77,8 +77,10 @@ class SectorPolygonBuilder {
     private readonly sectorEdges: number[][];
     // Vertices used by the sector's lines
     private readonly mapVertices: WADMapVertex[];
+    // Whether to print extra information
+    public debug: boolean;
 
-    constructor(sectorLines: WADMapLine[], mapVertices: WADMapVertex[]){
+    constructor(sectorLines: WADMapLine[], mapVertices: WADMapVertex[], debug: boolean = false){
         // Get sector edges
         this.sectorEdges = [];
         this.edgesLeft = {};
@@ -95,6 +97,7 @@ class SectorPolygonBuilder {
         }
         // Sector vertices
         this.mapVertices = mapVertices;
+        this.debug = debug;
     }
 
     // Get the clockwise or counterclockwise angle between three points
@@ -115,7 +118,7 @@ class SectorPolygonBuilder {
         const {x, y} = this.mapVertices[vertexIndex];
         return {
             index: vertexIndex,
-            position: new THREE.Vector2(x, y),
+            position: new THREE.Vector2(x, -y),
         };
     }
 
@@ -128,17 +131,30 @@ class SectorPolygonBuilder {
         if(usableEdges.length === 0){
             return null;
         }
-        // Find rightmost vertex
-        const usableVertices: number[] = usableEdges.reduce<number[]>((vertices, edge) => {
+        // Get positions for all usable vertices
+        const usableVertices: SectorVertex[] = usableEdges.reduce<number[]>((vertices, edge) => {
             return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
-        }, usableEdges[0]);
-        const rightMostVertex: SectorVertex = usableVertices.reduce<SectorVertex>((rightMostVertex, currentIndex) => {
-            const currentVertex = this.vertexFor(currentIndex);
-            if(currentVertex.position.x > rightMostVertex.position.x){
+        }, usableEdges[0]).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
+        // And then find the upper rightmost vertex among them
+        // Find the rightmost vertex
+        const rightMostVertexX = usableVertices.reduce<number>((lastVertexX, currentVertex) => {
+            if(currentVertex.position.x > lastVertexX){
+                return currentVertex.position.x;
+            }
+            return lastVertexX;
+        }, usableVertices[0].position.x);
+        // Find the other vertices that are at the same X position
+        const rightMostVertices = usableVertices.filter((vertex) => {
+            return vertex.position.x === rightMostVertexX;
+        })!;
+        // And the find the uppermost vertex among them
+        const rightMostVertex = rightMostVertices.reduce((lastVertex, currentVertex) => {
+            // Y positions are inverted
+            if(currentVertex.position.y < lastVertex.position.y){
                 return currentVertex;
             }
-            return rightMostVertex;
-        }, this.vertexFor(usableVertices[0]));
+            return lastVertex;
+        }, rightMostVertices[0]);
         // Find edges connected to the rightmost vertex
         const rightMostEdges = this.sectorEdges.filter((edge) => {
             if(edge.includes(rightMostVertex.index)){
@@ -227,9 +243,8 @@ class SectorPolygonBuilder {
                 return null;
             }
             return otherVertex;
-        }else{
-            return null;
         }
+        return null;
     }
 
     // Checks whether or not the edge specified by the start and end vertices
@@ -264,7 +279,10 @@ class SectorPolygonBuilder {
         }
         const first = polygon[0];
         const last = polygon[polygon.length - 1];
-        return this.edgeExists(first, last) !== "";
+        // An edge exists that connects the last vertex to the first
+        const edgeString = this.edgeExists(first, last);
+        // Ensure it hasn't been used.
+        return edgeString !== "" && this.edgesLeft[edgeString] === false;
     }
 
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
@@ -273,6 +291,9 @@ class SectorPolygonBuilder {
         const startEdge = this.findNextStartEdge();
         if(!startEdge){
             return [];
+        }
+        if(this.debug){
+            console.log("starting edge", startEdge);
         }
         // Current polygon index
         let curPolygon = 0;
@@ -289,9 +310,11 @@ class SectorPolygonBuilder {
             this.visitEdge(prevVertex, lastVertex);
             // The next vertex to add to the polygon
             const nextVertex = this.findNextVertex(lastVertex, prevVertex);
-            // nextVertex is null - no more vertices left in this polygon
-            if(nextVertex == null ||
-                    this.isPolygonComplete(sectorPolygons[curPolygon])){
+            if(this.debug){
+                console.log("previous, current, and next vertices", prevVertex, lastVertex, nextVertex);
+            }
+            // No more vertices left in this polygon
+            if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon])){
                 if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0])){
                     // Last polygon is a dud
                     sectorPolygons.pop();
@@ -301,6 +324,9 @@ class SectorPolygonBuilder {
                 const nextStartEdge = this.findNextStartEdge();
                 if(nextStartEdge == null){
                     break;
+                }
+                if(this.debug){
+                    console.log("new polygon starting with", nextStartEdge);
                 }
                 // Go to the next polygon
                 curPolygon += 1;
@@ -312,6 +338,9 @@ class SectorPolygonBuilder {
                 this.visitEdge(lastVertex, nextVertex);
                 sectorPolygons[curPolygon].push(nextVertex);
             }
+        }
+        if(this.debug){
+            console.log(sectorPolygons);
         }
         return sectorPolygons;
     }
@@ -1124,7 +1153,21 @@ export class MapGeometryBuilder {
                 const boundBoxComparison = otherPolygon.boundingBox.compare(polygon.boundingBox);
                 if(boundBoxComparison === BoundingBoxComparison.Contains){
                     return polygon.vertices.some((point) => {
-                        return MapGeometryBuilder.pointInPolygon(point, otherPolygon.vertices);
+                        // Check whether a vertex on the other polygon is the
+                        // same as a vertex on this polygon, and if it is, treat
+                        // it as a separate polygon rather than a hole. Fixes
+                        // Eviternity MAP27
+                        const pointOnOtherVertex = otherPolygon.vertices.findIndex(
+                            (otherPoint) => point.x === otherPoint.x && point.y === otherPoint.y);
+                        if(pointOnOtherVertex === -1){
+                            // This vertex is not the same as a vertex on the
+                            // other polygon, so it may be a hole.
+                            return MapGeometryBuilder.pointInPolygon(point, otherPolygon.vertices);
+                        }else{
+                            // This vertex is the same as a vertex on the other
+                            // polygon, so it's not a hole.
+                            return false;
+                        }
                     });
                 }
                 return false;
