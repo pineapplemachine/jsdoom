@@ -881,8 +881,12 @@ class BufferModel {
     }
 
     // Get the finished THREE.js mesh
-    getMesh(): THREE.Mesh {
-        return new THREE.Mesh(this.geometry, this.materials);
+    getMesh(name?: string): THREE.Mesh {
+        const mesh = new THREE.Mesh(this.geometry, this.materials);
+        if(name){
+            mesh.name = name;
+        }
+        return mesh;
     }
 }
 
@@ -932,7 +936,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         currentGroup.count += 3;
     }
     flatModel.addGroup(currentGroup);
-    mapMeshGroup.add(flatModel.getMesh());
+    mapMeshGroup.add(flatModel.getMesh("flats"));
     // Now add the one-sided/upper/lower quads
     currentGroup.start = 0;
     currentGroup.count = 0;
@@ -948,7 +952,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         currentGroup.count += 6;
     }
     wallModel.addGroup(currentGroup);
-    mapMeshGroup.add(wallModel.getMesh());
+    mapMeshGroup.add(wallModel.getMesh("walls"));
     // Add the midtexture quads
     currentGroup.start = 0;
     currentGroup.count = 0;
@@ -964,7 +968,7 @@ function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrar
         currentGroup.count += 6;
     }
     midModel.addGroup(currentGroup);
-    mapMeshGroup.add(midModel.getMesh());
+    mapMeshGroup.add(midModel.getMesh("midtextures"));
     return {
         group: mapMeshGroup,
         dispose: () => {
@@ -1053,6 +1057,20 @@ const LumpTypeViewMap3D = function(
             // Add group to scene and disposables array
             scene.add(meshGroup.group);
             disposables.push(meshGroup);
+            /*
+            // Add helpers to ensure I got the normals right
+            const nameColours: {[name: string]: number} = {
+                "flats": 0xff0000,
+                "walls": 0x00ff00,
+                "midtextures": 0x0000ff,
+            };
+            for(const mapMesh of meshGroup.group.children){
+                const colour = nameColours.hasOwnProperty(mapMesh.name) ? nameColours[mapMesh.name] : 0xff00ff;
+                const vnh = new THREE.VertexNormalsHelper(mapMesh, 8, colour);
+                scene.add(vnh);
+            }
+            */
+            // Set up canvas
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",
