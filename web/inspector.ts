@@ -67,6 +67,19 @@ win.onClickOpenWad = function(): void {
     fileInput.click();
 };
 
+win.loadFromServer = function(file: string): void {
+    fetch(file).then((response) => {
+        const wadData = response.arrayBuffer();
+        wad = new WADFile(file.substring(file.lastIndexOf("/") + 1));
+        wadData.then((data) => {
+            const buffer = Buffer.from(data);
+            wad.loadData(buffer);
+            localFile = {name: file.substring(file.lastIndexOf("/") + 1)};
+            win.onWadLoaded();
+        });
+    });
+};
+
 function onLoadNewFile(): void {
     wad = new WADFile(localFile.name);
     const reader: FileReader = new FileReader();
