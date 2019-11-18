@@ -79,7 +79,7 @@ export const LumpTypeList: LumpType[] = [
             drawThings: true,
         }),
         view.LumpTypeViewMapTextured3D(),
-        view.LumpTypeViewMapUntextured3D(),
+        // view.LumpTypeViewMapUntextured3D(),
         view.LumpTypeViewMapOBJ(),
         ],
         filter: (lump: WADLump) => {

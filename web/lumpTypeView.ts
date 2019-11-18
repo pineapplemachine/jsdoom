@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import {OBJExporter} from "three/examples/jsm/exporters/OBJExporter";
+import { WEBVR } from "three/examples/jsm/vr/WebVR.js";
 
 import * as map3D from "@src/convert/3DMapBuilder";
 import {KeyboardListener} from "./keyboardListener";
@@ -1101,6 +1101,9 @@ const LumpTypeViewMap3D = function(
                 powerPreference: "high-performance",
             });
             renderer.setSize(root.clientWidth, root.clientHeight);
+            root.appendChild(WEBVR.createButton(renderer));
+            renderer.vr.enabled = true;
+            const controller = renderer.vr.getController(0);
             disposables.push(renderer);
             const camera = new THREE.PerspectiveCamera(
                 options.fov || 90, // FOV
@@ -1110,6 +1113,7 @@ const LumpTypeViewMap3D = function(
             );
             const keyboardControls = new KeyboardListener();
             // Set viewpoint from player 1 start
+            let viewHeadMoving = false;
             const viewHead = new THREE.Object3D(); // Also for VR camera
             const playerStart = map.getPlayerStart(1);
             viewHead.position.set(
@@ -1117,6 +1121,12 @@ const LumpTypeViewMap3D = function(
                 0, playerStart ? -playerStart.y : 0);
             viewHead.add(camera);
             scene.add(viewHead);
+            controller.addEventListener("selectstart", () => {
+                viewHeadMoving = true;
+            });
+            controller.addEventListener("selectend", () => {
+                viewHeadMoving = false;
+            });
             // Direction control
             const playerAngle = playerStart ? // Player angle is 0-360 degrees
                 playerStart.angle / (180 / Math.PI) : 0;
@@ -1136,6 +1146,15 @@ const LumpTypeViewMap3D = function(
                 }
                 if(keyboardControls.keyState["d"]){
                     viewHead.translateX(10); // Right
+                }
+                // Movement in VR
+                if(viewHeadMoving){
+                    const quaternion = new THREE.Quaternion();
+                    controller.getWorldQuaternion(quaternion);
+                    const destination = new THREE.Object3D();
+                    destination.position.set(0, 0, 1);
+                    destination.position.applyQuaternion(quaternion);
+                    viewHead.translateOnAxis(destination.position, -10);
                 }
                 // Set view head direction (for non-VR users)
                 // if(!VR){
@@ -1162,7 +1181,7 @@ const LumpTypeViewMap3D = function(
 
 export const LumpTypeViewMapTextured3D = function(): LumpTypeView {
     const view = LumpTypeViewMap3D({textured: true});
-    view.name = "Map (Textured 3D)";
+    view.name = "Map (3D)";
     return view;
 };
 
