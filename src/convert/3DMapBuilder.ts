@@ -318,6 +318,7 @@ class SectorPolygonBuilder {
                 if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0])){
                     // Last polygon is a dud
                     sectorPolygons.pop();
+                    curPolygon -= 1;
                 }
                 // Find the first edge of the next polygon, and add it to the
                 // polygons that make up this sector
@@ -333,16 +334,24 @@ class SectorPolygonBuilder {
                 sectorPolygons.push(nextStartEdge);
                 // Mark the starting edge as added to the polygon
                 this.visitEdge(nextStartEdge[0], nextStartEdge[1]);
-            }else{
+            }else if(this.visitEdge(lastVertex, nextVertex)){
                 // There is another edge in the polygon, mark it as added.
-                this.visitEdge(lastVertex, nextVertex);
                 sectorPolygons[curPolygon].push(nextVertex);
+            }else{
+                // The polygon is a dud
+                sectorPolygons.pop();
+                curPolygon -= 1;
             }
         }
+        // Check to see whether each polygon is complete, and remove incomplete
+        // polygons.
+        const completeSectorPolygons = sectorPolygons.filter((polygon) => {
+            return this.edgeExists(polygon[0], polygon[polygon.length - 1]) !== "";
+        });
         if(this.debug){
-            console.log(sectorPolygons);
+            console.log(completeSectorPolygons);
         }
-        return sectorPolygons;
+        return completeSectorPolygons;
     }
 }
 
@@ -758,104 +767,6 @@ export class MapGeometryBuilder {
         return [uvX, uvY];
     }
 
-    /*
-    // Get the material index for a texture in a specific set
-    protected getMaterialIndex(texName: string, set: TextureSet): number {
-        // Get texture, or add it if it has not already been added.
-        const matName = `${set}[${texName}]`;
-        let matIndex = 0;
-        if(this._materials[matName] == null){
-            // Texture has not been added. Add it.
-            // First, create the material.
-            const material = new THREE.MeshBasicMaterial({
-                name: texName,
-                side: THREE.FrontSide,
-            });
-            material.transparent = true;
-            material.vertexColors = THREE.VertexColors;
-            material.needsUpdate = false;
-            // Asynchronously get texture. Missing textures will use an external image file.
-            const texPromise = this.optionalTexture(texName, set);
-            this._materialPromises.push(texPromise);
-            texPromise.then((transparentTexture) => {
-                transparentTexture.texture.name = texName;
-                transparentTexture.texture.needsUpdate = true;
-                material.map = transparentTexture.texture;
-                material.transparent = transparentTexture.transparent;
-                material.needsUpdate = true;
-            });
-            // Add the material to the index map and array. Texture map is added asynchronously.
-            matIndex = this._materialArray.length;
-            this._materials[matName] = matIndex;
-            this._materialArray.push(material);
-        }else{
-            // Material already has been added, so just use it.
-            matIndex = this._materials[matName];
-        }
-        return matIndex;
-    }
-
-    // Return a promise for a texture in the library, or a missing texture material
-    protected optionalTexture(texName: string, set: TextureSet): Promise<TransparentTexture> {
-        const makeTexture = (wadTexture: Mappable): THREE.DataTexture => {
-            const rgba = this.textureLibrary!.getRgba(texName, set);
-            const threeTexture = new THREE.DataTexture(
-                rgba!, wadTexture.width, wadTexture.height, THREE.RGBAFormat,
-                THREE.UnsignedByteType, THREE.UVMapping,
-                THREE.RepeatWrapping, THREE.RepeatWrapping,
-                THREE.LinearFilter, THREE.LinearFilter, 1
-            );
-            if(!Number.isInteger(Math.log2(threeTexture.image.width))){
-                threeTexture.wrapS = THREE.ClampToEdgeWrapping;
-            }
-            if(!Number.isInteger(Math.log2(threeTexture.image.height))){
-                threeTexture.wrapT = THREE.ClampToEdgeWrapping;
-            }
-            return threeTexture;
-        };
-        const promise = new Promise<TransparentTexture>((res, rej) => {
-            if(!this.textureLibrary){
-                rej("Texture library unavailable");
-                return;
-            }
-            const wadTexture = this.textureLibrary.get(texName, set);
-            if(wadTexture == null){
-                const threeTexture = MapGeometryBuilder._missingTexture;
-                if(threeTexture == null){
-                    const loader = new THREE.TextureLoader();
-                    loader.load("assets/textures/missing.png", (texture: THREE.Texture) => {
-                        MapGeometryBuilder._missingTexture = texture;
-                        texture.wrapS = Number.isInteger(Math.log2(texture.image.width)) ?
-                            THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-                        texture.wrapT = Number.isInteger(Math.log2(texture.image.height)) ?
-                            THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-                        texture.flipY = false;
-                        texture.needsUpdate = true;
-                        res({texture, transparent: false});
-                    }, (progress: ProgressEvent) => console.log(progress), (error) => {
-                        rej(error);
-                    });
-                }else{
-                    res({texture: threeTexture, transparent: false});
-                }
-            }else if(isWadTexture(wadTexture, set)){
-                const threeTexture = makeTexture(wadTexture);
-                res({
-                    texture: threeTexture,
-                    transparent: this.textureLibrary.isTransparent(wadTexture.name, set),
-                });
-            }else if(isWadFlat(wadTexture, set)){
-                const threeTexture = makeTexture(wadTexture);
-                res({
-                    texture: threeTexture,
-                    transparent: false,
-                });
-            }
-        });
-        return promise;
-    }
-    */
-
     // Turn a list of sector lines into a list of vertex indices
     protected getPolygonsFromLines(sectorLines: WADMapLine[],
             sector: number): number[][] {
@@ -864,8 +775,8 @@ export class MapGeometryBuilder {
         let sectorPolygons: number[][] = [];
         try{
             sectorPolygons = sectorPolygonBuilder.getPolygons();
-        }catch(err){
-            console.error(`Failed to build polygons for sector ${sector}!`);
+        }catch(error){
+            console.error(`Failed to build polygons for sector ${sector}!`, error);
             return [];
         }
         return sectorPolygons;
