@@ -311,7 +311,7 @@ class SectorPolygonBuilder {
             // The next vertex to add to the polygon
             const nextVertex = this.findNextVertex(lastVertex, prevVertex);
             if(this.debug){
-                console.log("previous, current, and next vertices", prevVertex, lastVertex, nextVertex);
+                console.log("pv", prevVertex, "ls", lastVertex, "nx", nextVertex);
             }
             // No more vertices left in this polygon
             if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon])){
@@ -608,25 +608,10 @@ export class MapGeometryBuilder {
     // The map data
     protected map: WADMap;
     protected vertices: WADMapVertex[];
-    /*
-    // The texture library
-    protected textureLibrary: TextureLibrary | null;
-    // Texture for walls and flats with missing textures.
-    protected _materials: {[name: string]: number};
-    protected _materialArray: THREE.MeshBasicMaterial[];
-    protected _materialPromises: Promise<TransparentTexture>[];
-    protected _disposables: Disposable[];
-    */
 
     constructor(map: WADMap){
         this.map = map;
         this.vertices = [];
-        /*
-        this._materials = {};
-        this._materialArray = [];
-        this._materialPromises = [];
-        this._disposables = [];
-        */
     }
 
     // Point-in-polygon algorithm - used to find out whether a contiguous set
