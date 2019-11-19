@@ -1012,18 +1012,21 @@ const LumpTypeViewMap3D = function(
         }
         hasPointerLock = !hasPointerLock;
     };
+    // Ensure the resize event handler can be unbound in clear()
+    let onResize: () => void = () => {};
+    // Stuff to dispose when 3D view is cleared
     const disposables: {dispose(): void}[] = [];
     return new LumpTypeView({
         name: "Map (3D)",
         icon: "assets/icons/lump-map.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const scene = new THREE.Scene();
-            disposables.push(scene);
+            // Get map lump
             const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
             if(!mapLump){
                 createError("Could not find the map lump", root);
                 return null;
             }
+            // Get map from the lump and attempt to convert it to 3D
             const map = lumps.WADMap.from(mapLump);
             let convertedMap: map3D.MapGeometry | null = null;
             try{
@@ -1036,10 +1039,14 @@ const LumpTypeViewMap3D = function(
                 createError(`Error: ${error}`, root);
                 return null;
             }
+            // Now that the map geometry has been converted, convert it to a
+            // model that can be used by THREE.js.
             const meshGroup = ConvertMapToThree(
                 convertedMap,
                 sharedDataManager.getTextureLibrary(lump)
             );
+            const scene = new THREE.Scene();
+            disposables.push(scene);
             // Create temporary material with random color
             /*
             const tempMaterialColor: THREE.Color = (() => {
@@ -1101,19 +1108,39 @@ const LumpTypeViewMap3D = function(
                 powerPreference: "high-performance",
             });
             renderer.setSize(root.clientWidth, root.clientHeight);
+            // Allow VR
             root.appendChild(WEBVR.createButton(renderer));
             renderer.vr.enabled = true;
             const controller = renderer.vr.getController(0);
             disposables.push(renderer);
+            // VR controls
+            let viewHeadMoving = false;
+            controller.addEventListener("selectstart", () => {
+                viewHeadMoving = true;
+            });
+            controller.addEventListener("selectend", () => {
+                viewHeadMoving = false;
+            });
+            // Set up camera
             const camera = new THREE.PerspectiveCamera(
                 options.fov || 90, // FOV
                 root.clientWidth / root.clientHeight, // Aspect ratio
                 1, // Near clip
                 10000, // Far clip
             );
+            // Set up keyboard controls
             const keyboardControls = new KeyboardListener();
+            disposables.push(keyboardControls);
+            // Bind resize event handler
+            onResize = () => {
+                canvas.width = root.clientWidth;
+                canvas.height = root.clientHeight;
+                camera.aspect = canvas.width / canvas.height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(root.clientWidth, root.clientHeight);
+            };
+            window.addEventListener("resize", onResize);
             // Set viewpoint from player 1 start
-            let viewHeadMoving = false;
             const viewHead = new THREE.Object3D(); // Also for VR camera
             const playerStart = map.getPlayerStart(1);
             viewHead.position.set(
@@ -1121,12 +1148,6 @@ const LumpTypeViewMap3D = function(
                 0, playerStart ? -playerStart.y : 0);
             viewHead.add(camera);
             scene.add(viewHead);
-            controller.addEventListener("selectstart", () => {
-                viewHeadMoving = true;
-            });
-            controller.addEventListener("selectend", () => {
-                viewHeadMoving = false;
-            });
             // Direction control
             const playerAngle = playerStart ? // Player angle is 0-360 degrees
                 playerStart.angle / (180 / Math.PI) : 0;
@@ -1134,34 +1155,34 @@ const LumpTypeViewMap3D = function(
                 1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
             const render = () => {
-                // WASD controls - moves camera around
-                if(keyboardControls.keyState["w"]){
-                    viewHead.translateZ(-10); // Forward
-                }
-                if(keyboardControls.keyState["s"]){
-                    viewHead.translateZ(10); // Backward
-                }
-                if(keyboardControls.keyState["a"]){
-                    viewHead.translateX(-10); // Left
-                }
-                if(keyboardControls.keyState["d"]){
-                    viewHead.translateX(10); // Right
-                }
                 // Movement in VR
-                if(viewHeadMoving){
-                    const quaternion = new THREE.Quaternion();
-                    controller.getWorldQuaternion(quaternion);
-                    const destination = new THREE.Object3D();
-                    destination.position.set(0, 0, 1);
-                    destination.position.applyQuaternion(quaternion);
-                    viewHead.translateOnAxis(destination.position, -10);
+                if(renderer.vr.isPresenting()){
+                    // Reset viewHead rotation
+                    viewHead.setRotationFromQuaternion(new THREE.Quaternion());
+                    if(viewHeadMoving){
+                        const destination = new THREE.Vector3(0, 0, 1);
+                        destination.applyQuaternion(renderer.vr.getCamera(camera).quaternion);
+                        viewHead.translateOnAxis(destination, -10);
+                    }
+                }else{
+                    // WASD controls - moves camera around
+                    if(keyboardControls.keyState["w"]){
+                        viewHead.translateZ(-10); // Forward
+                    }
+                    if(keyboardControls.keyState["s"]){
+                        viewHead.translateZ(10); // Backward
+                    }
+                    if(keyboardControls.keyState["a"]){
+                        viewHead.translateX(-10); // Left
+                    }
+                    if(keyboardControls.keyState["d"]){
+                        viewHead.translateX(10); // Right
+                    }
+                    // Set view head direction (for non-VR users)
+                    const lookAtMe = new THREE.Vector3();
+                    lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
+                    viewHead.lookAt(lookAtMe);
                 }
-                // Set view head direction (for non-VR users)
-                // if(!VR){
-                const lookAtMe = new THREE.Vector3();
-                lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
-                viewHead.lookAt(lookAtMe);
-                // }
                 // Render
                 camera.updateProjectionMatrix();
                 renderer.render(scene, camera);
@@ -1169,6 +1190,7 @@ const LumpTypeViewMap3D = function(
             renderer.setAnimationLoop(render); // Needed for VR support
         },
         clear: () => {
+            window.removeEventListener("resize", onResize);
             if(mouseController){
                 document.removeEventListener("mousemove", mouseController);
             }
