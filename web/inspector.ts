@@ -68,15 +68,61 @@ win.onClickOpenWad = function(): void {
 };
 
 win.loadFromServer = function(file: string): void {
+    const messageContainer = document.getElementById("message-container");
+    if(messageContainer && messageContainer.hasChildNodes()){
+        for(const childNode of messageContainer.childNodes){
+            messageContainer.removeChild(childNode);
+        }
+    }
     fetch(file).then((response) => {
-        const wadData = response.arrayBuffer();
-        wad = new WADFile(file.substring(file.lastIndexOf("/") + 1));
-        wadData.then((data) => {
-            const buffer = Buffer.from(data);
-            wad.loadData(buffer);
-            localFile = {name: file.substring(file.lastIndexOf("/") + 1)};
-            win.onWadLoaded();
-        });
+        const fileSize: number = Number.parseInt(response.headers.get("Content-Length") || "0", 10);
+        let fileBuffer = new Buffer(0);
+        if(response.ok){
+            wad = new WADFile(file.substring(file.lastIndexOf("/") + 1));
+            const progressMessageElement = document.createElement("div");
+            progressMessageElement.classList.add("lump-view-info-message");
+            const progressMessage = document.createTextNode("%");
+            progressMessageElement.appendChild(progressMessage);
+            if(messageContainer){
+                messageContainer.appendChild(progressMessageElement);
+            }
+            let progressBytes = 0;
+            const stream = response.body;
+            const reader = stream!.getReader();
+            function readData(result: {done: boolean, value: Uint8Array}): Promise<Buffer> {
+                if(result.done){
+                    return Promise.resolve(fileBuffer);
+                }
+                progressBytes += result.value.length;
+                fileBuffer = Buffer.concat([fileBuffer, Buffer.from(result.value)]);
+                if(fileSize > 0){
+                    const progress = Math.floor(progressBytes / fileSize * 100);
+                    progressMessage.data = `${progress}%`;
+                }else{
+                    progressMessage.data = "Please wait...";
+                }
+                return reader.read().then(readData);
+            }
+            return reader.read().then(readData);
+        }
+        return Promise.reject(`Attempt to get ${file} failed: ${response.status} ${response.statusText}`);
+    }).then((data) => {
+        if(messageContainer && messageContainer.hasChildNodes()){
+            for(const childNode of messageContainer.childNodes){
+                messageContainer.removeChild(childNode);
+            }
+        }
+        const buffer = Buffer.from(data);
+        wad.loadData(buffer);
+        localFile = {name: file.substring(file.lastIndexOf("/") + 1)};
+        win.onWadLoaded();
+    }).catch((error) => {
+        if(messageContainer){
+            const errorMessageElement = document.createElement("div");
+            errorMessageElement.classList.add("lump-view-error-message");
+            errorMessageElement.appendChild(document.createTextNode(error));
+            messageContainer.appendChild(errorMessageElement);
+        }
     });
 };
 

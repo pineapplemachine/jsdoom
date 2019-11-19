@@ -429,6 +429,14 @@ body {
     justify-content: center;
     align-items: flex-start;
 }
+.lump-view-info-message {
+    display: block;
+    margin: 10px;
+    background-color: #444;
+    border: 1px solid #aaa;
+    border-radius: 7px;
+    padding: 10px;
+}
 .lump-view-error-message {
     display: block;
     margin: 10px;
@@ -436,4 +444,13 @@ body {
     border: 1px solid #f66;
     border-radius: 7px;
     padding: 10px;
+}
+#message-container {
+    position: absolute;
+    z-index: 5;
+    top: 20px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
 }
