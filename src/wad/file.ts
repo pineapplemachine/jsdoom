@@ -75,9 +75,9 @@ export class WADFile {
                 lumpStart === lumpEnd ? null : data.slice(lumpStart, lumpEnd)
             );
             // Read the next lump and add it to the list
-            const currentCategory = WADLump.categoryOf(lumpName);
-            if(currentCategory !== WADCategory.None){
-                category = currentCategory;
+            const lumpCategory = WADLump.categoryOf(lumpName);
+            if(lumpCategory !== WADCategory.None){
+                category = lumpCategory;
             }
             const lump: WADLump = new WADLump({
                 file: this,
@@ -91,7 +91,7 @@ export class WADFile {
             });
             this.addLump(lump);
             // Reset namespace if the current lump is the end of a namespace
-            if(currentCategory === WADCategory.End){
+            if(lumpCategory === WADCategory.End){
                 category = WADCategory.None;
             }
             // Update padLumps flag

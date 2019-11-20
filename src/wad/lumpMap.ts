@@ -64,7 +64,6 @@ export class WADLumpMap {
                 // Filter lumps in the list by namespace
                 const categoryLumps = list.filter(
                     (lump) => lump.category === category);
-                console.log(`Category: ${WADCategory[category]}`, list, categoryLumps);
                 if(categoryLumps.length > 0){
                     return categoryLumps[categoryLumps.length - 1];
                 }else{

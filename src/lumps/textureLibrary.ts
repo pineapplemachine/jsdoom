@@ -1,7 +1,7 @@
 import {WADFlat} from "@src/lumps/doom/flat";
 import {WADTexture, WADTextures} from "@src/lumps/doom/textures";
 import {WADFileList} from "@src/wad/fileList";
-import {WADLump} from "@src/wad/lump";
+import {WADLump, WADCategory} from "@src/wad/lump";
 
 // Flats and walls use different texture sets.
 export enum TextureSet {
@@ -80,59 +80,22 @@ export class TextureLibrary {
                 }
             }
         }else if(set === TextureSet.Flats){
-            // Search IWAD flats
-            const flatsStart = this.fileList.map.get(WADFlat.IWADMarkerStart);
-            if(flatsStart){
-                for(const flatLump of flatsStart.enumerateNextLumps()){
-                    if(flatLump.name === WADFlat.IWADMarkerEnd){
-                        break;
-                    }
-                    if(this.isFlatMarker(flatLump)){
-                        continue;
-                    }
-                    let flat: WADFlat | null = null;
-                    try{
-                        flat = WADFlat.from(flatLump);
-                        this.textures[set][flatLump.name] = flat;
-                    }catch(err){
-                        console.error(flatLump.name, err);
-                        this.textures[set][flatLump.name] = null;
-                    }
-                    // this.transparent[set][name] = false;
-                    // this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
-                    if(flatLump.name === name){
-                        return this.textures[set][flatLump.name];
-                    }
+            // Get lump
+            const lump = this.fileList.map.get(name, WADCategory.Flats);
+            // Try to make a flat out of it
+            // But set the library entry to null in case it doesn't exist
+            this.textures[set][name] = null;
+            try{
+                if(lump != null){
+                    const flat = WADFlat.from(lump);
+                    this.textures[set][name] = flat;
+                }else{
+                    console.error("Lump is null");
                 }
+            }catch(error){
+                console.error(`Could not add ${TextureSet[set]}[${name}]:`, error);
             }
-            // Not found, search custom flats
-            const flatsStarts = this.fileList.map.getAll(WADFlat.PWADMarkerStart);
-            if(flatsStarts){
-                for(const customFlatStart of flatsStarts){
-                    for(const flatLump of customFlatStart.enumerateNextLumps()){
-                        if(flatLump.name === WADFlat.IWADMarkerEnd ||
-                                flatLump.name === WADFlat.PWADMarkerEnd){
-                            break;
-                        }
-                        if(this.isFlatMarker(flatLump)){
-                            continue;
-                        }
-                        let flat: WADFlat | null = null;
-                        try{
-                            flat = WADFlat.from(flatLump);
-                            this.textures[set][flatLump.name] = flat;
-                        }catch(err){
-                            console.error(flatLump.name, err);
-                            this.textures[set][flatLump.name] = null;
-                        }
-                        // this.transparent[set][name] = false;
-                        // this.rgba[set][name] = flat.getPixelDataRGBA(this.fileList.getColors());
-                        if(flatLump.name === name){
-                            return this.textures[set][flatLump.name];
-                        }
-                    }
-                }
-            }
+            return this.textures[set][name];
         }
         this.textures[set][name] = null;
         this.transparent[set][name] = null;

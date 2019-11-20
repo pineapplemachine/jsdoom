@@ -1,4 +1,4 @@
-import {WADLump} from "@src/wad/lump";
+import {WADLump, WADCategory} from "@src/wad/lump";
 
 import {WADColors} from "@src/lumps/doom/colors";
 
@@ -45,7 +45,7 @@ export class WADFlat {
     // Returns true when a WADLump can be read as a flat.
     // Returns false otherwise.
     static match(lump: WADLump): boolean {
-        return lump.length === 4096;
+        return lump.category === WADCategory.Flats && lump.length === 4096;
     }
     
     // Create a WADFlat given a WADLump object.
