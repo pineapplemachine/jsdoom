@@ -1144,9 +1144,9 @@ export class MapGeometryBuilder {
         const wallQuads: LineQuad[] = [];
         // Construct all of the quads for the lines on this map
         for(const line of this.map.enumerateLines()){
-            for(const quad of this.getQuadsForLine(line)){
-                wallQuads.push(quad);
-            }
+            // Add quads for this line to quads array
+            Array.prototype.push.apply(wallQuads, this.getQuadsForLine(line));
+            // Add line to lists of lines per sector
             if(line.frontSidedef !== 0xffff){  // 0xffff means no sidedef.
                 const front = this.map.sides.getSide(line.frontSidedef);
                 if(!line.twoSidedFlag || line.backSidedef === 0xffff){
