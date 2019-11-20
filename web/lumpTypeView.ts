@@ -815,7 +815,7 @@ class BufferModel {
             return this.getOrAddMaterial(materialName, BufferModel.nullMaterial);
         })();
         const texture: map3D.Mappable = wadTexture ? wadTexture : BufferModel.nullMappable;
-        quad = map3D.MapGeometryBuilder.recalculateMidtex(quad, texture);
+        quad = map3D.MapGeometryBuilder.recalculateMidtex(quad, texture.height);
         const wallAngle = ((reverse: boolean) => {
             const wallAngle = Math.atan2(
                 (quad.startY - quad.endY) / quad.width,
@@ -1263,7 +1263,7 @@ function ConvertMapToOBJ(
             const texture = textureLibrary.get(wall.texture, wall.textureSet);
             objTextures[textureKey] = texture ? texture : nullMappable;
         }
-        wall = map3D.MapGeometryBuilder.recalculateMidtex(wall, objTextures[textureKey]);
+        wall = map3D.MapGeometryBuilder.recalculateMidtex(wall, objTextures[textureKey].height);
         const bottomHeight = wall.topHeight - wall.height;
         // 4 vertices per quad
         const vertexPositions: map3D.QuadVertexPosition[] = [

@@ -136,25 +136,19 @@ class SectorPolygonBuilder {
             return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
         }, usableEdges[0]).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // And then find the upper rightmost vertex among them
-        // Find the rightmost vertex
-        const rightMostVertexX = usableVertices.reduce<number>((lastVertexX, currentVertex) => {
-            if(currentVertex.position.x > lastVertexX){
-                return currentVertex.position.x;
+        const rightMostVertex = usableVertices.reduce((prevVertex, curVertex) => {
+            // X is greater
+            if(curVertex.position.x > prevVertex.position.x){
+                return curVertex;
+            }else if(curVertex.position.x === prevVertex.position.x){
+                // X is the same, but Y may be different
+                // Y is inverted in vertexFor
+                if(curVertex.position.y < prevVertex.position.y){
+                    return curVertex;
+                }
             }
-            return lastVertexX;
-        }, usableVertices[0].position.x);
-        // Find the other vertices that are at the same X position
-        const rightMostVertices = usableVertices.filter((vertex) => {
-            return vertex.position.x === rightMostVertexX;
-        })!;
-        // And the find the uppermost vertex among them
-        const rightMostVertex = rightMostVertices.reduce((lastVertex, currentVertex) => {
-            // Y positions are inverted
-            if(currentVertex.position.y < lastVertex.position.y){
-                return currentVertex;
-            }
-            return lastVertex;
-        }, rightMostVertices[0]);
+            return prevVertex;
+        }, usableVertices[0]);
         // Find edges connected to the rightmost vertex
         const rightMostEdges = this.sectorEdges.filter((edge) => {
             if(edge.includes(rightMostVertex.index)){
@@ -300,8 +294,6 @@ class SectorPolygonBuilder {
         // Polygon array
         // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
         const sectorPolygons: number[][] = [startEdge];
-        // Mark start edge as visited.
-        this.visitEdge(startEdge[0], startEdge[1]);
         while(this.sectorEdges.some(
             (edge) => this.edgesLeft[edge.join(" ")] === false)
         ){
@@ -311,7 +303,22 @@ class SectorPolygonBuilder {
             // The next vertex to add to the polygon
             const nextVertex = this.findNextVertex(lastVertex, prevVertex);
             if(this.debug){
-                console.log("pv", prevVertex, "ls", lastVertex, "nx", nextVertex);
+                const vertexIndexStrings = [prevVertex, lastVertex, nextVertex].map((vertexIndex) => {
+                    const indexString = vertexIndex == null ? "null" :
+                        vertexIndex.toString(10);
+                    // Doom map vertex indices are unsigned 16-bit integers,
+                    // which are no more than 5 decimal digits
+                    return indexString.padEnd(5, " ");
+                });
+                const vertexTypeStrings = ["pv", "ls", "nx"];
+                const argumentArray: string[] = [];
+                for(let i = 0; i < 3; i++){
+                    argumentArray.push(
+                        vertexTypeStrings[i],
+                        vertexIndexStrings[i]
+                    );
+                }
+                console.log(argumentArray.join(" "));
             }
             // No more vertices left in this polygon
             if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon])){
@@ -638,11 +645,11 @@ export class MapGeometryBuilder {
         return inside;
     }
 
-    // Recalculates quad heights, given a quad and a texture.
+    // Recalculates quad heights, given a quad and a texture height.
     // Modifies the quad's height, topHeight, and its yOffset.
     // Does nothing to one-sided, upper, or lower quads.
     // Returns the modified quad.
-    public static recalculateMidtex(quad: LineQuad, texture: Mappable): LineQuad {
+    public static recalculateMidtex(quad: LineQuad, height: number): LineQuad {
         // Midtexture height must be calculated.
         // The bottom of Midtextures on lower unpegged linedefs are at the
         // floor of the shortest sector,  offsetted by the Y offset
@@ -655,10 +662,10 @@ export class MapGeometryBuilder {
             const startHeight = ((
                 quad.alignment.flags &
                 TextureAlignmentFlags.LowerUnpegged) !== 0 ?
-                quad.floorHeight + texture.height :
+                quad.floorHeight + height :
                 quad.ceilingHeight);
             quad.topHeight = startHeight + quad.yOffset;
-            quad.height = texture.height;
+            quad.height = height;
             // Difference between quad top height and ceiling height
             const ceilingDifference = quad.ceilingHeight - quad.topHeight;
             if(ceilingDifference < 0){
