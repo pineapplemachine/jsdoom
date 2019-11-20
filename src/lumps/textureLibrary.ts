@@ -9,28 +9,28 @@ export enum TextureSet {
     Flats,
 }
 
-export function isWadTexture(texture: WADTexture | WADFlat, set: TextureSet): texture is WADTexture {
+export function isWadTexture(texture: (WADTexture | WADFlat), set: TextureSet): texture is WADTexture {
     return set === TextureSet.Walls;
 }
-export function isWadFlat(texture: WADTexture | WADFlat, set: TextureSet): texture is WADFlat {
+export function isWadFlat(texture: (WADTexture | WADFlat), set: TextureSet): texture is WADFlat {
     return set === TextureSet.Flats;
 }
 
 export class TextureLibrary {
     // The textures themselves
     protected textures: {
-        [TextureSet.Walls]: {[name: string]: WADTexture | null};
-        [TextureSet.Flats]: {[name: string]: WADFlat | null};
+        [TextureSet.Walls]: {[name: string]: (WADTexture | null)};
+        [TextureSet.Flats]: {[name: string]: (WADFlat | null)};
     };
     // And whether or not each one is transparent
     protected transparent: {
-        [TextureSet.Walls]: {[name: string]: boolean | null};
-        [TextureSet.Flats]: {[name: string]: boolean | null};
+        [TextureSet.Walls]: {[name: string]: (boolean | null)};
+        [TextureSet.Flats]: {[name: string]: (boolean | null)};
     };
     // RGBA pixel buffers created from each texture
     protected rgba: {
-        [TextureSet.Walls]: {[name: string]: Buffer | null};
-        [TextureSet.Flats]: {[name: string]: Buffer | null};
+        [TextureSet.Walls]: {[name: string]: (Buffer | null)};
+        [TextureSet.Flats]: {[name: string]: (Buffer | null)};
     };
     public fileList: WADFileList;
     constructor(fileList: WADFileList){
@@ -54,7 +54,7 @@ export class TextureLibrary {
             WADFlat.PWADMarkerNames.includes(name) ||
             lump.dataLength === 0;
     }
-    get(name: string, set: TextureSet): WADTexture | WADFlat | null {
+    get(name: string, set: TextureSet): (WADTexture | WADFlat | null) {
         // Get a texture, or add it to the library if it has not already been added
         // Already indexed, so return it immediately
         if(this.textures[set][name] !== undefined){
