@@ -992,6 +992,7 @@ const LumpTypeViewMap3D = function(
     options: Map3DViewOptions
 ): LumpTypeView {
     // Pointer lock related stuff
+    // Mouse controls that manipulate a THREE.Spherical
     let mouseController: ((event: MouseEvent) => void) | null = null;
     const makeMouseController = (direction: THREE.Spherical): (event: MouseEvent) => void => {
         mouseController = (event: MouseEvent) => {
@@ -1001,8 +1002,9 @@ const LumpTypeViewMap3D = function(
         };
         return mouseController;
     };
+    // Handle mouse movement when pointer is locked
     let hasPointerLock = false;
-    const lockPointer = () => {
+    const handleLockedPointer = () => {
         if(!mouseController){
             return;
         }
@@ -1031,55 +1033,18 @@ const LumpTypeViewMap3D = function(
             }
             // Get map from the lump and attempt to convert it to 3D
             const map = lumps.WADMap.from(mapLump);
+            if(!map){
+                createError(`Lump ${mapLump.name} is not a map!`, root);
+                return null;
+            }
+            // Map is valid, convert it to geometry
             let convertedMap: map3D.MapGeometry | null = null;
             try{
                 convertedMap = ConvertMapToGeometry(lump);
-                if(!convertedMap){
-                    createError("Could not find the map lump", root);
-                    return null;
-                }
             }catch(error){
-                createError(`Error: ${error}`, root);
+                createError(`Could not get map geometry: ${error}`, root);
                 return null;
             }
-            // Now that the map geometry has been converted, convert it to a
-            // model that can be used by THREE.js.
-            const meshGroup = ConvertMapToThree(
-                convertedMap,
-                sharedDataManager.getTextureLibrary(lump)
-            );
-            const scene = new THREE.Scene();
-            disposables.push(scene);
-            // Create temporary material with random color
-            /*
-            const tempMaterialColor: THREE.Color = (() => {
-                const hue = Math.floor(Math.random() * 360);
-                const lightness = Math.round(Math.random() * 50 + 20);
-                return new THREE.Color(`hsl(${hue}, 100%, ${lightness}%)`);
-            })();
-            const tempMaterial = new THREE.MeshBasicMaterial(
-                {color: tempMaterialColor.getHex(), wireframe: true});
-            for(const object of meshGroup.group.children){
-                const mesh = object as THREE.Mesh;
-                mesh.material = tempMaterial;
-            }
-            */
-            // Add group to scene and disposables array
-            scene.add(meshGroup.group);
-            disposables.push(meshGroup);
-            /*
-            // Add helpers to ensure I got the normals right
-            const nameColours: {[name: string]: number} = {
-                "flats": 0xff0000,
-                "walls": 0x00ff00,
-                "midtextures": 0x0000ff,
-            };
-            for(const mapMesh of meshGroup.group.children){
-                const colour = nameColours.hasOwnProperty(mapMesh.name) ? nameColours[mapMesh.name] : 0xff00ff;
-                const vnh = new THREE.VertexNormalsHelper(mapMesh, 8, colour);
-                scene.add(vnh);
-            }
-            */
             // Set up canvas
             const canvas = util.createElement({
                 tag: "canvas",
@@ -1092,30 +1057,39 @@ const LumpTypeViewMap3D = function(
                 },
                 appendTo: root,
             });
-            // Prefer WebGL2 context, since that allows non-power-of-2 textures to tile
-            let context = canvas.getContext("webgl2", {
+            document.addEventListener("pointerlockchange", handleLockedPointer);
+            // WebVR/WebXR supported?
+            const vrSupported = "xr" in navigator || "getVRDisplays" in navigator;
+            let context: WebGLRenderingContext | undefined = undefined;
+            // Prefer WebGL2 context, since that allows non-power-of-2 textures
+            // to tile. If this fails, THREE.js will create its own context.
+            context = canvas.getContext("webgl2", {
                 alpha: true,
-            });
-            // Fall back to WebGL context if WebGL2 is unavailable
-            if(!context){
-                context = canvas.getContext("webgl", {
-                    alpha: true,
-                });
-            }
-            document.addEventListener("pointerlockchange", lockPointer);
-            // Initialize scene, renderer, and camera
-            const renderer = new THREE.WebGLRenderer({
-                canvas,
-                context,
                 antialias: false,
                 powerPreference: "high-performance",
+                depth: true,
+                // Needed for WebXR support, otherwise you get InvalidStateErrors
+                xrCompatible: vrSupported,
             });
+            // Now that the map geometry has been converted, convert it to a
+            // model that can be used by THREE.js.
+            const meshGroup = ConvertMapToThree(
+                convertedMap!,
+                sharedDataManager.getTextureLibrary(lump),
+            );
+            // Initialize scene, renderer, and camera
+            const scene = new THREE.Scene();
+            disposables.push(scene);
+            scene.add(meshGroup.group);
+            disposables.push(meshGroup);
+            const renderer = new THREE.WebGLRenderer({canvas, context});
+            renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(root.clientWidth, root.clientHeight);
             // Allow VR
-            renderer.vr.enabled = true;
-            const vrButton = WEBVR.createButton(renderer);
-            if("xr" in navigator || "getVRDisplays" in navigator){
+            if(vrSupported){
+                renderer.vr.enabled = true;
                 // VR is supported
+                const vrButton = WEBVR.createButton(renderer);
                 root.appendChild(vrButton);
             }
             disposables.push(renderer);
@@ -1137,14 +1111,15 @@ const LumpTypeViewMap3D = function(
             );
             // Set up controls
             // Detect devices that have a built-in compass and/or accelerometer
-            let touchDevice = false;
+            let orientableDevice = false;
             if(window.DeviceOrientationEvent && "ontouchstart" in window){
                 // Thanks to https://stackoverflow.com/a/22097717
-                touchDevice = true;
+                orientableDevice = true;
             }
             const controls: (KeyboardListener | DeviceOrientationControls) = (
-                touchDevice ? new DeviceOrientationControls(camera) :
+                orientableDevice ? new DeviceOrientationControls(camera) :
                 new KeyboardListener());
+            // Handle touches
             handleTouchStart = () => {
                 viewHeadMoving = true;
             };
@@ -1161,8 +1136,9 @@ const LumpTypeViewMap3D = function(
                 canvas.width = root.clientWidth;
                 canvas.height = root.clientHeight;
                 camera.aspect = canvas.width / canvas.height;
-                camera.updateProjectionMatrix();
+                renderer.setPixelRatio(window.devicePixelRatio);
                 renderer.setSize(root.clientWidth, root.clientHeight);
+                camera.updateProjectionMatrix();
             };
             window.addEventListener("resize", handleResize);
             // Set viewpoint from player 1 start
@@ -1190,7 +1166,7 @@ const LumpTypeViewMap3D = function(
                         destination.applyQuaternion(renderer.vr.getCamera(camera).quaternion);
                         viewHead.translateOnAxis(destination, -moveDistance);
                     }
-                }else if(touchDevice){
+                }else if(orientableDevice){
                     const touchControls = controls as DeviceOrientationControls;
                     viewHead.setRotationFromQuaternion(new THREE.Quaternion());
                     touchControls.update();
@@ -1220,7 +1196,6 @@ const LumpTypeViewMap3D = function(
                     viewHead.lookAt(lookAtMe);
                 }
                 // Render
-                camera.updateProjectionMatrix();
                 renderer.render(scene, camera);
             };
             renderer.setAnimationLoop(render); // Needed for VR support
@@ -1229,6 +1204,7 @@ const LumpTypeViewMap3D = function(
             window.removeEventListener("resize", handleResize);
             window.removeEventListener("touchstart", handleTouchStart);
             window.removeEventListener("touchend", handleTouchEnd);
+            window.removeEventListener("pointerlockchange", handleLockedPointer);
             if(mouseController){
                 document.removeEventListener("mousemove", mouseController);
             }
