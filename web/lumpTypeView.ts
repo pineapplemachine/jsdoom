@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { WEBVR } from "three/examples/jsm/vr/WebVR.js";
+import {DeviceOrientationControls} from "three/examples/jsm/controls/DeviceOrientationControls.js";
+import {WEBVR} from "three/examples/jsm/vr/WebVR.js";
 
 import * as map3D from "@src/convert/3DMapBuilder";
 import {KeyboardListener} from "./keyboardListener";
@@ -1012,8 +1013,10 @@ const LumpTypeViewMap3D = function(
         }
         hasPointerLock = !hasPointerLock;
     };
-    // Ensure the resize event handler can be unbound in clear()
-    let onResize: () => void = () => {};
+    // Ensure any event handlers can be unbound in clear()
+    let handleResize: () => void = () => {};
+    let handleTouchStart: () => void = () => {};
+    let handleTouchEnd: () => void = () => {};
     // Stuff to dispose when 3D view is cleared
     const disposables: {dispose(): void}[] = [];
     return new LumpTypeView({
@@ -1111,9 +1114,9 @@ const LumpTypeViewMap3D = function(
             // Allow VR
             root.appendChild(WEBVR.createButton(renderer));
             renderer.vr.enabled = true;
-            const controller = renderer.vr.getController(0);
             disposables.push(renderer);
             // VR controls
+            const controller = renderer.vr.getController(0);
             let viewHeadMoving = false;
             controller.addEventListener("selectstart", () => {
                 viewHeadMoving = true;
@@ -1128,18 +1131,36 @@ const LumpTypeViewMap3D = function(
                 1, // Near clip
                 10000, // Far clip
             );
-            // Set up keyboard controls
-            const keyboardControls = new KeyboardListener();
-            disposables.push(keyboardControls);
+            // Set up controls
+            // Detect devices that have a built-in compass and/or accelerometer
+            let touchDevice = false;
+            if(window.DeviceOrientationEvent && "ontouchstart" in window){
+                // Thanks to https://stackoverflow.com/a/22097717
+                touchDevice = true;
+            }
+            const controls: (KeyboardListener | DeviceOrientationControls) = (
+                touchDevice ? new DeviceOrientationControls(camera) :
+                new KeyboardListener());
+            handleTouchStart = () => {
+                viewHeadMoving = true;
+            };
+            handleTouchEnd = () => {
+                viewHeadMoving = false;
+            };
+            window.addEventListener("touchstart", handleTouchStart);
+            window.addEventListener("touchend", handleTouchEnd);
+            // Luckily, both KeyboardListener and DeviceOrientationControls have
+            // dispose methods
+            disposables.push(controls);
             // Bind resize event handler
-            onResize = () => {
+            handleResize = () => {
                 canvas.width = root.clientWidth;
                 canvas.height = root.clientHeight;
                 camera.aspect = canvas.width / canvas.height;
                 camera.updateProjectionMatrix();
                 renderer.setSize(root.clientWidth, root.clientHeight);
             };
-            window.addEventListener("resize", onResize);
+            window.addEventListener("resize", handleResize);
             // Set viewpoint from player 1 start
             const viewHead = new THREE.Object3D(); // Also for VR camera
             const playerStart = map.getPlayerStart(1);
@@ -1154,6 +1175,7 @@ const LumpTypeViewMap3D = function(
             const directionSphere = new THREE.Spherical(
                 1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
+            const moveDistance = 7; // Distance to move camera
             const render = () => {
                 // Movement in VR
                 if(renderer.vr.isPresenting()){
@@ -1162,21 +1184,31 @@ const LumpTypeViewMap3D = function(
                     if(viewHeadMoving){
                         const destination = new THREE.Vector3(0, 0, 1);
                         destination.applyQuaternion(renderer.vr.getCamera(camera).quaternion);
-                        viewHead.translateOnAxis(destination, -10);
+                        viewHead.translateOnAxis(destination, -moveDistance);
+                    }
+                }else if(touchDevice){
+                    const touchControls = controls as DeviceOrientationControls;
+                    viewHead.setRotationFromQuaternion(new THREE.Quaternion());
+                    touchControls.update();
+                    if(viewHeadMoving){
+                        const destination = new THREE.Vector3(0, 0, 1);
+                        destination.applyQuaternion(camera.quaternion);
+                        viewHead.translateOnAxis(destination, -moveDistance);
                     }
                 }else{
+                    const keyboardControls = controls as KeyboardListener;
                     // WASD controls - moves camera around
                     if(keyboardControls.keyState["w"]){
-                        viewHead.translateZ(-10); // Forward
+                        viewHead.translateZ(-moveDistance); // Forward
                     }
                     if(keyboardControls.keyState["s"]){
-                        viewHead.translateZ(10); // Backward
+                        viewHead.translateZ(moveDistance); // Backward
                     }
                     if(keyboardControls.keyState["a"]){
-                        viewHead.translateX(-10); // Left
+                        viewHead.translateX(-moveDistance); // Left
                     }
                     if(keyboardControls.keyState["d"]){
-                        viewHead.translateX(10); // Right
+                        viewHead.translateX(moveDistance); // Right
                     }
                     // Set view head direction (for non-VR users)
                     const lookAtMe = new THREE.Vector3();
@@ -1190,7 +1222,9 @@ const LumpTypeViewMap3D = function(
             renderer.setAnimationLoop(render); // Needed for VR support
         },
         clear: () => {
-            window.removeEventListener("resize", onResize);
+            window.removeEventListener("resize", handleResize);
+            window.removeEventListener("touchstart", handleTouchStart);
+            window.removeEventListener("touchend", handleTouchEnd);
             if(mouseController){
                 document.removeEventListener("mousemove", mouseController);
             }
