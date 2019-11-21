@@ -136,18 +136,19 @@ class SectorPolygonBuilder {
             return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
         }, usableEdges[0]).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // And then find the upper rightmost vertex among them
-        const rightMostVertex = usableVertices.reduce((previousVertex, currentVertex) => {
+        const rightMostVertex = usableVertices.reduce(
+        (currentRightMostVertex, nextVertex) => {
             // X is greater
-            if(currentVertex.position.x > previousVertex.position.x){
-                return currentVertex;
-            }else if(currentVertex.position.x === previousVertex.position.x){
+            if(nextVertex.position.x > currentRightMostVertex.position.x){
+                return nextVertex;
+            }else if(nextVertex.position.x === currentRightMostVertex.position.x){
                 // X is the same, but Y may be different
                 // Y is inverted in vertexFor
-                if(currentVertex.position.y < previousVertex.position.y){
-                    return currentVertex;
+                if(nextVertex.position.y < currentRightMostVertex.position.y){
+                    return nextVertex;
                 }
             }
-            return previousVertex;
+            return currentRightMostVertex;
         }, usableVertices[0]);
         // Find edges connected to the rightmost vertex
         const rightMostEdges = this.sectorEdges.filter((edge) => {
@@ -162,17 +163,18 @@ class SectorPolygonBuilder {
             (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0]
         ).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // Get lowermost rightmost vertex out of those
-        const otherVertex = rightMostConnectedVertices.reduce((previousVertex, currentVertex) => {
-            if(currentVertex.position.y > previousVertex.position.y){
+        const otherVertex = rightMostConnectedVertices.reduce(
+        (currentLowestVertex, nextVertex) => {
+            if(nextVertex.position.y > currentLowestVertex.position.y){
                 // Lowest Y (Y coordinate is inverted)
-                return currentVertex;
-            }else if(currentVertex.position.y === previousVertex.position.y){
+                return nextVertex;
+            }else if(nextVertex.position.y === currentLowestVertex.position.y){
                 // Y is the same, X may be different
-                if(currentVertex.position.x > previousVertex.position.x){
-                    return currentVertex;
+                if(nextVertex.position.x > currentLowestVertex.position.x){
+                    return nextVertex;
                 }
             }
-            return previousVertex;
+            return currentLowestVertex;
         }, rightMostConnectedVertices[0]);
         return [rightMostVertex.index, otherVertex.index];
     }
@@ -407,7 +409,7 @@ class BoundingBox implements IBoundingBox {
 
     // Determine whether this bounding box is within the other one, or otherwise contains the other one.
     compare(other: IBoundingBox): BoundingBoxComparison {
-        if(this.minX <= other.minX && this.maxX >= other.maxX && this.minY <= other.minY && this.maxY >= other.maxY){
+        if(this.minX < other.minX && this.maxX > other.maxX && this.minY < other.minY && this.maxY > other.maxY){
             return BoundingBoxComparison.Contains;
         }else if(other.minX < this.minX && other.maxX > this.maxX && other.minY < this.minY && other.maxY > this.maxY){
             return BoundingBoxComparison.Within;
@@ -595,6 +597,7 @@ export interface MapGeometry {
     sectorTriangles: SectorTriangle[];
 }
 
+// Which vertex of the quad
 export enum QuadVertexPosition {
     UpperLeft,
     UpperRight,
@@ -1053,7 +1056,7 @@ export class MapGeometryBuilder {
                         // it as a separate polygon rather than a hole. Fixes
                         // Eviternity MAP27
                         const pointOnOtherVertex = otherPolygon.vertices.findIndex(
-                            (otherPoint) => point.x === otherPoint.x && point.y === otherPoint.y);
+                            (otherPoint) => point.equals(otherPoint));
                         if(pointOnOtherVertex === -1){
                             // This vertex is not the same as a vertex on the
                             // other polygon, so it may be a hole.
@@ -1093,8 +1096,7 @@ export class MapGeometryBuilder {
             triangles.forEach((triangle) => {
                 const triangleVertices: THREE.Vector2[] = (
                     triangle.map<THREE.Vector2>(
-                        (vertexIndex) => polyVertices[vertexIndex])
-                );
+                        (vertexIndex) => polyVertices[vertexIndex]));
                 sectorTriangles.push({ // Floor
                     lightLevel: mapSector.light,
                     vertices: triangleVertices,
