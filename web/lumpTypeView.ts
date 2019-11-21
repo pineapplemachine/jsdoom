@@ -1112,8 +1112,12 @@ const LumpTypeViewMap3D = function(
             });
             renderer.setSize(root.clientWidth, root.clientHeight);
             // Allow VR
-            root.appendChild(WEBVR.createButton(renderer));
             renderer.vr.enabled = true;
+            const vrButton = WEBVR.createButton(renderer);
+            if("xr" in navigator || "getVRDisplays" in navigator){
+                // VR is supported
+                root.appendChild(vrButton);
+            }
             disposables.push(renderer);
             // VR controls
             const controller = renderer.vr.getController(0);
