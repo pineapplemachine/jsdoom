@@ -136,18 +136,19 @@ class SectorPolygonBuilder {
             return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
         }, usableEdges[0]).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // And then find the upper rightmost vertex among them
-        const rightMostVertex = usableVertices.reduce((prevVertex, curVertex) => {
+        const rightMostVertex = usableVertices.reduce(
+        (currentRightMostVertex, nextVertex) => {
             // X is greater
-            if(curVertex.position.x > prevVertex.position.x){
-                return curVertex;
-            }else if(curVertex.position.x === prevVertex.position.x){
+            if(nextVertex.position.x > currentRightMostVertex.position.x){
+                return nextVertex;
+            }else if(nextVertex.position.x === currentRightMostVertex.position.x){
                 // X is the same, but Y may be different
                 // Y is inverted in vertexFor
-                if(curVertex.position.y < prevVertex.position.y){
-                    return curVertex;
+                if(nextVertex.position.y < currentRightMostVertex.position.y){
+                    return nextVertex;
                 }
             }
-            return prevVertex;
+            return currentRightMostVertex;
         }, usableVertices[0]);
         // Find edges connected to the rightmost vertex
         const rightMostEdges = this.sectorEdges.filter((edge) => {
@@ -161,26 +162,21 @@ class SectorPolygonBuilder {
         const rightMostConnectedVertices: SectorVertex[] = rightMostEdges.map(
             (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0]
         ).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
-        // Sort vertices in clockwise order
-        // First, get center point
-        const vertexCount = rightMostConnectedVertices.length;
-        const centerPoint = new THREE.Vector2(0, 0);
-        rightMostConnectedVertices.forEach((sectorVertex) => {
-            centerPoint.add(sectorVertex.position);
-        });
-        centerPoint.divideScalar(vertexCount);
-        // Find angles between the rightmost vertex, the center, and each
-        // connected vertex.
-        const angles = rightMostConnectedVertices.map((vertex) => {
-            const rightMostVector = rightMostVertex.position;
-            const vertexVector = vertex.position;
-            return SectorPolygonBuilder.angleBetween(
-                rightMostVector, centerPoint, vertexVector, clockwise);
-        });
-        // Find the point with the lowest angle
-        const lowestAngle = Math.min.apply(null, angles);
-        const lowestAngleIndex = angles.findIndex((angle) => angle === lowestAngle)!;
-        return [rightMostVertex.index, rightMostConnectedVertices[lowestAngleIndex].index];
+        // Get lowermost rightmost vertex out of those
+        const otherVertex = rightMostConnectedVertices.reduce(
+        (currentLowestVertex, nextVertex) => {
+            if(nextVertex.position.y > currentLowestVertex.position.y){
+                // Lowest Y (Y coordinate is inverted)
+                return nextVertex;
+            }else if(nextVertex.position.y === currentLowestVertex.position.y){
+                // Y is the same, X may be different
+                if(nextVertex.position.x > currentLowestVertex.position.x){
+                    return nextVertex;
+                }
+            }
+            return currentLowestVertex;
+        }, rightMostConnectedVertices[0]);
+        return [rightMostVertex.index, otherVertex.index];
     }
 
     protected findNextVertex(
@@ -266,17 +262,14 @@ class SectorPolygonBuilder {
         return false;
     }
 
-    protected isPolygonComplete(polygon: number[]): boolean {
+    protected isPolygonComplete(polygon: number[], last: number): boolean {
         if(polygon.length < 3){
             // There is no such thing as a 2 sided polygon
             return false;
         }
+        // First vertex of polygon
         const first = polygon[0];
-        const last = polygon[polygon.length - 1];
-        // An edge exists that connects the last vertex to the first
-        const edgeString = this.edgeExists(first, last);
-        // Ensure it hasn't been used.
-        return edgeString !== "" && this.edgesLeft[edgeString] === false;
+        return last === first;
     }
 
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
@@ -321,7 +314,7 @@ class SectorPolygonBuilder {
                 console.log(argumentArray.join(" "));
             }
             // No more vertices left in this polygon
-            if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon])){
+            if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
                 if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0])){
                     // Last polygon is a dud
                     sectorPolygons.pop();
@@ -356,6 +349,7 @@ class SectorPolygonBuilder {
             return this.edgeExists(polygon[0], polygon[polygon.length - 1]) !== "";
         });
         if(this.debug){
+            console.log(sectorPolygons);
             console.log(completeSectorPolygons);
         }
         return completeSectorPolygons;
@@ -438,7 +432,7 @@ interface SectorPolygon {
     // The 2D vertex coordinates of the contour of this polygon
     vertices: THREE.Vector2[];
     // An array of contours representing the holes in this polygon
-    holeVertices: THREE.Vector2[][];
+    holes: THREE.Vector2[][];
     // The bounding box for this polygon
     boundingBox: BoundingBox;
     // Is this sector polygon a hole in another polygon?
@@ -603,6 +597,7 @@ export interface MapGeometry {
     sectorTriangles: SectorTriangle[];
 }
 
+// Which vertex of the quad
 export enum QuadVertexPosition {
     UpperLeft,
     UpperRight,
@@ -1035,7 +1030,7 @@ export class MapGeometryBuilder {
             });
             return {
                 vertices: polygonVertices,
-                holeVertices: [],
+                holes: [],
                 boundingBox: BoundingBox.from(polygonVertices),
                 isHole: false,
             };
@@ -1061,7 +1056,7 @@ export class MapGeometryBuilder {
                         // it as a separate polygon rather than a hole. Fixes
                         // Eviternity MAP27
                         const pointOnOtherVertex = otherPolygon.vertices.findIndex(
-                            (otherPoint) => point.x === otherPoint.x && point.y === otherPoint.y);
+                            (otherPoint) => point.equals(otherPoint));
                         if(pointOnOtherVertex === -1){
                             // This vertex is not the same as a vertex on the
                             // other polygon, so it may be a hole.
@@ -1080,7 +1075,7 @@ export class MapGeometryBuilder {
             const smallestContainerPolygon: SectorPolygon | undefined = (
                 containerPolygons[containerPolygons.length - 1]);
             if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
-                smallestContainerPolygon.holeVertices.push(polygon.vertices);
+                smallestContainerPolygon.holes.push(polygon.vertices);
                 polygon.isHole = true;
             }
         });
@@ -1093,17 +1088,15 @@ export class MapGeometryBuilder {
             // triangulateShape expects data structures like this:
             // (contour) [{x: 10, y: 10}, {x: -10, y: 10}, {x: -10, y: -10}, {x: 10, y: -10}]
             // (holes) [[{x: 5, y: 5}, {x: -5, y: 5}, {x: -5, y: -5}, {x: 5, y: -5}], etc.]
-            const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holeVertices);
-            // console.log(`triangles for sector ${sector}`, triangles);
-            // triangulateShape returns an array of arrays of vertex indices
-            const polyVertices = poly.vertices.concat(
-                poly.holeVertices.reduce((flat, arr) => flat.concat(arr), [])
-            );
+            const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holes);
+            const polyVertices: THREE.Vector2[] = poly.vertices.slice();
+            poly.holes.forEach((holeVertices) => {
+                Array.prototype.push.apply(polyVertices, holeVertices);
+            });
             triangles.forEach((triangle) => {
-                const triangleVertices = [];
-                for(const triangleVertex of triangle){
-                    triangleVertices.push(polyVertices[triangleVertex]);
-                }
+                const triangleVertices: THREE.Vector2[] = (
+                    triangle.map<THREE.Vector2>(
+                        (vertexIndex) => polyVertices[vertexIndex]));
                 sectorTriangles.push({ // Floor
                     lightLevel: mapSector.light,
                     vertices: triangleVertices,
