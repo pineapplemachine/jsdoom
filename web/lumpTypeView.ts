@@ -1020,6 +1020,7 @@ const LumpTypeViewMap3D = function(
     };
     // Ensure any event handlers can be unbound in clear()
     let handleResize: () => void = () => {};
+    let handleFullscreen: () => void = () => {};
     let handleTouchStart: () => void = () => {};
     let handleTouchEnd: () => void = () => {};
     // Stuff to dispose when 3D view is cleared
@@ -1086,8 +1087,8 @@ const LumpTypeViewMap3D = function(
             scene.add(meshGroup.group);
             disposables.push(meshGroup);
             const renderer = new THREE.WebGLRenderer({canvas, context});
+            renderer.setSize(root.clientWidth, root.clientHeight, false);
             renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(root.clientWidth, root.clientHeight);
             // Allow VR
             if(vrSupported){
                 renderer.vr.enabled = true;
@@ -1146,16 +1147,26 @@ const LumpTypeViewMap3D = function(
             // Luckily, both KeyboardListener and DeviceOrientationControls have
             // dispose methods
             disposables.push(controls);
-            // Bind resize event handler
+            // Bind resize and fullscreen event handler
             handleResize = () => {
-                canvas.width = root.clientWidth;
-                canvas.height = root.clientHeight;
-                camera.aspect = canvas.width / canvas.height;
+                camera.aspect = root.clientWidth / root.clientHeight;
+                renderer.setSize(root.clientWidth, root.clientHeight, false);
                 renderer.setPixelRatio(window.devicePixelRatio);
-                renderer.setSize(root.clientWidth, root.clientHeight);
                 camera.updateProjectionMatrix();
             };
+            handleFullscreen = () => {
+                if(fscreen.fullscreenEnabled){
+                    console.log("fullscreen on", window.innerWidth, window.innerHeight);
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    renderer.setSize(window.innerWidth, window.innerHeight, false);
+                    renderer.setPixelRatio(window.devicePixelRatio);
+                    camera.updateProjectionMatrix();
+                }else{
+                    handleResize();
+                }
+            };
             window.addEventListener("resize", handleResize);
+            fscreen.addEventListener("fullscreenchange", handleFullscreen);
             // Set viewpoint from player 1 start
             const viewHead = new THREE.Object3D(); // Also for VR camera
             const playerStart = map.getPlayerStart(1);
@@ -1217,6 +1228,7 @@ const LumpTypeViewMap3D = function(
         },
         clear: () => {
             window.removeEventListener("resize", handleResize);
+            fscreen.removeEventListener("fullscreenchange", handleFullscreen);
             window.removeEventListener("touchstart", handleTouchStart);
             window.removeEventListener("touchend", handleTouchEnd);
             window.removeEventListener("pointerlockchange", handleLockedPointer);
