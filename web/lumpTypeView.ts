@@ -2,6 +2,9 @@ import * as THREE from "three";
 import {DeviceOrientationControls} from "three/examples/jsm/controls/DeviceOrientationControls.js";
 import {WEBVR} from "three/examples/jsm/vr/WebVR.js";
 
+// Fullscreen support
+import fscreen from "fscreen";
+
 import * as map3D from "@src/convert/3DMapBuilder";
 import {KeyboardListener} from "./keyboardListener";
 
@@ -1091,6 +1094,18 @@ const LumpTypeViewMap3D = function(
                 // VR is supported
                 const vrButton = WEBVR.createButton(renderer);
                 root.appendChild(vrButton);
+            }else{
+                // Allow 3D view to be expanded to full screen
+                const fullscreenButton = util.createElement({
+                    tag: "div",
+                    class: "fullscreen-button",
+                    content: "\u26F6",
+                    onleftclick: () => {
+                        fscreen.requestFullscreen(canvas);
+                    },
+                    appendTo: root,
+                });
+                root.appendChild(fullscreenButton);
             }
             disposables.push(renderer);
             // VR controls

@@ -11,12 +11,14 @@
   "homepage": "https://github.com/pineapplemachine/jsdoom",
   "license": "GPL-3.0",
   "dependencies": {
+    "fscreen": "^1.0.2",
     "unzip": "0.1.11",
     "upng-js": "2.1.0"
   },
   "devDependencies": {
     "@fimbul/valtyr": "^0.21.0",
     "@fimbul/wotan": "^0.21.1",
+    "@types/fscreen": "^1.0.1",
     "@types/node": "^12.7.11",
     "@types/unzip": "0.1.1",
     "@types/upng-js": "2.1.1",

@@ -169,9 +169,12 @@ function filterLumpList(filter: (lump: any) => any): void {
             shownItems++;
         }
     }
+    /*
+     * Causes errors
     Array.prototype.sort.call(listElement.children, (a: any, b: any) => {
         return a.filterValue - b.filterValue;
     });
+    */
     updateLumpListCount(shownItems, listElement.children.length);
 }
 
@@ -321,4 +324,10 @@ win.onWadLoaded = function(): void {
             appendTo: item,
         });
     }
+};
+
+// Support for mobile devices and narrow screens
+win.onClickDropdownButton = function(element: HTMLElement): void {
+    element.classList.toggle("dropped");
+    util.id("lump-view-buttons").classList.toggle("dropped");
 };
