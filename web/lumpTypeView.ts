@@ -1155,10 +1155,11 @@ const LumpTypeViewMap3D = function(
                 camera.updateProjectionMatrix();
             };
             handleFullscreen = () => {
-                if(fscreen.fullscreenEnabled){
-                    console.log("fullscreen on", window.innerWidth, window.innerHeight);
-                    camera.aspect = window.innerWidth / window.innerHeight;
-                    renderer.setSize(window.innerWidth, window.innerHeight, false);
+                if(fscreen.fullscreenElement){
+                    const sceneWidth = window.outerWidth;
+                    const sceneHeight = window.outerHeight;
+                    camera.aspect = sceneWidth / sceneHeight;
+                    renderer.setSize(sceneWidth, sceneHeight, false);
                     renderer.setPixelRatio(window.devicePixelRatio);
                     camera.updateProjectionMatrix();
                 }else{
