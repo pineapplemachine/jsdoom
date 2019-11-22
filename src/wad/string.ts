@@ -20,24 +20,17 @@ export function readPaddedString(
 // Read an 8-character null-padded ASCII string from a data buffer
 // at an offset.
 export function readPaddedString8(data: Buffer, offset: number): string {
-    const low: number = data.readUInt32LE(offset);
-    const high: number = data.readUInt32LE(offset + 4);
-    const text: string = (
-        String.fromCharCode(low & 0xff) +
-        String.fromCharCode((low >> 8) & 0xff) +
-        String.fromCharCode((low >> 16) & 0xff) +
-        String.fromCharCode((low >> 24) & 0xff) +
-        String.fromCharCode(high & 0xff) +
-        String.fromCharCode((high >> 8) & 0xff) +
-        String.fromCharCode((high >> 16) & 0xff) +
-        String.fromCharCode((high >> 24) & 0xff)
-    );
-    for(let index: number = 7; index >= 0; index--){
-        if(text[index] !== "\x00"){
-            return text.slice(0, index + 1);
+    const bytes = data.slice(offset, offset + 8);
+    const text = Array.from(bytes).map((character) => {
+        return String.fromCharCode(character & 0xff);
+    }).join("");
+    // Chop off useless bytes - Fixes Memento Mori (MM.WAD)
+    for(let index: number = 0; index < 8; index++){
+        if(data[index + offset] === 0){
+            return text.substring(0, index);
         }
     }
-    return "";
+    return text;
 }
 
 // Write a null-padded ASCII string to a data buffer.

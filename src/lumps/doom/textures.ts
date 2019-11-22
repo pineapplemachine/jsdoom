@@ -131,8 +131,14 @@ export class WADTexture {
                 }
             }
             // Otherwise, look for the patch lump
-            const lump: (WADLump | null) = files.map.get(name, WADCategory.Patches);
-            // Lump is missing
+            // Search for the patch lump in the patches category (between patch
+            // start/end markers)
+            let lump: (WADLump | null) = files.map.get(name, WADCategory.Patches);
+            // If it isn't there, look outside of the patches category
+            if(!lump){
+                lump = files.map.get(name);
+            }
+            // Lump is not in the WADs in the file list
             if(!lump){
                 pictures.push(null);
                 continue;
