@@ -1,7 +1,6 @@
 import * as map3D from "@src/convert/3DMapBuilder";
-import * as THREE from "three";
-
 import {TextureLibrary} from "@src/lumps/textureLibrary";
+import * as THREE from "three";
 
 // The type of buffer to get the index of an element from
 enum BufferType {
