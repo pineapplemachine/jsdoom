@@ -1023,6 +1023,7 @@ const LumpTypeViewMap3D = function(
     let handleFullscreen: () => void = () => {};
     let handleTouchStart: () => void = () => {};
     let handleTouchEnd: () => void = () => {};
+    let ticker: NodeJS.Timeout | null = null;
     // Stuff to dispose when 3D view is cleared
     const disposables: {dispose(): void}[] = [];
     return new LumpTypeView({
@@ -1182,7 +1183,46 @@ const LumpTypeViewMap3D = function(
             const directionSphere = new THREE.Spherical(
                 1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
-            const moveDistance = 7; // Distance to move camera
+            const maxMoveSpeed = 5; // Distance to move camera
+            const moveAcceleration = 4; // Acceleration/deceleration per second
+            const velocity: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+            const tickRate = 1000 / 35;
+            // This function is run every "tick", 1/35 of a second
+            ticker = setInterval(() => {
+                const tickDelta = tickRate / 1000; // Tick rate is in milliseconds
+                if(renderer.vr.isPresenting()){
+                    // A
+                }else if(orientableDevice){
+                    // B
+                }else{
+                    // Handle keyboard input. WASD moves the camera like in an FPS game
+                    const keyboardControls = controls as KeyboardListener;
+                    const accelerate = (
+                        key: string, // The keyboard key as a string
+                        valueToSet: number, // The number to set
+                        direction: boolean, // The direction to go in (true = forwards, false = reverse)
+                        accelFactor: number, // Value to multiply acceleration by, usually 1/35
+                    ): number => {
+                        const directionFactor = direction ? -1 : 1;
+                        if(keyboardControls.keyState[key] === true){
+                            if(Math.abs(valueToSet) < maxMoveSpeed){
+                                return valueToSet + moveAcceleration * accelFactor * directionFactor;
+                            }else{
+                                return maxMoveSpeed * directionFactor;
+                            }
+                        }
+                        if(Math.abs(valueToSet) > 0){
+                            return valueToSet - moveAcceleration * accelFactor * directionFactor;
+                        }
+                        return 0;
+                    };
+                    // WASD controls - moves camera around
+                    velocity.z = accelerate("w", velocity.z, true, tickDelta);
+                    velocity.z = accelerate("s", velocity.z, false, tickDelta);
+                    velocity.x = accelerate("a", velocity.x, true, tickDelta);
+                    velocity.x = accelerate("d", velocity.x, false, tickDelta);
+                }
+            }, Math.floor(tickRate));
             const render = () => {
                 // Movement in VR
                 if(renderer.vr.isPresenting()){
@@ -1191,7 +1231,7 @@ const LumpTypeViewMap3D = function(
                     if(viewHeadMoving){
                         const destination = new THREE.Vector3(0, 0, 1);
                         destination.applyQuaternion(renderer.vr.getCamera(camera).quaternion);
-                        viewHead.translateOnAxis(destination, -moveDistance);
+                        viewHead.translateOnAxis(velocity, -7);
                     }
                 }else if(orientableDevice){
                     const touchControls = controls as DeviceOrientationControls;
@@ -1200,11 +1240,10 @@ const LumpTypeViewMap3D = function(
                     if(viewHeadMoving){
                         const destination = new THREE.Vector3(0, 0, 1);
                         destination.applyQuaternion(camera.quaternion);
-                        viewHead.translateOnAxis(destination, -moveDistance);
+                        viewHead.translateOnAxis(velocity, -7);
                     }
                 }else{
-                    const keyboardControls = controls as KeyboardListener;
-                    // WASD controls - moves camera around
+                    /*
                     if(keyboardControls.keyState["w"]){
                         viewHead.translateZ(-moveDistance); // Forward
                     }
@@ -1217,6 +1256,8 @@ const LumpTypeViewMap3D = function(
                     if(keyboardControls.keyState["d"]){
                         viewHead.translateX(moveDistance); // Right
                     }
+                    */
+                    viewHead.position.addVectors(viewHead.position, velocity);
                     // Set view head direction (for non-VR users)
                     const lookAtMe = new THREE.Vector3();
                     lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
@@ -1233,6 +1274,9 @@ const LumpTypeViewMap3D = function(
             window.removeEventListener("touchstart", handleTouchStart);
             window.removeEventListener("touchend", handleTouchEnd);
             window.removeEventListener("pointerlockchange", handleLockedPointer);
+            if(ticker){
+                clearInterval(ticker);
+            }
             if(mouseController){
                 document.removeEventListener("mousemove", mouseController);
             }
