@@ -1081,22 +1081,22 @@ export class MapGeometryBuilder {
         });
         const mapSector = this.map.sectors!.getSector(sector);
         const sectorTriangles: SectorTriangle[] = [];
-        sectorPolygons.forEach((poly) => {
-            if(poly.isHole){
+        sectorPolygons.forEach((polygon) => {
+            if(polygon.isHole){
                 return;
             }
             // triangulateShape expects data structures like this:
             // (contour) [{x: 10, y: 10}, {x: -10, y: 10}, {x: -10, y: -10}, {x: 10, y: -10}]
             // (holes) [[{x: 5, y: 5}, {x: -5, y: 5}, {x: -5, y: -5}, {x: 5, y: -5}], etc.]
-            const triangles = THREE.ShapeUtils.triangulateShape(poly.vertices, poly.holes);
-            const polyVertices: THREE.Vector2[] = poly.vertices.slice();
-            poly.holes.forEach((holeVertices) => {
-                Array.prototype.push.apply(polyVertices, holeVertices);
+            const triangles = THREE.ShapeUtils.triangulateShape(polygon.vertices, polygon.holes);
+            const polygonVertices: THREE.Vector2[] = polygon.vertices.slice();
+            polygon.holes.forEach((holeVertices) => {
+                Array.prototype.push.apply(polygonVertices, holeVertices);
             });
             triangles.forEach((triangle) => {
                 const triangleVertices: THREE.Vector2[] = (
                     triangle.map<THREE.Vector2>(
-                        (vertexIndex) => polyVertices[vertexIndex]));
+                        (vertexIndex) => polygonVertices[vertexIndex]));
                 sectorTriangles.push({ // Floor
                     lightLevel: mapSector.light,
                     vertices: triangleVertices,
