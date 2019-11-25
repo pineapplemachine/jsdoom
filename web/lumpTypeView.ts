@@ -1000,7 +1000,7 @@ const LumpTypeViewMap3D = function(
     const makeMouseController = (direction: THREE.Spherical): (event: MouseEvent) => void => {
         mouseController = (event: MouseEvent) => {
             direction.theta -= event.movementX / (180 / Math.PI);
-            direction.phi -= event.movementY / (180 / Math.PI);
+            direction.phi += event.movementY / (180 / Math.PI);
             direction.makeSafe();
         };
         return mouseController;
@@ -1183,13 +1183,14 @@ const LumpTypeViewMap3D = function(
             const directionSphere = new THREE.Spherical(
                 1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
-            const maxMoveSpeed = 5; // Distance to move camera
-            const moveAcceleration = 4; // Acceleration/deceleration per second
+            const maxMoveSpeed = 7; // Distance to move camera
+            const moveAcceleration = 12; // Acceleration/deceleration per second
+            // Axis to translate view head on
             const velocity: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
             const tickRate = 1000 / 35;
+            const tickDelta = tickRate / 1000; // Tick rate is in milliseconds
             // This function is run every "tick", 1/35 of a second
             ticker = setInterval(() => {
-                const tickDelta = tickRate / 1000; // Tick rate is in milliseconds
                 if(renderer.vr.isPresenting()){
                     // A
                 }else if(orientableDevice){
@@ -1197,30 +1198,37 @@ const LumpTypeViewMap3D = function(
                 }else{
                     // Handle keyboard input. WASD moves the camera like in an FPS game
                     const keyboardControls = controls as KeyboardListener;
-                    const accelerate = (
-                        key: string, // The keyboard key as a string
-                        valueToSet: number, // The number to set
-                        direction: boolean, // The direction to go in (true = forwards, false = reverse)
-                        accelFactor: number, // Value to multiply acceleration by, usually 1/35
-                    ): number => {
-                        const directionFactor = direction ? -1 : 1;
-                        if(keyboardControls.keyState[key] === true){
-                            if(Math.abs(valueToSet) < maxMoveSpeed){
-                                return valueToSet + moveAcceleration * accelFactor * directionFactor;
+                    if(keyboardControls.keyState["w"]){
+                        velocity.z -= moveAcceleration * tickDelta;
+                    }else if(keyboardControls.keyState["s"]){
+                        velocity.z += moveAcceleration * tickDelta;
+                    }else{
+                        if(velocity.z !== 0){
+                            const directionFactor = velocity.z >= 0 ? -1 : 1;
+                            const toAdd = moveAcceleration * tickDelta * directionFactor;
+                            if(Math.sign(velocity.z + toAdd) !== Math.sign(velocity.z)){
+                                velocity.z = 0;
                             }else{
-                                return maxMoveSpeed * directionFactor;
+                                velocity.z += toAdd;
                             }
                         }
-                        if(Math.abs(valueToSet) > 0){
-                            return valueToSet - moveAcceleration * accelFactor * directionFactor;
+                    }
+                    if(keyboardControls.keyState["a"]){
+                        velocity.x -= moveAcceleration * tickDelta;
+                    }else if(keyboardControls.keyState["d"]){
+                        velocity.x += moveAcceleration * tickDelta;
+                    }else{
+                        if(velocity.x !== 0){
+                            const directionFactor = velocity.x >= 0 ? -1 : 1;
+                            const toAdd = moveAcceleration * tickDelta * directionFactor;
+                            if(Math.sign(velocity.x + toAdd) !== Math.sign(velocity.x)){
+                                velocity.x = 0;
+                            }else{
+                                velocity.x += toAdd;
+                            }
                         }
-                        return 0;
-                    };
-                    // WASD controls - moves camera around
-                    velocity.z = accelerate("w", velocity.z, true, tickDelta);
-                    velocity.z = accelerate("s", velocity.z, false, tickDelta);
-                    velocity.x = accelerate("a", velocity.x, true, tickDelta);
-                    velocity.x = accelerate("d", velocity.x, false, tickDelta);
+                    }
+                    velocity.clampLength(0, maxMoveSpeed);
                 }
             }, Math.floor(tickRate));
             const render = () => {
@@ -1257,11 +1265,12 @@ const LumpTypeViewMap3D = function(
                         viewHead.translateX(moveDistance); // Right
                     }
                     */
-                    viewHead.position.addVectors(viewHead.position, velocity);
                     // Set view head direction (for non-VR users)
+                    const velocityAxis = velocity.clone().normalize().applyQuaternion(camera.quaternion);
+                    viewHead.translateOnAxis(velocityAxis, velocity.length());
                     const lookAtMe = new THREE.Vector3();
                     lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
-                    viewHead.lookAt(lookAtMe);
+                    camera.lookAt(lookAtMe);
                 }
                 // Render
                 renderer.render(scene, camera);
