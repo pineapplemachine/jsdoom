@@ -170,8 +170,14 @@ class SectorPolygonBuilder {
                 return nextVertex;
             }else if(nextVertex.position.y === currentLowestVertex.position.y){
                 // Y is the same, X may be different
-                if(nextVertex.position.x > currentLowestVertex.position.x){
-                    return nextVertex;
+                if(currentLowestVertex.position.y < rightMostVertex.position.y){
+                    if(nextVertex.position.x < currentLowestVertex.position.x){
+                        return nextVertex;
+                    }
+                }else{
+                    if(nextVertex.position.x > currentLowestVertex.position.x){
+                        return nextVertex;
+                    }
                 }
             }
             return currentLowestVertex;
