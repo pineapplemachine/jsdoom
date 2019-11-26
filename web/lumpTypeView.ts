@@ -27,6 +27,8 @@ import {TextureSet, TextureLibrary} from "@src/lumps/index";
 import {getPng64, bufferbtoa} from "@web/png64";
 import * as util from "@web/util";
 
+import {Velocity} from "@web/velocity";
+
 const win: any = window as any;
 
 // Manages data for these views, so that stuff like the WAD file list and texture library can be reused between views.
@@ -404,7 +406,7 @@ const LumpTypeViewMap3D = function(
     const makeMouseController = (direction: THREE.Spherical): (event: MouseEvent) => void => {
         mouseController = (event: MouseEvent) => {
             direction.theta -= event.movementX / (180 / Math.PI);
-            direction.phi -= event.movementY / (180 / Math.PI);
+            direction.phi += event.movementY / (180 / Math.PI);
             direction.makeSafe();
         };
         return mouseController;
@@ -427,6 +429,7 @@ const LumpTypeViewMap3D = function(
     let handleFullscreen: () => void = () => {};
     let handleTouchStart: () => void = () => {};
     let handleTouchEnd: () => void = () => {};
+    let ticker: NodeJS.Timeout | null = null;
     // Stuff to dispose when 3D view is cleared
     const disposables: {dispose(): void}[] = [];
     return new LumpTypeView({
@@ -490,7 +493,14 @@ const LumpTypeViewMap3D = function(
             disposables.push(scene);
             scene.add(meshGroup.group);
             disposables.push(meshGroup);
-            const renderer = new THREE.WebGLRenderer({canvas, context});
+            const renderer = new THREE.WebGLRenderer({
+                canvas,
+                context,
+                alpha: true,
+                antialias: false,
+                powerPreference: "high-performance",
+                depth: true,
+            });
             renderer.setSize(root.clientWidth, root.clientHeight, false);
             renderer.setPixelRatio(window.devicePixelRatio);
             // Allow VR
@@ -586,46 +596,63 @@ const LumpTypeViewMap3D = function(
             const directionSphere = new THREE.Spherical(
                 1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
-            const moveDistance = 7; // Distance to move camera
-            const render = () => {
-                // Movement in VR
-                if(renderer.vr.isPresenting()){
-                    // Reset viewHead rotation
-                    viewHead.setRotationFromQuaternion(new THREE.Quaternion());
+            const maxMoveSpeed = 7; // Distance to move camera
+            const moveAcceleration = 12; // Acceleration/deceleration per second
+            // Axis to translate view head on
+            const velocity: Velocity = new Velocity(maxMoveSpeed);
+            const tickRate = 1000 / 35;
+            const tickDelta = tickRate / 1000; // Tick rate is in milliseconds
+            // This function is run every "tick", 1/35 of a second
+            ticker = setInterval(() => {
+                if(renderer.vr.isPresenting() || orientableDevice){
                     if(viewHeadMoving){
-                        const destination = new THREE.Vector3(0, 0, 1);
-                        destination.applyQuaternion(renderer.vr.getCamera(camera).quaternion);
-                        viewHead.translateOnAxis(destination, -moveDistance);
-                    }
-                }else if(orientableDevice){
-                    const touchControls = controls as DeviceOrientationControls;
-                    viewHead.setRotationFromQuaternion(new THREE.Quaternion());
-                    touchControls.update();
-                    if(viewHeadMoving){
-                        const destination = new THREE.Vector3(0, 0, 1);
-                        destination.applyQuaternion(camera.quaternion);
-                        viewHead.translateOnAxis(destination, -moveDistance);
+                        velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
+                    }else{
+                        velocity.move(moveAcceleration * tickDelta);
                     }
                 }else{
+                    // Handle keyboard input. WASD moves the camera like in an FPS game
                     const keyboardControls = controls as KeyboardListener;
-                    // WASD controls - moves camera around
-                    if(keyboardControls.keyState["w"]){
-                        viewHead.translateZ(-moveDistance); // Forward
+                    viewHeadMoving = (
+                        keyboardControls.keyState["w"] ||
+                        keyboardControls.keyState["s"] ||
+                        keyboardControls.keyState["a"] ||
+                        keyboardControls.keyState["d"]
+                    );
+                    if(viewHeadMoving){
+                        if(keyboardControls.keyState["w"]){
+                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
+                        }else if(keyboardControls.keyState["s"]){
+                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, 1));
+                        }
+                        if(keyboardControls.keyState["a"]){
+                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(-1, 0, 0));
+                        }else if(keyboardControls.keyState["d"]){
+                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(1, 0, 0));
+                        }
+                    }else{
+                        velocity.move(moveAcceleration * tickDelta);
                     }
-                    if(keyboardControls.keyState["s"]){
-                        viewHead.translateZ(moveDistance); // Backward
-                    }
-                    if(keyboardControls.keyState["a"]){
-                        viewHead.translateX(-moveDistance); // Left
-                    }
-                    if(keyboardControls.keyState["d"]){
-                        viewHead.translateX(moveDistance); // Right
-                    }
+                }
+            }, Math.floor(tickRate));
+            const render = () => {
+                // Movement in VR
+                let directionQuaternion: THREE.Quaternion = camera.quaternion;
+                if(renderer.vr.isPresenting()){
+                    directionQuaternion = renderer.vr.getCamera(camera).quaternion;
+                }else if(orientableDevice){
+                    const touchControls = controls as DeviceOrientationControls;
+                    touchControls.update();
+                    directionQuaternion = camera.quaternion;
+                }else{
                     // Set view head direction (for non-VR users)
                     const lookAtMe = new THREE.Vector3();
                     lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
-                    viewHead.lookAt(lookAtMe);
+                    camera.lookAt(lookAtMe);
                 }
+                const destination = velocity.vector;
+                destination.applyQuaternion(directionQuaternion);
+                viewHead.position.add(destination);
                 // Render
                 renderer.render(scene, camera);
             };
@@ -637,6 +664,9 @@ const LumpTypeViewMap3D = function(
             window.removeEventListener("touchstart", handleTouchStart);
             window.removeEventListener("touchend", handleTouchEnd);
             window.removeEventListener("pointerlockchange", handleLockedPointer);
+            if(ticker){
+                clearInterval(ticker);
+            }
             if(mouseController){
                 document.removeEventListener("mousemove", mouseController);
             }
