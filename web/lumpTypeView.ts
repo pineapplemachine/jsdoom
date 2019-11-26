@@ -18,6 +18,8 @@ import {TextureSet, TextureLibrary} from "@src/lumps/index";
 import {getPng64, bufferbtoa} from "@web/png64";
 import * as util from "@web/util";
 
+import {Velocity} from "@web/velocity";
+
 const win: any = window as any;
 
 // Manages data for these views, so that stuff like the WAD file list and texture library can be reused between views.
@@ -1087,7 +1089,14 @@ const LumpTypeViewMap3D = function(
             disposables.push(scene);
             scene.add(meshGroup.group);
             disposables.push(meshGroup);
-            const renderer = new THREE.WebGLRenderer({canvas, context});
+            const renderer = new THREE.WebGLRenderer({
+                canvas,
+                context,
+                alpha: true,
+                antialias: false,
+                powerPreference: "high-performance",
+                depth: true,
+            });
             renderer.setSize(root.clientWidth, root.clientHeight, false);
             renderer.setPixelRatio(window.devicePixelRatio);
             // Allow VR
@@ -1186,92 +1195,60 @@ const LumpTypeViewMap3D = function(
             const maxMoveSpeed = 7; // Distance to move camera
             const moveAcceleration = 12; // Acceleration/deceleration per second
             // Axis to translate view head on
-            const velocity: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+            const velocity: Velocity = new Velocity(maxMoveSpeed);
             const tickRate = 1000 / 35;
             const tickDelta = tickRate / 1000; // Tick rate is in milliseconds
             // This function is run every "tick", 1/35 of a second
             ticker = setInterval(() => {
-                if(renderer.vr.isPresenting()){
-                    // A
-                }else if(orientableDevice){
-                    // B
+                if(renderer.vr.isPresenting() || orientableDevice){
+                    if(viewHeadMoving){
+                        velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
+                    }else{
+                        velocity.move(moveAcceleration * tickDelta);
+                    }
                 }else{
                     // Handle keyboard input. WASD moves the camera like in an FPS game
                     const keyboardControls = controls as KeyboardListener;
-                    if(keyboardControls.keyState["w"]){
-                        velocity.z -= moveAcceleration * tickDelta;
-                    }else if(keyboardControls.keyState["s"]){
-                        velocity.z += moveAcceleration * tickDelta;
-                    }else{
-                        if(velocity.z !== 0){
-                            const directionFactor = velocity.z >= 0 ? -1 : 1;
-                            const toAdd = moveAcceleration * tickDelta * directionFactor;
-                            if(Math.sign(velocity.z + toAdd) !== Math.sign(velocity.z)){
-                                velocity.z = 0;
-                            }else{
-                                velocity.z += toAdd;
-                            }
+                    viewHeadMoving = (
+                        keyboardControls.keyState["w"] ||
+                        keyboardControls.keyState["s"] ||
+                        keyboardControls.keyState["a"] ||
+                        keyboardControls.keyState["d"]
+                    );
+                    if(viewHeadMoving){
+                        if(keyboardControls.keyState["w"]){
+                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
+                        }else if(keyboardControls.keyState["s"]){
+                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, 1));
                         }
-                    }
-                    if(keyboardControls.keyState["a"]){
-                        velocity.x -= moveAcceleration * tickDelta;
-                    }else if(keyboardControls.keyState["d"]){
-                        velocity.x += moveAcceleration * tickDelta;
-                    }else{
-                        if(velocity.x !== 0){
-                            const directionFactor = velocity.x >= 0 ? -1 : 1;
-                            const toAdd = moveAcceleration * tickDelta * directionFactor;
-                            if(Math.sign(velocity.x + toAdd) !== Math.sign(velocity.x)){
-                                velocity.x = 0;
-                            }else{
-                                velocity.x += toAdd;
-                            }
+                        if(keyboardControls.keyState["a"]){
+                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(-1, 0, 0));
+                        }else if(keyboardControls.keyState["d"]){
+                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(1, 0, 0));
                         }
+                    }else{
+                        velocity.move(moveAcceleration * tickDelta);
                     }
-                    velocity.clampLength(0, maxMoveSpeed);
                 }
             }, Math.floor(tickRate));
             const render = () => {
                 // Movement in VR
+                let directionQuaternion: THREE.Quaternion = camera.quaternion;
                 if(renderer.vr.isPresenting()){
-                    // Reset viewHead rotation
-                    viewHead.setRotationFromQuaternion(new THREE.Quaternion());
-                    if(viewHeadMoving){
-                        const destination = new THREE.Vector3(0, 0, 1);
-                        destination.applyQuaternion(renderer.vr.getCamera(camera).quaternion);
-                        viewHead.translateOnAxis(velocity, -7);
-                    }
+                    directionQuaternion = renderer.vr.getCamera(camera).quaternion;
                 }else if(orientableDevice){
                     const touchControls = controls as DeviceOrientationControls;
-                    viewHead.setRotationFromQuaternion(new THREE.Quaternion());
                     touchControls.update();
-                    if(viewHeadMoving){
-                        const destination = new THREE.Vector3(0, 0, 1);
-                        destination.applyQuaternion(camera.quaternion);
-                        viewHead.translateOnAxis(velocity, -7);
-                    }
+                    directionQuaternion = camera.quaternion;
                 }else{
-                    /*
-                    if(keyboardControls.keyState["w"]){
-                        viewHead.translateZ(-moveDistance); // Forward
-                    }
-                    if(keyboardControls.keyState["s"]){
-                        viewHead.translateZ(moveDistance); // Backward
-                    }
-                    if(keyboardControls.keyState["a"]){
-                        viewHead.translateX(-moveDistance); // Left
-                    }
-                    if(keyboardControls.keyState["d"]){
-                        viewHead.translateX(moveDistance); // Right
-                    }
-                    */
                     // Set view head direction (for non-VR users)
-                    const velocityAxis = velocity.clone().normalize().applyQuaternion(camera.quaternion);
-                    viewHead.translateOnAxis(velocityAxis, velocity.length());
                     const lookAtMe = new THREE.Vector3();
                     lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
                     camera.lookAt(lookAtMe);
                 }
+                const destination = velocity.vector;
+                destination.applyQuaternion(directionQuaternion);
+                viewHead.position.add(destination);
                 // Render
                 renderer.render(scene, camera);
             };
