@@ -165,20 +165,23 @@ class SectorPolygonBuilder {
         // Get lowermost rightmost vertex out of those
         const otherVertex = rightMostConnectedVertices.reduce(
         (currentLowestVertex, nextVertex) => {
-            if(nextVertex.position.y > currentLowestVertex.position.y){
-                // Lowest Y (Y coordinate is inverted)
+            const relativePosition = new THREE.Vector2();
+            // Calculate angle for currentLowestVertex
+            // subVectors does not modify the vectors it is subtracting
+            relativePosition.subVectors(
+                rightMostVertex.position, currentLowestVertex.position);
+            let {x, y} = relativePosition;
+            const currentLowestAngle = Math.atan2(y, x);
+            // Now calculate angle for nextVertex
+            relativePosition.subVectors(
+                rightMostVertex.position, nextVertex.position);
+            ({x, y} = relativePosition);
+            const nextAngle = Math.atan2(y, x);
+            // To ensure the interior angle is counterclockwise, pick the
+            // connected vertex with the lowest angle. Necessary for proper
+            // 3d-ification
+            if(nextAngle < currentLowestAngle){
                 return nextVertex;
-            }else if(nextVertex.position.y === currentLowestVertex.position.y){
-                // Y is the same, X may be different
-                if(currentLowestVertex.position.y < rightMostVertex.position.y){
-                    if(nextVertex.position.x < currentLowestVertex.position.x){
-                        return nextVertex;
-                    }
-                }else{
-                    if(nextVertex.position.x > currentLowestVertex.position.x){
-                        return nextVertex;
-                    }
-                }
             }
             return currentLowestVertex;
         }, rightMostConnectedVertices[0]);
