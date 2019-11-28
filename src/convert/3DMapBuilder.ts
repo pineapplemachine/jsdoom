@@ -63,6 +63,30 @@ function getSideHeights(frontSector: WADMapSector, backSector: WADMapSector): Si
     };
 }
 
+// Point-in-polygon algorithm - used to find out whether a contiguous set
+// of vertices is a hole in a sector polygon
+function pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
+    // ray-casting algorithm based on
+    // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+    // Code from https://github.com/substack/point-in-polygon/blob/96ef4abc2a623c98214618418e42a68240055f2e/index.js
+    // Licensed under MIT license
+    // (c) 2011 James Halliday
+    const x = point.x, y = point.y;
+    let inside = false;
+    for(let i = 0, j = polygon.length - 1; i < polygon.length; j = i++){
+        const xi = polygon[i].x;
+        const yi = polygon[i].y;
+        const xj = polygon[j].x;
+        const yj = polygon[j].y;
+        const intersect = ((yi > y) != (yj > y))
+        && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if(intersect){
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
 // 2D Vertex position and index
 interface SectorVertex {
     position: THREE.Vector2;
@@ -122,7 +146,7 @@ class SectorPolygonBuilder {
         };
     }
 
-    protected findNextStartEdge(exterior: boolean = false): number[] | null {
+    protected findNextStartEdge(exterior: boolean = false): [number, number] | null {
         // Filter out vertices to skip
         const usableEdges = this.sectorEdges.filter((edge) => {
             // Ensure I pick an edge which has not been added.
@@ -276,6 +300,8 @@ class SectorPolygonBuilder {
         return false;
     }
 
+    // Checks whether a polygon is complete. It is expected that "last" is
+    // "nextVertex" from this.findNextVertex
     protected isPolygonComplete(polygon: number[], last: number): boolean {
         if(polygon.length < 3){
             // There is no such thing as a 2 sided polygon
@@ -284,6 +310,63 @@ class SectorPolygonBuilder {
         // First vertex of polygon
         const first = polygon[0];
         return last === first;
+    }
+
+    // Log the previous, current, and next vertices in an easily readable format
+    // For example:
+    // pv 2     ls 5     nx 4
+    // If nx is null, then it will look more like this:
+    // pv 25    ls 28    nx null
+    protected logVertices(previous: number, current: number, next: number | null){
+        const vertexIndexStrings = [previous, current, next].map(
+        (vertexIndex) => {
+            const indexString = vertexIndex == null ? "null" :
+                vertexIndex.toString(10);
+            // Doom map vertex indices are unsigned 16-bit integers,
+            // which are no more than 5 decimal digits
+            return indexString.padEnd(5, " ");
+        });
+        const vertexTypeStrings = ["pv", "ls", "nx"];
+        const argumentArray: string[] = [];
+        for(let i = 0; i < 3; i++){
+            argumentArray.push(
+                vertexTypeStrings[i],
+                vertexIndexStrings[i]
+            );
+        }
+        console.log(argumentArray.join(" "));
+    }
+
+    // Checks an edge to see whether it is inside a polygon
+    // Returns true if it is, otherwise it returns false
+    protected edgeInPolygon(edge: number[], polygon: number[]): boolean {
+        const sharedVertex = (edgeVertex: number) => polygon.includes(edgeVertex);
+        // If the edge shares both vertices with the polygon, it is inside it
+        // I'm not 100% certain about this, however.
+        if(edge.every((edgeVertex) => sharedVertex(edgeVertex))){
+            return true;
+        }
+        // Check to see whether at least one vertex is in the given polygon
+        const polygonPoints = polygon.map<THREE.Vector2>((polygonVertex) => {
+            return this.vertexFor(polygonVertex).position;
+        });
+        return edge.some((edgeVertex) => {
+            // Edge might not be inside the polygon if it shares at least one
+            // vertex
+            if(sharedVertex(edgeVertex)){
+                return false;
+            }
+            const vertexPosition = this.vertexFor(edgeVertex).position;
+            if(this.debug){
+                console.log(
+                    "pointInPolygon",
+                    vertexPosition,
+                    polygonPoints,
+                    pointInPolygon(vertexPosition, polygonPoints),
+                );
+            }
+            return pointInPolygon(vertexPosition, polygonPoints);
+        });
     }
 
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
@@ -298,6 +381,8 @@ class SectorPolygonBuilder {
         }
         // Current polygon index
         let curPolygon = 0;
+        // Choose next vertex by exterior angle rather than interior angle
+        let exterior = false;
         // Polygon array
         // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
         const sectorPolygons: number[][] = [startEdge];
@@ -308,24 +393,9 @@ class SectorPolygonBuilder {
             const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
             this.visitEdge(prevVertex, lastVertex);
             // The next vertex to add to the polygon
-            const nextVertex = this.findNextVertex(lastVertex, prevVertex);
+            const nextVertex = this.findNextVertex(lastVertex, prevVertex, exterior);
             if(this.debug){
-                const vertexIndexStrings = [prevVertex, lastVertex, nextVertex].map((vertexIndex) => {
-                    const indexString = vertexIndex == null ? "null" :
-                        vertexIndex.toString(10);
-                    // Doom map vertex indices are unsigned 16-bit integers,
-                    // which are no more than 5 decimal digits
-                    return indexString.padEnd(5, " ");
-                });
-                const vertexTypeStrings = ["pv", "ls", "nx"];
-                const argumentArray: string[] = [];
-                for(let i = 0; i < 3; i++){
-                    argumentArray.push(
-                        vertexTypeStrings[i],
-                        vertexIndexStrings[i]
-                    );
-                }
-                console.log(argumentArray.join(" "));
+                this.logVertices(prevVertex, lastVertex, nextVertex);
             }
             // No more vertices left in this polygon
             if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
@@ -336,18 +406,31 @@ class SectorPolygonBuilder {
                 }
                 // Find the first edge of the next polygon, and add it to the
                 // polygons that make up this sector
-                const nextStartEdge = this.findNextStartEdge();
+                const nextStartEdge: [number, number] | null = this.findNextStartEdge();
                 if(nextStartEdge == null){
                     break;
                 }
                 if(this.debug){
                     console.log("new polygon starting with", nextStartEdge);
                 }
+                exterior = false;
+                // Should the next vertex be picked by interior or exterior angle?
+                for(const polygon of sectorPolygons){
+                    if(this.edgeInPolygon(nextStartEdge, polygon)){
+                        if(this.debug){
+                            console.log("this edge is inside a polygon!");
+                        }
+                        exterior = !exterior;
+                    }
+                }
+                if(this.debug){
+                    console.log("exterior", exterior);
+                }
                 // Go to the next polygon
                 curPolygon += 1;
                 sectorPolygons.push(nextStartEdge);
                 // Mark the starting edge as added to the polygon
-                this.visitEdge(nextStartEdge[0], nextStartEdge[1]);
+                this.visitEdge.apply(this, nextStartEdge);
             }else if(this.visitEdge(lastVertex, nextVertex)){
                 // There is another edge in the polygon, mark it as added.
                 sectorPolygons[curPolygon].push(nextVertex);
@@ -628,30 +711,6 @@ export class MapGeometryBuilder {
     constructor(map: WADMap){
         this.map = map;
         this.vertices = [];
-    }
-
-    // Point-in-polygon algorithm - used to find out whether a contiguous set
-    // of vertices is a hole in a sector polygon
-    public static pointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
-        // ray-casting algorithm based on
-        // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
-        // Code from https://github.com/substack/point-in-polygon/blob/96ef4abc2a623c98214618418e42a68240055f2e/index.js
-        // Licensed under MIT license
-        // (c) 2011 James Halliday
-        const x = point.x, y = point.y;
-        let inside = false;
-        for(let i = 0, j = polygon.length - 1; i < polygon.length; j = i++){
-            const xi = polygon[i].x;
-            const yi = polygon[i].y;
-            const xj = polygon[j].x;
-            const yj = polygon[j].y;
-            const intersect = ((yi > y) != (yj > y))
-            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-            if(intersect){
-                inside = !inside;
-            }
-        }
-        return inside;
     }
 
     // Recalculates quad heights, given a quad and a texture height.
@@ -1059,38 +1118,33 @@ export class MapGeometryBuilder {
             // Find out which polygons "contain" this one
             let containerPolygons = sectorPolygons.slice(0, polygonIndex);
             containerPolygons = containerPolygons.filter((otherPolygon) => {
-                if(otherPolygon.boundingBox.area() === polygon.boundingBox.area()){
-                    return false;
-                }
-                const boundBoxComparison = otherPolygon.boundingBox.compare(polygon.boundingBox);
-                if(boundBoxComparison === BoundingBoxComparison.Contains){
-                    return polygon.vertices.some((point) => {
-                        // Check whether a vertex on the other polygon is the
-                        // same as a vertex on this polygon, and if it is, treat
-                        // it as a separate polygon rather than a hole. Fixes
-                        // Eviternity MAP27
-                        const pointOnOtherVertex = otherPolygon.vertices.findIndex(
-                            (otherPoint) => point.equals(otherPoint));
-                        if(pointOnOtherVertex === -1){
-                            // This vertex is not the same as a vertex on the
-                            // other polygon, so it may be a hole.
-                            return MapGeometryBuilder.pointInPolygon(point, otherPolygon.vertices);
-                        }else{
-                            // This vertex is the same as a vertex on the other
-                            // polygon, so it's not a hole.
+                // Get vertices of this polygon that are not part of the other
+                const uniqueVertices = polygon.vertices.filter((vertex) => {
+                    for(const otherVertex of otherPolygon.vertices){
+                        if(vertex.equals(otherVertex)){
                             return false;
                         }
-                    });
-                }
-                return false;
+                    }
+                    return true;
+                });
+                // The polygon is a container if all vertices are shared, or at
+                // least one unique vertex is inside the other polygon
+                return uniqueVertices.some(
+                    (point) => pointInPolygon(point, otherPolygon.vertices)) ||
+                    uniqueVertices.length === 0;
             });
+            // The polygon is a hole if the amount of polygons containing this
+            // one is odd.
+            const isHole = containerPolygons.length % 2 === 1;
             // Get the smallest polygon containing this one, and make this
             // polygon a hole if the smallest polygon containing this one is not.
             const smallestContainerPolygon: SectorPolygon | undefined = (
                 containerPolygons[containerPolygons.length - 1]);
-            if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
-                smallestContainerPolygon.holes.push(polygon.vertices);
-                polygon.isHole = true;
+            if(isHole){
+                if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
+                    smallestContainerPolygon.holes.push(polygon.vertices);
+                    polygon.isHole = true;
+                }
             }
         });
         const mapSector = this.map.sectors!.getSector(sector);
