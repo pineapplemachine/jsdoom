@@ -122,7 +122,7 @@ class SectorPolygonBuilder {
         };
     }
 
-    protected findNextStartEdge(clockwise: boolean = false): number[] | null {
+    protected findNextStartEdge(exterior: boolean = false): number[] | null {
         // Filter out vertices to skip
         const usableEdges = this.sectorEdges.filter((edge) => {
             // Ensure I pick an edge which has not been added.
@@ -167,7 +167,6 @@ class SectorPolygonBuilder {
         (currentLowestVertex, nextVertex) => {
             const relativePosition = new THREE.Vector2();
             // Calculate angle for currentLowestVertex
-            // subVectors does not modify the vectors it is subtracting
             relativePosition.subVectors(
                 rightMostVertex.position, currentLowestVertex.position);
             let {x, y} = relativePosition;
@@ -180,8 +179,14 @@ class SectorPolygonBuilder {
             // To ensure the interior angle is counterclockwise, pick the
             // connected vertex with the lowest angle. Necessary for proper
             // 3d-ification
-            if(nextAngle < currentLowestAngle){
-                return nextVertex;
+            if(exterior){
+                if(nextAngle > currentLowestAngle){
+                    return nextVertex;
+                }
+            }else{
+                if(nextAngle < currentLowestAngle){
+                    return nextVertex;
+                }
             }
             return currentLowestVertex;
         }, rightMostConnectedVertices[0]);
