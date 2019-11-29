@@ -597,7 +597,7 @@ const LumpTypeViewMap3D = function(
                 1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
             const maxMoveSpeed = 7; // Distance to move camera
-            const moveAcceleration = 12; // Acceleration/deceleration per second
+            const moveAcceleration = 24; // Acceleration/deceleration per second
             // Axis to translate view head on
             const velocity: Velocity = new Velocity(maxMoveSpeed);
             const tickRate = 1000 / 35;
