@@ -15,5 +15,5 @@ module.exports = {
         filename: 'webpack-bundle.js'
     },
     // uncomment the following line to shut the Firefox developer tools up
-    // devtool: "source-map",
+    devtool: "source-map",
 };

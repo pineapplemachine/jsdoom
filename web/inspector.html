@@ -13,8 +13,15 @@
         ondrop="onInspectorDrop(event)"
         ondragover="event.preventDefault()">
         <div id="main-header">
-            <div id="main-filename">No WAD</div>
-            <div id="main-open-button" onclick="onClickOpenWad()">Open WAD</div>
+            <div id="open-files" class="flex-h">
+                <div id="current-filename">No WAD</div>
+                <div class="other-file">1. ab</div>
+                <div class="other-file">3. cd</div>
+                <div class="other-file">4. ef</div>
+            </div>
+            <div id="main-open-buttons" class="flex-h">
+                <div class="main-open-button" onclick="onClickOpenWad()">Open WAD</div>
+            </div>
             <input type="file" id="main-file-input" style="display:none">
         </div>
         <div id="main-content">

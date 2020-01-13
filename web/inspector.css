@@ -31,16 +31,43 @@ body {
     height: 60px;
     line-height: 60px;
     background-color: #151519;
+    display: flex;
+    justify-content: space-between;
 }
 
-#main-filename {
+#open-files {
+    flex-grow: 1;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    align-items: center;
+}
+
+#open-files > * {
+    flex-shrink: 0;
+}
+
+#current-filename {
     display: inline-block;
     margin: 0 16px;
     font-size: 24px;
     font-weight: bold;
 }
 
-#main-open-button {
+.other-file {
+    padding: 2px;
+    display: block;
+    line-height: 30px;
+    height: 30px;
+}
+
+.other-file:hover,
+.other-file:active {
+    background-color: #222;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.main-open-button {
     margin: 10px 16px;
     padding: 0 12px;
     border-radius: 4px;
@@ -49,11 +76,10 @@ body {
     box-sizing: border-box;
     cursor: pointer;
     font-size: 16px;
-    float: right;
 }
 
-#main-open-button:hover,
-#main-open-button:active {
+.main-open-button:hover,
+.main-open-button:active {
     background-color: #222;
 }
 
@@ -485,9 +511,6 @@ body {
 }
 /*Mobile screens, old desktops*/
 @media screen and (max-width: 1023px){
-    #lump-view-buttons {
-        display: none;
-    }
     #lump-view-header {
         overflow: visible;
     }
@@ -553,4 +576,8 @@ body {
 .fullscreen-button:hover,
 .fullscreen-button:active {
     background-color: rgba(255,255,255,.25);
+}
+
+.flex-h {
+    display: flex;
 }
