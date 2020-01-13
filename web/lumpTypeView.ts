@@ -604,9 +604,21 @@ const LumpTypeViewMap3D = function(
             const tickDelta = tickRate / 1000; // Tick rate is in milliseconds
             // This function is run every "tick", 1/35 of a second
             ticker = setInterval(() => {
+                // Calculate movement
+                let directionQuaternion: THREE.Quaternion = camera.quaternion;
+                // VR uses a different camera
+                if(renderer.vr.isPresenting()){
+                    directionQuaternion = renderer.vr.getCamera(camera).quaternion;
+                }
+                // Vectors for each direction
+                const forwards = new THREE.Vector3(0, 0, -1);
+                const backwards = new THREE.Vector3(0, 0, 1);
+                const left = new THREE.Vector3(-1, 0, 0);
+                const right = new THREE.Vector3(1, 0, 0);
+                // Movement for VR and "orientable" devices
                 if(renderer.vr.isPresenting() || orientableDevice){
                     if(viewHeadMoving){
-                        velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
+                        velocity.move(moveAcceleration * tickDelta, forwards.applyQuaternion(directionQuaternion));
                     }else{
                         velocity.move(moveAcceleration * tickDelta);
                     }
@@ -621,14 +633,14 @@ const LumpTypeViewMap3D = function(
                     );
                     if(viewHeadMoving){
                         if(keyboardControls.keyState["w"]){
-                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
+                            velocity.move(moveAcceleration * tickDelta, forwards.applyQuaternion(directionQuaternion));
                         }else if(keyboardControls.keyState["s"]){
-                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, 1));
+                            velocity.move(moveAcceleration * tickDelta, backwards.applyQuaternion(directionQuaternion));
                         }
                         if(keyboardControls.keyState["a"]){
-                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(-1, 0, 0));
+                            velocity.move(moveAcceleration * tickDelta, left.applyQuaternion(directionQuaternion));
                         }else if(keyboardControls.keyState["d"]){
-                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(1, 0, 0));
+                            velocity.move(moveAcceleration * tickDelta, right.applyQuaternion(directionQuaternion));
                         }
                     }else{
                         velocity.move(moveAcceleration * tickDelta);
@@ -636,22 +648,18 @@ const LumpTypeViewMap3D = function(
                 }
             }, Math.floor(tickRate));
             const render = () => {
-                // Movement in VR
-                let directionQuaternion: THREE.Quaternion = camera.quaternion;
-                if(renderer.vr.isPresenting()){
-                    directionQuaternion = renderer.vr.getCamera(camera).quaternion;
-                }else if(orientableDevice){
+                // Apply movement
+                if(orientableDevice){
                     const touchControls = controls as DeviceOrientationControls;
                     touchControls.update();
-                    directionQuaternion = camera.quaternion;
-                }else{
+                }
+                if(!renderer.vr.isPresenting() && !orientableDevice){
                     // Set view head direction (for non-VR users)
                     const lookAtMe = new THREE.Vector3();
                     lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
                     camera.lookAt(lookAtMe);
                 }
                 const destination = velocity.vector;
-                destination.applyQuaternion(directionQuaternion);
                 viewHead.position.add(destination);
                 // Render
                 renderer.render(scene, camera);
