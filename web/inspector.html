@@ -14,10 +14,15 @@
         ondragover="event.preventDefault()">
         <div id="main-header">
             <div id="open-files" class="flex-h">
+                <div id="open-file-button"
+                    class="dropdown-button"
+                    onclick="onClickDropdownButton(this)"
+                    data-dropdown-target="open-file-dropdown"></div>
+                <div id="open-file-dropdown">
+                    <ol id="open-file-list">
+                    </ol>
+                </div>
                 <div id="current-filename">No WAD</div>
-                <div class="other-file">1. ab</div>
-                <div class="other-file">3. cd</div>
-                <div class="other-file">4. ef</div>
             </div>
             <div id="main-open-buttons" class="flex-h">
                 <div class="main-open-button" onclick="onClickOpenWad()">Open WAD</div>
@@ -41,7 +46,10 @@
                     </div>
                     <div>
                         <div id="lump-view-dropdown">
-                            <div id="dropdown-button" onclick="onClickDropdownButton(this)"></div>
+                            <div class="dropdown-button"
+                                id="lump-view-dropdown-button"
+                                onclick="onClickDropdownButton(this)"
+                                data-dropdown-target="lump-view-buttons"></div>
                             <div id="lump-view-buttons"></div>
                         </div>
                     </div>
