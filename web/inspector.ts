@@ -6,7 +6,7 @@ import {WADFlat} from "@src/lumps/doom/flat";
 import {WADPicture} from "@src/lumps/doom/picture";
 
 import {LumpType, LumpTypeGeneric, getLumpType} from "@web/lumpType";
-import {LumpTypeView, LumpTypeViewHex} from "@web/lumpTypeView";
+import {LumpTypeView, LumpTypeViewHex, setWadList} from "@web/lumpTypeView";
 
 import * as util from "@web/util";
 
@@ -298,6 +298,7 @@ function addWadToList(wad: WADFile): number {
         appendTo: fileList,
     });
     wadFiles.addFile(wad);
+    setWadList(wadFiles);
     return wadFileIndex;
 }
 

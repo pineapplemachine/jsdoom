@@ -36,7 +36,7 @@ class DataManager {
     // The last WAD file loaded
     private lastWadFile: WADFile | null;
     // The WAD file list
-    private wadFileList: WADFileList | null;
+    public wadFileList: WADFileList | null;
     // The texture library
     private textureLibrary: TextureLibrary | null;
     constructor(){
@@ -47,19 +47,7 @@ class DataManager {
     // Get WAD file list
     // Makes this file easier to maintain when the proper implementation is added
     getWadFileList(lump: WADLump): WADFileList {
-        if(lump.file){
-            if(lump.file !== this.lastWadFile || !this.wadFileList){
-                this.lastWadFile = lump.file;
-                this.wadFileList = new WADFileList([lump.file]);
-            }
-            return this.wadFileList;
-        }else{
-            if(!this.wadFileList){
-                this.wadFileList = new WADFileList();
-            }
-            return this.wadFileList;
-        }
-        return new WADFileList();
+        return this.wadFileList || new WADFileList();
     }
     // Get the texture library. If the WAD File list changes, a new texture library is needed.
     getTextureLibrary(lump: WADLump): TextureLibrary {
@@ -107,6 +95,10 @@ export class LumpTypeView {
         this.view = options.view;
         this.clear = options.clear || null;
     }
+}
+
+export function setWadList(wadFiles: WADFileList){
+    sharedDataManager.wadFileList = wadFiles;
 }
 
 export function createWarning(message: string, callback: any): any {
