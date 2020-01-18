@@ -229,7 +229,7 @@ class BufferModel {
         ];
         const wadTexture = library.get(quad.texture, quad.textureSet);
         const materialIndex: number = (() => {
-            const materialName: string = wadTexture ? wadTexture.name : "-";
+            const materialName: string = wadTexture ? quad.texture : "-";
             const materialIndex = this.getMaterialIndex(materialName);
             if(wadTexture && materialIndex === -1){
                 // Get texture data and make a THREE.js texture out of it
@@ -246,14 +246,14 @@ class BufferModel {
                     quad.place === map3D.LineQuadPlace.Midtexture
                 );
                 const material = new THREE.MeshBasicMaterial({
-                    name: wadTexture.name,
+                    name: materialName,
                     map: texture,
                     transparent,
                     alphaTest: transparent ? BufferModel.alphaTest : 0,
                     vertexColors: THREE.VertexColors,
                 });
                 this.textures.push(texture);
-                return this.getOrAddMaterial(wadTexture.name, material);
+                return this.getOrAddMaterial(materialName, material);
             }else if(materialIndex >= 0){
                 return materialIndex;
             }
@@ -285,7 +285,7 @@ class BufferModel {
     addTriangle(triangle: map3D.SectorTriangle, library: TextureLibrary){
         const wadTexture = library.get(triangle.texture, triangle.textureSet);
         const materialIndex: number = (() => {
-            const materialName: string = wadTexture ? wadTexture.name : "-";
+            const materialName: string = wadTexture ? triangle.texture : "-";
             const materialIndex = this.getMaterialIndex(materialName);
             if(wadTexture && materialIndex === -1){
                 const textureData = library.getRgba(triangle.texture, triangle.textureSet);
@@ -295,13 +295,13 @@ class BufferModel {
                     THREE.RepeatWrapping, THREE.NearestFilter, THREE.LinearFilter,
                     4);
                 const material = new THREE.MeshBasicMaterial({
-                    name: wadTexture.name,
+                    name: materialName,
                     map: texture,
                     transparent: false,
                     vertexColors: THREE.VertexColors,
                 });
                 this.textures.push(texture);
-                return this.getOrAddMaterial(wadTexture.name, material);
+                return this.getOrAddMaterial(materialName, material);
             }else if(materialIndex >= 0){
                 return materialIndex;
             }
