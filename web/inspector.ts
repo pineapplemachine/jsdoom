@@ -6,17 +6,16 @@ import {WADFlat} from "@src/lumps/doom/flat";
 import {WADPicture} from "@src/lumps/doom/picture";
 
 import {LumpType, LumpTypeGeneric, getLumpType} from "@web/lumpType";
-import {LumpTypeView, LumpTypeViewHex} from "@web/lumpTypeView";
+import {LumpTypeView, LumpTypeViewHex, setWadList} from "@web/lumpTypeView";
 
 import * as util from "@web/util";
 
 const win: any = window as any;
 
-// TODO: Use a WADFileList
-let wad: WADFile;
+const wadFiles: WADFileList = new WADFileList();
+let currentWadIndex: number = -1;
 
 let fileInput: any;
-let localFile: any;
 let selectedListItem: any;
 let selectedView: (LumpTypeView | null) = null;
 let selectedDefaultView: boolean = true;
@@ -42,11 +41,11 @@ function getSizeText(bytes: number, fixed: boolean): string {
 win.onInspectorLoad = function(): void {
     fileInput = document.getElementById("main-file-input");
     fileInput.addEventListener("change", function(event: any) {
-        if(!event.target.files[0] || event.target.files[0] === localFile) {
+        if(!event.target.files[0]){
             return;
         }
-        localFile = event.target.files[0];
-        onLoadNewFile();
+        const newFileName = event.target.files[0].name;
+        onLoadNewFile(event.target.files[0]);
     });
 };
 
@@ -55,11 +54,15 @@ win.onInspectorDrop = function(event: any): void {
     event.preventDefault();
     if(event.dataTransfer.items && event.dataTransfer.items.length){
         // TODO: Use a WADFileList
-        localFile = event.dataTransfer.items[0].getAsFile();
-        onLoadNewFile();
+        const file = event.dataTransfer.items[0].getAsFile();
+        if(file){
+            onLoadNewFile(file);
+        }
     }else if(event.dataTransfer.files && event.dataTransfer.files.length){
-        localFile = event.dataTransfer.files[0];
-        onLoadNewFile();
+        const file = event.dataTransfer.files[0];
+        if(file){
+            onLoadNewFile(file);
+        }
     }
 };
 
@@ -67,18 +70,18 @@ win.onClickOpenWad = function(): void {
     fileInput.click();
 };
 
-win.loadFromServer = function(file: string): void {
+win.loadFromServer = function(url: string): void {
     const messageContainer = document.getElementById("message-container");
     if(messageContainer && messageContainer.hasChildNodes()){
         for(const childNode of messageContainer.childNodes){
             messageContainer.removeChild(childNode);
         }
     }
-    fetch(file).then((response) => {
+    const wadName = url.substring(url.lastIndexOf("/") + 1);
+    fetch(url).then((response) => {
         const fileSize: number = Number.parseInt(response.headers.get("Content-Length") || "0", 10);
         let fileBuffer = new Buffer(0);
         if(response.ok){
-            wad = new WADFile(file.substring(file.lastIndexOf("/") + 1));
             const progressMessageElement = document.createElement("div");
             progressMessageElement.classList.add("lump-view-info-message");
             const progressMessage = document.createTextNode("%");
@@ -105,17 +108,16 @@ win.loadFromServer = function(file: string): void {
             }
             return reader.read().then(readData);
         }
-        return Promise.reject(`Attempt to get ${file} failed: ${response.status} ${response.statusText}`);
+        return Promise.reject(`Attempt to get ${url} failed: ${response.status} ${response.statusText}`);
     }).then((data) => {
         if(messageContainer && messageContainer.hasChildNodes()){
             for(const childNode of messageContainer.childNodes){
                 messageContainer.removeChild(childNode);
             }
         }
-        const buffer = Buffer.from(data);
-        wad.loadData(buffer);
-        localFile = {name: file.substring(file.lastIndexOf("/") + 1)};
-        win.onWadLoaded();
+        const buffer: ArrayBuffer = data.buffer;
+        const file = new File([buffer], wadName);
+        onLoadNewFile(file);
     }).catch((error) => {
         if(messageContainer){
             const errorMessageElement = document.createElement("div");
@@ -126,14 +128,20 @@ win.loadFromServer = function(file: string): void {
     });
 };
 
-function onLoadNewFile(): void {
-    wad = new WADFile(localFile.name);
+function onLoadNewFile(file: File): void {
+    const wadFileNames = wadFiles.files.map((wadFile) => wadFile.path);
+    if(wadFileNames.includes(file.name)){
+        // WAD already loaded
+        return;
+    }
+    const wad = new WADFile(file.name);
     const reader: FileReader = new FileReader();
-    reader.readAsArrayBuffer(localFile);
+    reader.readAsArrayBuffer(file);
     reader.onload = function() {
         if(reader.result){
             wad.loadData(Buffer.from(reader.result as ArrayBuffer));
-            win.onWadLoaded();
+            const wadListIndex = addWadToList(wad);
+            setCurrentWad(wad, wadListIndex);
         }
     };
 }
@@ -277,21 +285,69 @@ function updateLumpViewButtons(item: any): void {
     }
 }
 
-win.onWadLoaded = function(): void {
-    updateLumpListCount(wad.lumps.length, wad.lumps.length);
-    const listElement = util.id("lump-list-content");
-    util.removeChildren(listElement);
-    util.id("main-filename")!.innerText = localFile.name;
+function addWadToList(wad: WADFile): number {
+    const fileList = util.id("open-file-list");
+    const wadFileIndex = wadFiles.files.length;
+    const wadListEntry = util.createElement({
+        tag: "li",
+        appendTo: fileList,
+    });
+    // Necessary to keep list numbering/bullets intact
+    const flexContainer = util.createElement({
+        tag: "div",
+        class: "flex-h",
+        appendTo: wadListEntry,
+    });
+    util.createElement({
+        tag: "div",
+        class: "file-name",
+        innerText: wad.path,
+        onleftclick: () => {
+            const wad = wadFiles.files[wadFileIndex];
+            setCurrentWad(wad, wadFileIndex);
+        },
+        appendTo: flexContainer,
+    });
+    util.createElement({
+        tag: "div",
+        class: "file-close-button",
+        innerText: "\xD7",
+        onleftclick: () => {
+            wadFiles.removeByIndex(wadFileIndex);
+            fileList.removeChild(wadListEntry);
+            setWadList(wadFiles);
+            if(wadFileIndex === currentWadIndex){
+                if(wadFileIndex > 0){
+                    const previousWad = wadFiles.files[wadFileIndex - 1];
+                    setCurrentWad(previousWad, wadFileIndex - 1);
+                }else{
+                    setCurrentWad(null);
+                }
+            }
+        },
+        appendTo: flexContainer,
+    });
+    wadFiles.addFile(wad);
+    setWadList(wadFiles);
+    return wadFileIndex;
+}
+
+function setCurrentWad(wad: WADFile | null, listIndex: number = -1): void {
+    const lumpList = util.id("lump-list-content");
+    util.removeChildren(lumpList);
+    currentWadIndex = listIndex;
     if(!wad){
+        util.id("current-filename")!.innerText = "No WAD";
         return;
     }
     let itemIndex: number = 0;
+    util.id("current-filename")!.innerText = wad.path;
     for(const lump of wad.lumps){
         const lumpType: LumpType = getLumpType(lump);
         const item = util.createElement({
             tag: "div",
             class: "list-item",
-            appendTo: listElement,
+            appendTo: lumpList,
             lump: lump,
             lumpType: lumpType,
             itemIndex: itemIndex++,
@@ -324,10 +380,19 @@ win.onWadLoaded = function(): void {
             appendTo: item,
         });
     }
-};
+    const wadList = util.id("open-file-list");
+    const wadListElements = wadList.querySelectorAll("li > .flex-h");
+    for(const wadElement of wadListElements){
+        wadElement.classList.remove("current-wad");
+    }
+    wadListElements[listIndex].classList.add("current-wad");
+}
 
 // Support for mobile devices and narrow screens
 win.onClickDropdownButton = function(element: HTMLElement): void {
     element.classList.toggle("dropped");
-    util.id("lump-view-buttons").classList.toggle("dropped");
+    const dropdownTarget = element.dataset.dropdownTarget;
+    if(dropdownTarget){
+        util.id(dropdownTarget).classList.toggle("dropped");
+    }
 };

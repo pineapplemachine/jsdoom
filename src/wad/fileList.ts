@@ -27,6 +27,26 @@ export class WADFileList {
         this.map.addFile(file);
     }
     
+    // Remove a single WAD file from the list.
+    removeFile(file: WADFile): void {
+        const fileIndex = this.files.findIndex((wad) => wad === file);
+        if(fileIndex >= 0){
+            this.removeByIndex(fileIndex);
+        }
+    }
+    
+    // Remove a single WAD file from the list by its index.
+    // Rebuilds the lump map because lumps in PWADs may override lumps in previous WADs.
+    removeByIndex(index: number): void {
+        // Remove WAD file
+        this.files.splice(index, 1);
+        // Rebuild lump map
+        this.map = new WADLumpMap();
+        for(const wad of this.files){
+            this.map.addFile(wad);
+        }
+    }
+    
     // Get a PLAYPAL lump object given the list of wads or, if none of the WADs
     // contain a PLAYPAL lump, then get a default WADPalette.
     getPlaypal(): WADPalette {
