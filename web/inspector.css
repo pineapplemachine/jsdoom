@@ -60,19 +60,28 @@ body {
     padding-left: 20px;
     line-height: 1rem;
 }
+#open-file-list .file-name {
+    flex-grow: 1;
+}
+#open-file-list .file-close-button {
+    flex-shrink: 0;
+}
 
-#open-file-list > li {
+#open-file-list .file-name,
+#open-file-list .file-close-button {
     user-select: none;
     cursor: pointer;
 }
 
-#open-file-list > li:hover,
-#open-file-list > li:active {
+#open-file-list .file-name:hover,
+#open-file-list .file-close-button:hover,
+#open-file-list .file-name:active,
+#open-file-list .file-close-button:active {
     background-color: #444;
     border-radius: 5px;
 }
 
-.current-wad {
+.current-wad > .file-name {
     background-color: #333;
     border-radius: 5px;
 }

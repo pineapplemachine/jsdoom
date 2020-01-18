@@ -13,6 +13,7 @@ import * as util from "@web/util";
 const win: any = window as any;
 
 const wadFiles: WADFileList = new WADFileList();
+let currentWadIndex: number = -1;
 
 let fileInput: any;
 let selectedListItem: any;
@@ -287,26 +288,55 @@ function updateLumpViewButtons(item: any): void {
 function addWadToList(wad: WADFile): number {
     const fileList = util.id("open-file-list");
     const wadFileIndex = wadFiles.files.length;
-    const newWadListEntry = util.createElement({
+    const wadListEntry = util.createElement({
         tag: "li",
-        wadFileIndex,
+        class: "flex-h",
+        appendTo: fileList,
+    });
+    util.createElement({
+        tag: "div",
+        class: "file-name",
         innerText: wad.path,
         onleftclick: () => {
             const wad = wadFiles.files[wadFileIndex];
             setCurrentWad(wad, wadFileIndex);
         },
-        appendTo: fileList,
+        appendTo: wadListEntry,
+    });
+    util.createElement({
+        tag: "div",
+        class: "file-close-button",
+        innerText: "\xD7",
+        onleftclick: () => {
+            wadFiles.removeByIndex(wadFileIndex);
+            fileList.removeChild(wadListEntry);
+            setWadList(wadFiles);
+            if(wadFileIndex === currentWadIndex){
+                if(wadFileIndex > 0){
+                    const previousWad = wadFiles.files[wadFileIndex - 1];
+                    setCurrentWad(previousWad, wadFileIndex - 1);
+                }else{
+                    setCurrentWad(null);
+                }
+            }
+        },
+        appendTo: wadListEntry,
     });
     wadFiles.addFile(wad);
     setWadList(wadFiles);
     return wadFileIndex;
 }
 
-function setCurrentWad(wad: WADFile, listIndex: number): void {
+function setCurrentWad(wad: WADFile | null, listIndex: number = -1): void {
     const lumpList = util.id("lump-list-content");
     util.removeChildren(lumpList);
-    util.id("current-filename")!.innerText = wad.path;
+    currentWadIndex = listIndex;
+    if(!wad){
+        util.id("current-filename")!.innerText = "No WAD";
+        return;
+    }
     let itemIndex: number = 0;
+    util.id("current-filename")!.innerText = wad.path;
     for(const lump of wad.lumps){
         const lumpType: LumpType = getLumpType(lump);
         const item = util.createElement({
