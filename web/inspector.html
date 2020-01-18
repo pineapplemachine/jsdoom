@@ -12,16 +12,16 @@
         onload="onInspectorLoad()"
         ondrop="onInspectorDrop(event)"
         ondragover="event.preventDefault()">
+        <div id="open-file-dropdown">
+            <ol id="open-file-list">
+            </ol>
+        </div>
         <div id="main-header">
             <div id="open-files" class="flex-h">
                 <div id="open-file-button"
                     class="dropdown-button"
                     onclick="onClickDropdownButton(this)"
                     data-dropdown-target="open-file-dropdown"></div>
-                <div id="open-file-dropdown">
-                    <ol id="open-file-list">
-                    </ol>
-                </div>
                 <div id="current-filename">No WAD</div>
             </div>
             <div id="main-open-buttons" class="flex-h">

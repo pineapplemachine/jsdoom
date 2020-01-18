@@ -290,8 +290,13 @@ function addWadToList(wad: WADFile): number {
     const wadFileIndex = wadFiles.files.length;
     const wadListEntry = util.createElement({
         tag: "li",
-        class: "flex-h",
         appendTo: fileList,
+    });
+    // Necessary to keep list numbering/bullets intact
+    const flexContainer = util.createElement({
+        tag: "div",
+        class: "flex-h",
+        appendTo: wadListEntry,
     });
     util.createElement({
         tag: "div",
@@ -301,7 +306,7 @@ function addWadToList(wad: WADFile): number {
             const wad = wadFiles.files[wadFileIndex];
             setCurrentWad(wad, wadFileIndex);
         },
-        appendTo: wadListEntry,
+        appendTo: flexContainer,
     });
     util.createElement({
         tag: "div",
@@ -320,7 +325,7 @@ function addWadToList(wad: WADFile): number {
                 }
             }
         },
-        appendTo: wadListEntry,
+        appendTo: flexContainer,
     });
     wadFiles.addFile(wad);
     setWadList(wadFiles);
@@ -376,7 +381,7 @@ function setCurrentWad(wad: WADFile | null, listIndex: number = -1): void {
         });
     }
     const wadList = util.id("open-file-list");
-    const wadListElements = wadList.querySelectorAll("li");
+    const wadListElements = wadList.querySelectorAll("li > .flex-h");
     for(const wadElement of wadListElements){
         wadElement.classList.remove("current-wad");
     }
