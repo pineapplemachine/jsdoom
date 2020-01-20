@@ -13,7 +13,6 @@ import * as util from "@web/util";
 const win: any = window as any;
 
 const wadFiles: WADFileList = new WADFileList();
-let currentWadIndex: number = -1;
 
 let fileInput: any;
 let selectedListItem: any;
@@ -140,8 +139,8 @@ function onLoadNewFile(file: File): void {
     reader.onload = function() {
         if(reader.result){
             wad.loadData(Buffer.from(reader.result as ArrayBuffer));
-            const wadListIndex = addWadToList(wad);
-            setCurrentWad(wad, wadListIndex);
+            addWadToList(wad);
+            setCurrentWad(wad);
         }
     };
 }
@@ -152,8 +151,8 @@ win.onLoadWad = function(wad: WADFile): void {
         // WAD already loaded
         return;
     }
-    const wadListIndex = addWadToList(wad);
-    setCurrentWad(wad, wadListIndex);
+    addWadToList(wad);
+    setCurrentWad(wad);
 };
 
 win.onSearchInput = function(): void {
@@ -295,9 +294,8 @@ function updateLumpViewButtons(item: any): void {
     }
 }
 
-function addWadToList(wad: WADFile): number {
+function addWadToList(wad: WADFile): void {
     const fileList = util.id("open-file-list");
-    const wadFileIndex = wadFiles.files.length;
     const wadListEntry = util.createElement({
         tag: "li",
         appendTo: fileList,
@@ -313,8 +311,7 @@ function addWadToList(wad: WADFile): number {
         class: "file-name",
         innerText: wad.path,
         onleftclick: () => {
-            const wad = wadFiles.files[wadFileIndex];
-            setCurrentWad(wad, wadFileIndex);
+            setCurrentWad(wad);
         },
         appendTo: flexContainer,
     });
@@ -323,13 +320,18 @@ function addWadToList(wad: WADFile): number {
         class: "file-close-button",
         innerText: "\xD7",
         onleftclick: () => {
-            wadFiles.removeByIndex(wadFileIndex);
+            const wadFileIndex = wadFiles.files.findIndex((wadInList) => wadInList === wad);
+            const currentWadIndex = Array.prototype.findIndex.call(
+                fileList.querySelectorAll("li > div.flex-h"), (element) => {
+                return element.classList.contains("current-wad");
+            });
+            wadFiles.removeFile(wad);
             fileList.removeChild(wadListEntry);
             setWadList(wadFiles);
             if(wadFileIndex === currentWadIndex){
                 if(wadFileIndex > 0){
                     const previousWad = wadFiles.files[wadFileIndex - 1];
-                    setCurrentWad(previousWad, wadFileIndex - 1);
+                    setCurrentWad(previousWad);
                 }else{
                     setCurrentWad(null);
                 }
@@ -339,13 +341,13 @@ function addWadToList(wad: WADFile): number {
     });
     wadFiles.addFile(wad);
     setWadList(wadFiles);
-    return wadFileIndex;
 }
 
-function setCurrentWad(wad: WADFile | null, listIndex: number = -1): void {
+function setCurrentWad(wad: WADFile | null): void {
     const lumpList = util.id("lump-list-content");
     util.removeChildren(lumpList);
-    currentWadIndex = listIndex;
+    // It is assumed that wad is in the WAD file list.
+    const listIndex = wadFiles.files.findIndex((wadInList) => wadInList === wad);
     if(!wad){
         util.id("current-filename")!.innerText = "No WAD";
         return;
