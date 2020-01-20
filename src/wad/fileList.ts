@@ -80,7 +80,12 @@ export class WADFileList {
             colormap: this.getColormap(),
             mapIndex: mapIndex,
         });
-    }    
+    }
+    
+    // Get the index of the given WAD file in this list. Return -1 if it isn't in the list.
+    indexOf(wad: WADFile): number {
+        return this.files.findIndex((wadInList) => wadInList === wad);
+    }
 }
 
 export default WADFileList;

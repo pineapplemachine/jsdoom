@@ -146,10 +146,13 @@ function onLoadNewFile(file: File): void {
 }
 
 win.onLoadWad = function(wad: WADFile): void {
-    const wadFileNames = wadFiles.files.map((wadFile) => wadFile.path);
-    if(wadFileNames.includes(wad.path)){
-        // WAD already loaded
-        return;
+    const wadFileIndex = wadFiles.files.findIndex((wadInList) => wadInList.path === wad.path);
+    if(wadFileIndex >= 0){
+        const wadData = wad.getData().toString("base64");
+        const wadInListData = wadFiles.files[wadFileIndex].getData().toString("base64");
+        if(wadData === wadInListData){
+            return;
+        }
     }
     addWadToList(wad);
     setCurrentWad(wad);
@@ -320,7 +323,7 @@ function addWadToList(wad: WADFile): void {
         class: "file-close-button",
         innerText: "\xD7",
         onleftclick: () => {
-            const wadFileIndex = wadFiles.files.findIndex((wadInList) => wadInList === wad);
+            const wadFileIndex = wadFiles.indexOf(wad);
             const currentWadIndex = Array.prototype.findIndex.call(
                 fileList.querySelectorAll("li > div.flex-h"), (element) => {
                 return element.classList.contains("current-wad");
@@ -346,12 +349,12 @@ function addWadToList(wad: WADFile): void {
 function setCurrentWad(wad: WADFile | null): void {
     const lumpList = util.id("lump-list-content");
     util.removeChildren(lumpList);
-    // It is assumed that wad is in the WAD file list.
-    const listIndex = wadFiles.files.findIndex((wadInList) => wadInList === wad);
     if(!wad){
         util.id("current-filename")!.innerText = "No WAD";
         return;
     }
+    // It is assumed that wad is in the WAD file list.
+    const listIndex = wadFiles.indexOf(wad);
     let itemIndex: number = 0;
     util.id("current-filename")!.innerText = wad.path;
     for(const lump of wad.lumps){
