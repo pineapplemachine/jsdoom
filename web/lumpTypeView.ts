@@ -1003,3 +1003,27 @@ export function LumpTypeViewColormapByMap(
         }
     });
 }
+
+export const LumpTypeViewMetaWAD = new LumpTypeView({
+    name: "WAD",
+    icon: "assets/icons/lump-wad.png",
+    view: (lump: WADLump, root: HTMLElement) => {
+        const lumpName = lump.name;
+        const lumpData = lump.data!;
+        const openButtonContainer = util.createElement({
+            tag: "div",
+            class: "flex-c",
+            appendTo: root,
+        });
+        const openButton = util.createElement({
+            tag: "div",
+            class: "main-open-button",
+            content: `Open ${lumpName}`,
+            onleftclick: function(){
+                const wadFile = new WADFile(lumpName, lumpData);
+                win.onLoadWad(wadFile);
+            },
+            appendTo: openButtonContainer,
+        });
+    }
+});

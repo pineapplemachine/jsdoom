@@ -1,5 +1,6 @@
 import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
+import {WADFileType} from "@src/wad/fileType";
 import {WADLump} from "@src/wad/lump";
 
 import * as lumps from "@src/lumps/index";
@@ -349,6 +350,19 @@ export const LumpTypeList: LumpType[] = [
         views: [view.LumpTypeViewText],
         filter: (lump: WADLump) => {
             return lump.name === "SCRIPTS";
+        }
+    }),
+    new LumpType({
+        name: "Internal WAD",
+        icon: "assets/icons/lump-wad.png",
+        views: [view.LumpTypeViewMetaWAD],
+        filter: (lump: WADLump) => {
+            if(!lump.data){
+                return false;
+            }
+            const wadTypeIdentifier = lump.data.slice(0, 4).toString();
+            const wadType = WADFileType.fromName(wadTypeIdentifier);
+            return wadType !== WADFileType.Invalid;
         }
     }),
 ];

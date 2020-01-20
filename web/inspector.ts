@@ -146,6 +146,16 @@ function onLoadNewFile(file: File): void {
     };
 }
 
+win.onLoadWad = function(wad: WADFile): void {
+    const wadFileNames = wadFiles.files.map((wadFile) => wadFile.path);
+    if(wadFileNames.includes(wad.path)){
+        // WAD already loaded
+        return;
+    }
+    const wadListIndex = addWadToList(wad);
+    setCurrentWad(wad, wadListIndex);
+};
+
 win.onSearchInput = function(): void {
     const search = util.id("lump-list-search");
     const value: string = search ? search.value.trim().toUpperCase() : "";
@@ -386,6 +396,7 @@ function setCurrentWad(wad: WADFile | null, listIndex: number = -1): void {
         wadElement.classList.remove("current-wad");
     }
     wadListElements[listIndex].classList.add("current-wad");
+    updateLumpListCount(wad.lumps.length, wad.lumps.length);
 }
 
 // Support for mobile devices and narrow screens
