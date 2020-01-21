@@ -34,7 +34,7 @@ class BufferModel {
     };
     static readonly nullTexture: THREE.Texture = (() => {
         const loader = new THREE.TextureLoader();
-        return loader.load("/assets/textures/missing.png",
+        return loader.load("assets/textures/missing.png",
         (texture: THREE.Texture) => {
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
