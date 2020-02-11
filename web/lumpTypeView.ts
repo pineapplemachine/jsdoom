@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {DeviceOrientationControls} from "three/examples/jsm/controls/DeviceOrientationControls.js";
-import {WEBVR} from "three/examples/jsm/vr/WebVR.js";
+import {VRButton} from "three/examples/jsm/webxr/VRButton.js";
 
 // Fullscreen support
 import fscreen from "fscreen";
@@ -497,9 +497,9 @@ const LumpTypeViewMap3D = function(
             renderer.setPixelRatio(window.devicePixelRatio);
             // Allow VR
             if(vrSupported){
-                renderer.vr.enabled = true;
+                renderer.xr.enabled = true;
                 // VR is supported
-                const vrButton = WEBVR.createButton(renderer);
+                const vrButton = VRButton.createButton(renderer);
                 root.appendChild(vrButton);
             }else{
                 // Allow 3D view to be expanded to full screen
@@ -516,7 +516,7 @@ const LumpTypeViewMap3D = function(
             }
             disposables.push(renderer);
             // VR controls
-            const controller = renderer.vr.getController(0);
+            const controller = renderer.xr.getController(0);
             let viewHeadMoving = false;
             controller.addEventListener("selectstart", () => {
                 viewHeadMoving = true;
@@ -596,7 +596,7 @@ const LumpTypeViewMap3D = function(
             const tickDelta = tickRate / 1000; // Tick rate is in milliseconds
             // This function is run every "tick", 1/35 of a second
             ticker = setInterval(() => {
-                if(renderer.vr.isPresenting() || orientableDevice){
+                if(renderer.xr.isPresenting || orientableDevice){
                     if(viewHeadMoving){
                         velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
                     }else{
@@ -630,8 +630,8 @@ const LumpTypeViewMap3D = function(
             const render = () => {
                 // Movement in VR
                 let directionQuaternion: THREE.Quaternion = camera.quaternion;
-                if(renderer.vr.isPresenting()){
-                    directionQuaternion = renderer.vr.getCamera(camera).quaternion;
+                if(renderer.xr.isPresenting){
+                    directionQuaternion = renderer.xr.getCamera(camera).quaternion;
                 }else if(orientableDevice){
                     const touchControls = controls as DeviceOrientationControls;
                     touchControls.update();
