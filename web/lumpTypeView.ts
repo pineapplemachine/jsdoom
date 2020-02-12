@@ -481,9 +481,9 @@ const LumpTypeViewMap3D = function(
                 sharedDataManager.getTextureLibrary(lump),
             );
             // Initialize scene, renderer, and camera
-            const scene = new THREE.Scene();
-            disposables.push(scene);
-            scene.add(meshGroup.group);
+            const mapScene = new THREE.Scene();
+            disposables.push(mapScene);
+            mapScene.add(meshGroup.group);
             disposables.push(meshGroup);
             const renderer = new THREE.WebGLRenderer({
                 canvas,
@@ -524,13 +524,79 @@ const LumpTypeViewMap3D = function(
             controller.addEventListener("selectend", () => {
                 viewHeadMoving = false;
             });
-            // Set up camera
-            const camera = new THREE.PerspectiveCamera(
+            const mapCamera = new THREE.PerspectiveCamera(
                 options.fov || 90, // FOV
                 root.clientWidth / root.clientHeight, // Aspect ratio
                 1, // Near clip
                 10000, // Far clip
             );
+            const mapCubeCamera = new THREE.CubeCamera(1, 10000, 1024);
+            const equirectangularViewCamera = new THREE.OrthographicCamera(-.5, .5, -.5, .5, -1, 1);
+            const equirectangularViewScene = new THREE.Scene();
+            disposables.push(equirectangularViewScene);
+            const equirectangularViewMaterial = new THREE.ShaderMaterial({
+                side: THREE.DoubleSide,
+                uniforms: {
+                    "tex": {value: mapCubeCamera.renderTarget.texture},
+                },
+                vertexShader: `
+                varying vec2 vUv;
+                void main(){
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }`,
+                // Fragment shader
+                fragmentShader: `
+                #define PI 3.1415926535897932384626433
+                varying vec2 vUv;
+                uniform samplerCube tex;
+
+                // These are in column-major order
+                mat3 rotationX(float angle){
+                    return mat3(
+                        1., 0., 0.,
+                        0., cos(angle), sin(angle),
+                        0., -sin(angle), cos(angle)
+                    );
+                }
+
+                mat3 rotationY(float angle){
+                    return mat3(
+                        cos(angle), 0., -sin(angle),
+                        0., 1., 0.,
+                        sin(angle), 0., cos(angle)
+                    );
+                }
+
+                mat3 rotationZ(float angle){
+                    return mat3(
+                        cos(angle), sin(angle), 0.,
+                        -sin(angle), cos(angle), 0.,
+                        0., 0., 1.
+                    );
+                }
+
+                void main(){
+                    // When looking up texels from a cubemap sampler, the
+                    // vector is from the center of the cube to the texel.
+                    float longitude = vUv.x * PI * -2.;
+                    float latitude = vUv.y * PI;
+                    vec3 direction = vec3(
+                        sin(latitude) * cos(longitude),
+                        sin(latitude) * sin(longitude),
+                        cos(latitude)
+                    );
+                    direction = direction * rotationX(.5 * PI) * rotationY(-1.5 * PI);
+                    gl_FragColor = texture(tex, direction);
+                }`,
+            });
+            const equirectangularViewMesh = new THREE.Mesh(
+                new THREE.PlaneBufferGeometry(),
+                equirectangularViewMaterial,
+            );
+            equirectangularViewScene.add(equirectangularViewMesh);
+            equirectangularViewScene.add(equirectangularViewCamera);
+            mapScene.add(mapCubeCamera);
             // Set up controls
             // Detect devices that have a built-in compass and/or accelerometer
             let orientableDevice = false;
@@ -539,7 +605,7 @@ const LumpTypeViewMap3D = function(
                 orientableDevice = true;
             }
             const controls: (KeyboardListener | DeviceOrientationControls) = (
-                orientableDevice ? new DeviceOrientationControls(camera) :
+                orientableDevice ? new DeviceOrientationControls(mapCamera) :
                 new KeyboardListener());
             // Handle touches
             handleTouchStart = () => {
@@ -555,19 +621,19 @@ const LumpTypeViewMap3D = function(
             disposables.push(controls);
             // Bind resize and fullscreen event handler
             handleResize = () => {
-                camera.aspect = root.clientWidth / root.clientHeight;
+                mapCamera.aspect = root.clientWidth / root.clientHeight;
                 renderer.setSize(root.clientWidth, root.clientHeight, false);
                 renderer.setPixelRatio(window.devicePixelRatio);
-                camera.updateProjectionMatrix();
+                mapCamera.updateProjectionMatrix();
             };
             handleFullscreen = () => {
                 if(fscreen.fullscreenElement){
                     const sceneWidth = window.outerWidth;
                     const sceneHeight = window.outerHeight;
-                    camera.aspect = sceneWidth / sceneHeight;
+                    mapCamera.aspect = sceneWidth / sceneHeight;
                     renderer.setSize(sceneWidth, sceneHeight, false);
                     renderer.setPixelRatio(window.devicePixelRatio);
-                    camera.updateProjectionMatrix();
+                    mapCamera.updateProjectionMatrix();
                 }else{
                     handleResize();
                 }
@@ -580,8 +646,8 @@ const LumpTypeViewMap3D = function(
             viewHead.position.set(
                 playerStart ? playerStart.x : 0,
                 0, playerStart ? -playerStart.y : 0);
-            viewHead.add(camera);
-            scene.add(viewHead);
+            viewHead.add(mapCamera);
+            mapScene.add(viewHead);
             // Direction control
             const playerAngle = playerStart ? // Player angle is 0-360 degrees
                 playerStart.angle / (180 / Math.PI) : 0;
@@ -629,24 +695,25 @@ const LumpTypeViewMap3D = function(
             }, Math.floor(tickRate));
             const render = () => {
                 // Movement in VR
-                let directionQuaternion: THREE.Quaternion = camera.quaternion;
+                let directionQuaternion: THREE.Quaternion = mapCamera.quaternion;
                 if(renderer.xr.isPresenting){
-                    directionQuaternion = renderer.xr.getCamera(camera).quaternion;
+                    directionQuaternion = renderer.xr.getCamera(mapCamera).quaternion;
                 }else if(orientableDevice){
                     const touchControls = controls as DeviceOrientationControls;
                     touchControls.update();
-                    directionQuaternion = camera.quaternion;
+                    directionQuaternion = mapCamera.quaternion;
                 }else{
                     // Set view head direction (for non-VR users)
                     const lookAtMe = new THREE.Vector3();
                     lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
-                    camera.lookAt(lookAtMe);
+                    mapCamera.lookAt(lookAtMe);
                 }
                 const destination = velocity.vector;
                 destination.applyQuaternion(directionQuaternion);
                 viewHead.position.add(destination);
                 // Render
-                renderer.render(scene, camera);
+                // mapCubeCamera.update(renderer, mapScene);
+                renderer.render(mapScene, mapCamera);
             };
             renderer.setAnimationLoop(render); // Needed for VR support
         },
