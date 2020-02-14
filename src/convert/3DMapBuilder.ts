@@ -100,7 +100,7 @@ class SectorPolygonBuilder {
     // The "edges" of a sector, and whether or not they have been added
     private edgesLeft: {[edge: string]: boolean};
     // The "edges" (start/end vertex of each line, as number arrays)
-    private readonly sectorEdges: number[][];
+    private readonly sectorEdges: Edge[];
     // Vertices used by the sector's lines
     private readonly mapVertices: WADMapVertex[];
     // Whether to print extra information
@@ -111,9 +111,9 @@ class SectorPolygonBuilder {
         this.sectorEdges = [];
         this.edgesLeft = {};
         for(const line of sectorLines){
-            const edge = [line.startVertex, line.endVertex];
+            const edge: Edge = [line.startVertex, line.endVertex];
             // Ensure duplicate edges are not added
-            const edgeDuplicate = [line.endVertex, line.startVertex];
+            const edgeDuplicate: Edge = [line.endVertex, line.startVertex];
             if(!this.sectorEdges.includes(edge) &&
                 !this.sectorEdges.includes(edgeDuplicate)
             ){
@@ -228,7 +228,7 @@ class SectorPolygonBuilder {
         // - Have not been added to a polygon
         // - Are attached to the "from" vertex
         // - Are not the "previous" vertex
-        const edges: number[][] = this.sectorEdges.filter((edge) => {
+        const edges: Edge[] = this.sectorEdges.filter((edge) => {
             if(this.edgesLeft[edge.join(" ")] === true){
                 return false;
             }
@@ -342,35 +342,6 @@ class SectorPolygonBuilder {
     // Checks an edge to see whether it is inside a polygon
     // Returns true if it is, otherwise it returns false
     protected edgeInPolygon(edge: Edge, polygon: number[]): boolean {
-        /*
-        const sharedVertex = (edgeVertex: number) => polygon.includes(edgeVertex);
-        // If the edge shares both vertices with the polygon, it is inside it
-        // I'm not 100% certain about this, however.
-        if(edge.every((edgeVertex) => sharedVertex(edgeVertex))){
-            return true;
-        }
-        // Check to see whether at least one vertex is in the given polygon
-        const polygonPoints = polygon.map<THREE.Vector2>((polygonVertex) => {
-            return this.vertexFor(polygonVertex).position;
-        });
-        return edge.some((edgeVertex) => {
-            // Edge might not be inside the polygon if it shares at least one
-            // vertex
-            if(sharedVertex(edgeVertex)){
-                return false;
-            }
-            const vertexPosition = this.vertexFor(edgeVertex).position;
-            if(this.debug){
-                console.log(
-                    "pointInPolygon",
-                    vertexPosition,
-                    polygonPoints,
-                    pointInPolygon(vertexPosition, polygonPoints),
-                );
-            }
-            return pointInPolygon(vertexPosition, polygonPoints);
-        });
-        */
         // Get each vertex for the edge, and find the midpoint. Then, test
         // whether the midpoint is in the given polygon.
         const edgeVertices = edge.map((edgeVertex) => {
@@ -385,7 +356,7 @@ class SectorPolygonBuilder {
     }
 
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
-    getPolygons(): number[][] {
+    getPolygons(): Edge[] {
         // Make a new array with the sector polygons
         const startEdge = this.findNextStartEdge();
         if(!startEdge){
@@ -400,7 +371,7 @@ class SectorPolygonBuilder {
         let exterior = false;
         // Polygon array
         // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
-        const sectorPolygons: number[][] = [startEdge];
+        const sectorPolygons: Edge[] = [startEdge];
         while(this.sectorEdges.some(
             (edge) => this.edgesLeft[edge.join(" ")] === false)
         ){
@@ -844,10 +815,10 @@ export class MapGeometryBuilder {
 
     // Turn a list of sector lines into a list of vertex indices
     protected getPolygonsFromLines(sectorLines: WADMapLine[],
-            sector: number): number[][] {
+            sector: number): Edge[] {
         const sectorPolygonBuilder = new SectorPolygonBuilder(
             sectorLines, this.vertices);
-        let sectorPolygons: number[][] = [];
+        let sectorPolygons: Edge[] = [];
         try{
             sectorPolygons = sectorPolygonBuilder.getPolygons();
         }catch(error){
