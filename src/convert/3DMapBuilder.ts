@@ -93,6 +93,8 @@ interface SectorVertex {
     index: number;
 }
 
+type Edge = [number, number];
+
 class SectorPolygonBuilder {
     // Takes lines of a sector, and converts it to polygons
     // The "edges" of a sector, and whether or not they have been added
@@ -146,7 +148,7 @@ class SectorPolygonBuilder {
         };
     }
 
-    protected findNextStartEdge(exterior: boolean = false): [number, number] | null {
+    protected findNextStartEdge(exterior: boolean = false): Edge | null {
         // Filter out vertices to skip
         const usableEdges = this.sectorEdges.filter((edge) => {
             // Ensure I pick an edge which has not been added.
@@ -339,7 +341,8 @@ class SectorPolygonBuilder {
 
     // Checks an edge to see whether it is inside a polygon
     // Returns true if it is, otherwise it returns false
-    protected edgeInPolygon(edge: number[], polygon: number[]): boolean {
+    protected edgeInPolygon(edge: Edge, polygon: number[]): boolean {
+        /*
         const sharedVertex = (edgeVertex: number) => polygon.includes(edgeVertex);
         // If the edge shares both vertices with the polygon, it is inside it
         // I'm not 100% certain about this, however.
@@ -367,6 +370,18 @@ class SectorPolygonBuilder {
             }
             return pointInPolygon(vertexPosition, polygonPoints);
         });
+        */
+        // Get each vertex for the edge, and find the midpoint. Then, test
+        // whether the midpoint is in the given polygon.
+        const edgeVertices = edge.map((edgeVertex) => {
+            return this.vertexFor(edgeVertex).position;
+        });
+        const polygonVertices = polygon.map((polygonVertex) => {
+            return this.vertexFor(polygonVertex).position;
+        });
+        const edgeMidpoint = edgeVertices[0].clone().add(edgeVertices[1]);
+        edgeMidpoint.divideScalar(edge.length);
+        return pointInPolygon(edgeMidpoint, polygonVertices);
     }
 
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
