@@ -95,8 +95,8 @@ interface SectorVertex {
 
 type Edge = [number, number];
 
+// Takes lines of a sector, and converts it to polygons
 class SectorPolygonBuilder {
-    // Takes lines of a sector, and converts it to polygons
     // The "edges" of a sector, and whether or not they have been added
     private edgesLeft: {[edge: string]: boolean};
     // The "edges" (start/end vertex of each line, as number arrays)
@@ -356,7 +356,7 @@ class SectorPolygonBuilder {
     }
 
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
-    getPolygons(): Edge[] {
+    getPolygons(): number[][] {
         // Make a new array with the sector polygons
         const startEdge = this.findNextStartEdge();
         if(!startEdge){
@@ -371,7 +371,7 @@ class SectorPolygonBuilder {
         let exterior = false;
         // Polygon array
         // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
-        const sectorPolygons: Edge[] = [startEdge];
+        const sectorPolygons: number[][] = [startEdge];
         while(this.sectorEdges.some(
             (edge) => this.edgesLeft[edge.join(" ")] === false)
         ){
@@ -392,7 +392,7 @@ class SectorPolygonBuilder {
                 }
                 // Find the first edge of the next polygon, and add it to the
                 // polygons that make up this sector
-                const nextStartEdge: [number, number] | null = this.findNextStartEdge();
+                const nextStartEdge: Edge | null = this.findNextStartEdge();
                 if(nextStartEdge == null){
                     break;
                 }
@@ -815,10 +815,10 @@ export class MapGeometryBuilder {
 
     // Turn a list of sector lines into a list of vertex indices
     protected getPolygonsFromLines(sectorLines: WADMapLine[],
-            sector: number): Edge[] {
+            sector: number): number[][] {
         const sectorPolygonBuilder = new SectorPolygonBuilder(
             sectorLines, this.vertices);
-        let sectorPolygons: Edge[] = [];
+        let sectorPolygons: number[][] = [];
         try{
             sectorPolygons = sectorPolygonBuilder.getPolygons();
         }catch(error){
