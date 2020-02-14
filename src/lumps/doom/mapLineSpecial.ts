@@ -300,3 +300,233 @@ export const WADMapLineSpecialList: WADMapLineSpecial[] = [
     {id: 0x010C, name: "W1 Teleport Monsters Only (Silent)"}, // Boom
     {id: 0x010D, name: "WR Teleport Monsters Only (Silent)"}, // Boom
 ];
+
+// A list of action specials for Hexen format maps. Note that ZDoom-based ports
+// use these specials internally, as well in Hexen and UDMF format maps.
+export const WADMapHexenLineSpecialList: WADMapLineSpecial[] = [
+    {id: 0x01, name: "Polyobject Start Line"}, // Hexen
+    {id: 0x02, name: "Polyobject Rotate Left"}, // Hexen
+    {id: 0x03, name: "Polyobject Rotate Right"}, // Hexen
+    {id: 0x04, name: "Polyobject Move"}, // Hexen
+    {id: 0x05, name: "Polyobject Explicit Line"}, // Hexen
+    {id: 0x06, name: "Polyobject Move (arg×8)"}, // Hexen
+    {id: 0x07, name: "Polyobject Door Swing"}, // Hexen
+    {id: 0x08, name: "Polyobject Door Slide"}, // Hexen
+    {id: 0x09, name: "Line Horizon"}, // ZDoom, Eternity
+    {id: 0x0A, name: "Door Close"}, // Hexen
+    {id: 0x0B, name: "Door Open"}, // Hexen
+    {id: 0x0C, name: "Door Raise"}, // Hexen
+    {id: 0x0D, name: "Door Locked Raise"}, // Hexen
+    {id: 0x0E, name: "Door Animated"}, // Hexen
+    {id: 0x0F, name: "Autosave"}, // ZDoom
+    {id: 0x10, name: "Transfer Wall Light"}, // ZDoom
+    {id: 0x11, name: "Thing Raise"}, // ZDoom, Eternity
+    {id: 0x12, name: "Start Conversation"}, // ZDoom, Strife
+    {id: 0x13, name: "Thing Stop"}, // ZDoom, Eternity
+    {id: 0x14, name: "Floor Lower By Value"}, // Hexen
+    {id: 0x15, name: "Floor Lower To Lowest"}, // Hexen
+    {id: 0x16, name: "Floor Lower To Nearest"},
+    {id: 0x17, name: "Floor Raise By Value"}, // Hexen
+    {id: 0x18, name: "Floor Raise To Highest"}, // Hexen
+    {id: 0x19, name: "Floor Raise To Nearest"}, // Hexen
+    {id: 0x1A, name: "Stairs Build Down"}, // Hexen
+    {id: 0x1B, name: "Stairs Build Up"}, // Hexen
+    {id: 0x1C, name: "Floor Raise And Crush"}, // Hexen
+    {id: 0x1D, name: "Pillar Build"}, // Hexen
+    {id: 0x1E, name: "Pillar Open"}, // Hexen
+    {id: 0x1F, name: "Stairs Build Down (Synchronized)"}, // Hexen
+    {id: 0x20, name: "Stairs Build Up (Synchronized)"}, // Hexen
+    {id: 0x21, name: "Force Field"}, // ZDoom, Strife
+    {id: 0x22, name: "Clear Force Field"}, // ZDoom, Strife
+    {id: 0x23, name: "Floor Raise By Value × 8"}, // Hexen
+    {id: 0x24, name: "Floor Lower By Value × 8"}, // Hexen
+    {id: 0x25, name: "Floor Move To Value"}, // ZDoom, Eternity
+    {id: 0x26, name: "Ceiling Waggle"}, // ZDoom
+    {id: 0x27, name: "Teleport Zombie Changer"}, // ZDoom
+    {id: 0x28, name: "Ceiling Lower By Value"}, // Hexen
+    {id: 0x29, name: "Ceiling Raise By Value"}, // Hexen
+    {id: 0x2A, name: "Ceiling Crush And Raise"}, // Hexen
+    {id: 0x2B, name: "Ceiling Lower And Crush"}, // Hexen
+    {id: 0x2C, name: "Ceiling Crush Stop"}, // Hexen
+    {id: 0x2D, name: "Ceiling Crush Raise And Stay"}, // Hexen
+    {id: 0x2E, name: "Floor Crush Stop"}, // Hexen
+    {id: 0x2F, name: "Ceiling Move To Value"}, // ZDoom, Eternity
+    {id: 0x30, name: "Sector Attach 3D Midtex"}, // ZDoom, Eternity
+    {id: 0x31, name: "Glass Break"}, // ZDoom
+    {id: 0x32, name: "Extra Floor Light Only"}, // ZDoom
+    {id: 0x33, name: "Sector Set Link"}, // ZDoom
+    {id: 0x34, name: "Scroll Wall"}, // ZDoom
+    {id: 0x35, name: "Line Set Texture Offset"}, // ZDoom
+    {id: 0x36, name: "Sector Change Flags"}, // ZDoom
+    {id: 0x37, name: "Line Set Blocking"}, // ZDoom
+    {id: 0x38, name: "Line Set Texture Scale"}, // ZDoom
+    {id: 0x39, name: "Sector Set Portal"}, // ZDoom
+    {id: 0x3A, name: "Sector Copy Scroller"}, // ZDoom
+    {id: 0x3B, name: "Polyobj OR Move To Spot"}, // ZDoom
+    {id: 0x3C, name: "Plat Perpetual Raise"}, // Hexen
+    {id: 0x3D, name: "Plat Stop"}, // Hexen
+    {id: 0x3E, name: ""},
+    {id: 0x3F, name: ""},
+    {id: 0x40, name: ""},
+    {id: 0x41, name: ""},
+    {id: 0x42, name: ""},
+    {id: 0x43, name: ""},
+    {id: 0x44, name: ""},
+    {id: 0x45, name: ""},
+    {id: 0x46, name: ""},
+    {id: 0x47, name: ""},
+    {id: 0x48, name: ""},
+    {id: 0x49, name: ""},
+    {id: 0x4A, name: ""},
+    {id: 0x4B, name: ""},
+    {id: 0x4C, name: ""},
+    {id: 0x4D, name: ""},
+    {id: 0x4E, name: ""},
+    {id: 0x4F, name: ""},
+    {id: 0x50, name: ""},
+    {id: 0x51, name: ""},
+    {id: 0x52, name: ""},
+    {id: 0x53, name: ""},
+    {id: 0x54, name: ""},
+    {id: 0x55, name: ""},
+    {id: 0x56, name: ""},
+    {id: 0x57, name: ""},
+    {id: 0x58, name: ""},
+    {id: 0x59, name: ""},
+    {id: 0x5A, name: ""},
+    {id: 0x5B, name: ""},
+    {id: 0x5C, name: ""},
+    {id: 0x5D, name: ""},
+    {id: 0x5E, name: ""},
+    {id: 0x5F, name: ""},
+    {id: 0x60, name: ""},
+    {id: 0x64, name: ""},
+    {id: 0x65, name: ""},
+    {id: 0x66, name: ""},
+    {id: 0x67, name: ""},
+    {id: 0x6D, name: ""},
+    {id: 0x6E, name: ""},
+    {id: 0x6F, name: ""},
+    {id: 0x70, name: ""},
+    {id: 0x71, name: ""},
+    {id: 0x72, name: ""},
+    {id: 0x73, name: ""},
+    {id: 0x74, name: ""},
+    {id: 0x75, name: ""},
+    {id: 0x76, name: ""},
+    {id: 0x77, name: ""},
+    {id: 0x78, name: ""},
+    {id: 0x79, name: ""},
+    {id: 0x7D, name: ""},
+    {id: 0x7F, name: ""},
+    {id: 0x80, name: ""},
+    {id: 0x81, name: ""},
+    {id: 0x82, name: ""},
+    {id: 0x83, name: ""},
+    {id: 0x84, name: ""},
+    {id: 0x85, name: ""},
+    {id: 0x86, name: ""},
+    {id: 0x87, name: ""},
+    {id: 0x88, name: ""},
+    {id: 0x89, name: ""},
+    {id: 0x8A, name: ""},
+    {id: 0x8B, name: ""},
+    {id: 0x8C, name: ""},
+    {id: 0x91, name: ""},
+    {id: 0x98, name: ""},
+    {id: 0x99, name: ""},
+    {id: 0x9A, name: ""},
+    {id: 0x9D, name: ""},
+    {id: 0x9E, name: ""},
+    {id: 0x9F, name: ""},
+    {id: 0xA0, name: ""},
+    {id: 0xA1, name: ""},
+    {id: 0xA9, name: ""},
+    {id: 0xAA, name: ""},
+    {id: 0xAB, name: ""},
+    {id: 0xAC, name: ""},
+    {id: 0xAD, name: ""},
+    {id: 0xAE, name: ""},
+    {id: 0xAF, name: ""},
+    {id: 0xB0, name: ""},
+    {id: 0xB1, name: ""},
+    {id: 0xB2, name: ""},
+    {id: 0xB3, name: ""},
+    {id: 0xB4, name: ""},
+    {id: 0xB5, name: ""},
+    {id: 0xB6, name: ""},
+    {id: 0xB7, name: ""},
+    {id: 0xB8, name: ""},
+    {id: 0xB9, name: ""},
+    {id: 0xBA, name: ""},
+    {id: 0xBB, name: ""},
+    {id: 0xBC, name: ""},
+    {id: 0xBD, name: ""},
+    {id: 0xBE, name: ""},
+    {id: 0xBF, name: ""},
+    {id: 0xC0, name: ""},
+    {id: 0xC1, name: ""},
+    {id: 0xC2, name: ""},
+    {id: 0xC3, name: ""},
+    {id: 0xC4, name: ""},
+    {id: 0xC5, name: ""},
+    {id: 0xC6, name: ""},
+    {id: 0xC7, name: ""},
+    {id: 0xC8, name: ""},
+    {id: 0xC9, name: ""},
+    {id: 0xCA, name: ""},
+    {id: 0xCB, name: ""},
+    {id: 0xCC, name: ""},
+    {id: 0xCD, name: ""},
+    {id: 0xCE, name: ""},
+    {id: 0xCF, name: ""},
+    {id: 0xD0, name: ""},
+    {id: 0xD1, name: ""},
+    {id: 0xD2, name: ""},
+    {id: 0xD3, name: ""},
+    {id: 0xD4, name: ""},
+    {id: 0xD5, name: ""},
+    {id: 0xD6, name: ""},
+    {id: 0xD7, name: ""},
+    {id: 0xD8, name: ""},
+    {id: 0xD9, name: ""},
+    {id: 0xDA, name: ""},
+    {id: 0xDB, name: ""},
+    {id: 0xDC, name: ""},
+    {id: 0xDD, name: ""},
+    {id: 0xDE, name: ""},
+    {id: 0xDF, name: ""},
+    {id: 0xE0, name: ""},
+    {id: 0xE1, name: ""},
+    {id: 0xE2, name: ""},
+    {id: 0xE3, name: ""},
+    {id: 0xE4, name: ""},
+    {id: 0xE5, name: ""},
+    {id: 0xE6, name: ""},
+    {id: 0xE7, name: ""},
+    {id: 0xE8, name: ""},
+    {id: 0xE9, name: ""},
+    {id: 0xEA, name: ""},
+    {id: 0xEB, name: ""},
+    {id: 0xEC, name: ""},
+    {id: 0xED, name: ""},
+    {id: 0xEE, name: ""},
+    {id: 0xEF, name: ""},
+    {id: 0xF0, name: ""},
+    {id: 0xF1, name: ""},
+    {id: 0xF2, name: ""},
+    {id: 0xF3, name: ""},
+    {id: 0xF4, name: ""},
+    {id: 0xF5, name: ""},
+    {id: 0xF6, name: ""},
+    {id: 0xF7, name: ""},
+    {id: 0xF8, name: ""},
+    {id: 0xF9, name: ""},
+    {id: 0xFA, name: ""},
+    {id: 0xFB, name: ""},
+    {id: 0xFC, name: ""},
+    {id: 0xFD, name: ""},
+    {id: 0xFE, name: ""},
+    {id: 0xFF, name: ""},
+];
+

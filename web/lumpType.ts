@@ -337,6 +337,27 @@ export const LumpTypeList: LumpType[] = [
         }
     }),
     new LumpType({
+        name: "Map GLNodes",
+        icon: "assets/icons/lump-map.png",
+        filter: (lump: WADLump) => {
+            return lump.name === "LEAFS";
+        }
+    }),
+    new LumpType({
+        name: "Map Light Colors",
+        icon: "assets/icons/lump-map.png",
+        filter: (lump: WADLump) => {
+            return lump.name === "LIGHTS";
+        }
+    }),
+    new LumpType({
+        name: "Map Macros",
+        icon: "assets/icons/lump-map.png",
+        filter: (lump: WADLump) => {
+            return lump.name === "MACROS";
+        }
+    }),
+    new LumpType({
         name: "ACS Bytecode",
         icon: "assets/icons/lump-script.png",
         filter: (lump: WADLump) => {

@@ -1,5 +1,6 @@
 import {WADLump} from "@src/wad/lump";
 
+import {WADMapFormat} from "./mapFormat";
 import {WADMapLines, WADMapLine} from "./mapLines";
 import {WADMapSectors, WADMapSector} from "./mapSectors";
 import {WADMapSides, WADMapSide} from "./mapSides";
@@ -34,6 +35,11 @@ export class WADMap {
     blockmap: (WADLump | null);
     // Represents the map's BEHAVIOR lump. (Hexen, ZDoom)
     behavior: (WADLump | null);
+    // The map's format
+    format: WADMapFormat;
+    // Some maps, like the ones in GZDoom PK3s, and the IWAD for Doom 64 EX,
+    // are in self-contained WADs.
+    selfContained: boolean;
     
     constructor(name: string) {
         this.name = name;
@@ -48,6 +54,8 @@ export class WADMap {
         this.reject = null;
         this.blockmap = null;
         this.behavior = null;
+        this.format = WADMapFormat.Doom;
+        this.selfContained = false;
     }
     
     // Returns true when a WADLump is a map marker.
@@ -116,16 +124,31 @@ export class WADMap {
                 map.blockmap = lump;
             }else if(name === "BEHAVIOR"){ // BEHAVIOR (Hexen, ZDoom)
                 map.behavior = lump;
+                // ZDoom/UDMF maps can also have BEHAVIOR and/or SCRIPTS lumps.
+                if(map.format !== WADMapFormat.UDMF){
+                    map.format = WADMapFormat.Hexen;
+                }
             }else if(name === "TEXTMAP"){ // TEXTMAP (ZDoom)
                 // TODO: Load UDMF maps
+                // TEXTMAP and ZNODES are only present on UDMF maps
+                map.format = WADMapFormat.UDMF;
             }else if(name === "ZNODES"){ // ZNODES (ZDoom)
                 // TODO: Load UDMF maps
+                map.format = WADMapFormat.UDMF;
             }else if(name === "DIALOGUE"){ // DIALOGUE (ZDoom)
                 // TODO: Load UDMF maps
+                map.format = WADMapFormat.UDMF;
+            }else if(name === "LEAFS"){ // LEAFS (Doom PSX/64)
+                map.format = WADMapFormat.DoomPSX;
+            }else if(name === "LIGHTS"){ // LIGHTS (Doom 64)
+                map.format = WADMapFormat.Doom64;
+            }else if(name === "MACROS"){ // MACROS (Doom 64)
+                map.format = WADMapFormat.Doom64;
             }else{ // Exit upon seeing anything else (including ENDMAP)
                 break;
             }
         }
+        map.setFormat(map.format);
         return map;
     }
     
@@ -183,5 +206,12 @@ export class WADMap {
         // Use the last player start.
         // Other player starts for the same player are voodoo dolls.
         return playerStart;
+    }
+    
+    // Makes the map lumps be parsed in the given format
+    setFormat(format: WADMapFormat){
+        if(this.lines){
+            this.lines.format = format;
+        }
     }
 }

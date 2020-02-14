@@ -1094,3 +1094,25 @@ export const LumpTypeViewMetaWAD = new LumpTypeView({
         });
     }
 });
+
+export const LumpTypeViewMacros = new LumpTypeView({
+    name: "Macros",
+    icon: "assets/icons/lump-generic.png",
+    view: (lump: WADLump, root: HTMLElement) => {
+        const macros = new lumps.WADMapMacros(lump.data!);
+        const textElement = util.createElement({
+            tag: "pre",
+            appendTo: root,
+        });
+        textElement.innerText = `${macros.eventTotal} events, ${macros.actionTotal} actions.\n\n`;
+        let currentMacroIndex = 0;
+        for(const event of macros.events){
+            textElement.innerText += `========== Macro ${currentMacroIndex} (${event.actionCount} actions) ==========\n`;
+            for(const action of event.actions){
+                textElement.innerText += `Action ${action.action} (line ${action.lineTag}, sector ${action.sectorTag})\n`;
+            }
+            textElement.innerText += "\n";
+            currentMacroIndex += 1;
+        }
+    }
+});

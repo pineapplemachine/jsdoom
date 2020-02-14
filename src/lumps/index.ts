@@ -3,4 +3,5 @@
 
 export * from "./doom/index";
 export * from "./zdoom/index";
+export * from "./doom64/index";
 export * from "./textureLibrary";
