@@ -95,6 +95,21 @@ interface SectorVertex {
 
 type Edge = [number, number];
 
+// Check whether two arrays of T are the same. Required because two identical
+// arrays can point to two different objects, and JS objects are compared by
+// their memory location (pointer) rather than the values they contain.
+function arrayEquals<T>(first: T[], second: T[]): boolean {
+    if(first.length !== second.length){
+        return false;
+    }
+    for(let index = 0; index < first.length; index++){
+        if(first[index] !== second[index]){
+            return false;
+        }
+    }
+    return true;
+}
+
 // Takes lines of a sector, and converts it to polygons
 class SectorPolygonBuilder {
     // The "edges" of a sector, and whether or not they have been added
@@ -114,10 +129,9 @@ class SectorPolygonBuilder {
             const edge: Edge = [line.startVertex, line.endVertex];
             // Ensure duplicate edges are not added
             const edgeDuplicate: Edge = [line.endVertex, line.startVertex];
-            if(!this.sectorEdges.includes(edge) &&
-                !this.sectorEdges.includes(edgeDuplicate)
-            ){
-                this.sectorEdges.push([line.startVertex, line.endVertex]);
+            if(!this.sectorEdges.some((sectorEdge) => arrayEquals(sectorEdge, edge)) &&
+                !this.sectorEdges.some((sectorEdge) => arrayEquals(sectorEdge, edgeDuplicate))){
+                this.sectorEdges.push(edge);
                 this.edgesLeft[edge.join(" ")] = false;
             }
         }
@@ -229,10 +243,10 @@ class SectorPolygonBuilder {
         // - Are attached to the "from" vertex
         // - Are not the "previous" vertex
         const edges: Edge[] = this.sectorEdges.filter((edge) => {
-            if(this.edgesLeft[edge.join(" ")] === true){
-                return false;
-            }
             if(edge.includes(from) && !edge.includes(previous)){
+                if(this.edgesLeft[edge.join(" ")] === true){
+                    return false;
+                }
                 return true;
             }
             return false;
