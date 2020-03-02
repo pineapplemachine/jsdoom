@@ -112,25 +112,46 @@ function arrayEquals<T>(first: T[], second: T[]): boolean {
 
 // Takes lines of a sector, and converts it to polygons
 class SectorPolygonBuilder {
-    // The "edges" of a sector, and whether or not they have been added
-    private edgesLeft: {[edge: string]: boolean};
-    // The "edges" (start/end vertex of each line, as number arrays)
+    // The "edges" (start/end vertex of each line)
     private readonly sectorEdges: Edge[];
+    // Whether or not each "edge" of this sector has been used in a "polygon".
+    private edgesLeft: {[edge: string]: boolean};
     // Vertices used by the sector's lines
     private readonly mapVertices: WADMapVertex[];
     // Whether to print extra information
     public debug: boolean;
 
-    constructor(sectorLines: WADMapLine[], mapVertices: WADMapVertex[], debug: boolean = false){
-        // Get sector edges
+    constructor(
+        sectorLines: WADMapLine[],
+        mapVertices: WADMapVertex[],
+        duplicateVertices: {[vertex: number]: number} = {},
+        debug: boolean = false,
+    ){
         this.sectorEdges = [];
         this.edgesLeft = {};
+        // Fix duplicate vertex references if they exist
+        const fixVertexReference = (vertex: number): number => {
+            if(duplicateVertices.hasOwnProperty(vertex)){
+                return duplicateVertices[vertex];
+            }
+            return vertex;
+        };
+        // Add edges to sector edges
         for(const line of sectorLines){
-            const edge: Edge = [line.startVertex, line.endVertex];
+            const edge: Edge = [
+                fixVertexReference(line.startVertex),
+                fixVertexReference(line.endVertex)
+            ];
             // Ensure duplicate edges are not added
-            const edgeDuplicate: Edge = [line.endVertex, line.startVertex];
-            if(!this.sectorEdges.some((sectorEdge) => arrayEquals(sectorEdge, edge)) &&
-                !this.sectorEdges.some((sectorEdge) => arrayEquals(sectorEdge, edgeDuplicate))){
+            const edgeDuplicate: Edge = [
+                fixVertexReference(line.endVertex),
+                fixVertexReference(line.startVertex)
+            ];
+            const checkEdge = (sectorEdge: Edge) => {
+                return arrayEquals<number>(sectorEdge, edge) &&
+                    arrayEquals<number>(sectorEdge, edgeDuplicate);
+            };
+            if(!this.sectorEdges.some(checkEdge)){
                 this.sectorEdges.push(edge);
                 this.edgesLeft[edge.join(" ")] = false;
             }
@@ -706,11 +727,16 @@ export enum QuadVertexPosition {
 export class MapGeometryBuilder {
     // The map data
     protected map: WADMap;
+    // The vertices of the map
     protected vertices: WADMapVertex[];
+    // If two vertices are in the same position, this can be used to remove
+    // references to the duplicates.
+    protected duplicateVertices: {[vertex: number]: number};
 
     constructor(map: WADMap){
         this.map = map;
         this.vertices = [];
+        this.duplicateVertices = {};
     }
 
     // Recalculates quad heights, given a quad and a texture height.
@@ -831,7 +857,7 @@ export class MapGeometryBuilder {
     protected getPolygonsFromLines(sectorLines: WADMapLine[],
             sector: number): number[][] {
         const sectorPolygonBuilder = new SectorPolygonBuilder(
-            sectorLines, this.vertices);
+            sectorLines, this.vertices, this.duplicateVertices);
         let sectorPolygons: number[][] = [];
         try{
             sectorPolygons = sectorPolygonBuilder.getPolygons();
@@ -840,6 +866,123 @@ export class MapGeometryBuilder {
             return [];
         }
         return sectorPolygons;
+    }
+
+    // Create all of the sector triangles for the map
+    protected getSectorTriangles(sector: number, lines: WADMapLine[]): SectorTriangle[] {
+        // if(hasGlNodes){  // GL nodes contain data useful for triangulating sectors
+        // }else{
+        // Get sector polygons and triangulate the sector
+        const sectorRawPolygons = this.getPolygonsFromLines(lines, sector);
+        const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
+        (rawPolygon) => {
+            // Convert indices to positions
+            const polygonVertices = rawPolygon.map((vertexIndex) => {
+                return new THREE.Vector2(
+                    this.vertices[vertexIndex].x, -this.vertices[vertexIndex].y);
+            });
+            return {
+                vertices: polygonVertices,
+                holes: [],
+                boundingBox: BoundingBox.from(polygonVertices),
+                isHole: false,
+            };
+        });
+        // Sort by area in descending order.
+        // I think this will make it faster to build the sector
+        // ceiling/floor triangles.
+        sectorPolygons.sort((polyA, polyB) =>
+            polyB.boundingBox.area() - polyA.boundingBox.area());
+        // Find holes
+        sectorPolygons.forEach((polygon, polygonIndex) => {
+            // Find out which polygons "contain" this one
+            let containerPolygons = sectorPolygons.slice(0, polygonIndex);
+            containerPolygons = containerPolygons.filter((otherPolygon) => {
+                // Get vertices of this polygon that are not part of the other
+                const uniqueVertices = polygon.vertices.filter((vertex) => {
+                    for(const otherVertex of otherPolygon.vertices){
+                        if(vertex.equals(otherVertex)){
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                // The polygon is a container if all vertices are shared, or at
+                // least one unique vertex is inside the other polygon
+                return uniqueVertices.some(
+                    (point) => pointInPolygon(point, otherPolygon.vertices)) ||
+                    uniqueVertices.length === 0;
+            });
+            // The polygon is a hole if the amount of polygons containing this
+            // one is odd.
+            const isHole = containerPolygons.length % 2 === 1;
+            // Get the smallest polygon containing this one, and make this
+            // polygon a hole if the smallest polygon containing this one is not.
+            const smallestContainerPolygon: SectorPolygon | undefined = (
+                containerPolygons[containerPolygons.length - 1]);
+            if(isHole){
+                if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
+                    smallestContainerPolygon.holes.push(polygon.vertices);
+                    polygon.isHole = true;
+                }
+            }
+        });
+        const mapSector = this.map.sectors!.getSector(sector);
+        const sectorTriangles: SectorTriangle[] = [];
+        sectorPolygons.forEach((polygon) => {
+            if(polygon.isHole){
+                return;
+            }
+            // triangulateShape expects data structures like this:
+            // (contour) [{x: 10, y: 10}, {x: -10, y: 10}, {x: -10, y: -10}, {x: 10, y: -10}]
+            // (holes) [[{x: 5, y: 5}, {x: -5, y: 5}, {x: -5, y: -5}, {x: 5, y: -5}], etc.]
+            const triangles = THREE.ShapeUtils.triangulateShape(polygon.vertices, polygon.holes);
+            const polygonVertices: THREE.Vector2[] = polygon.vertices.slice();
+            polygon.holes.forEach((holeVertices) => {
+                Array.prototype.push.apply(polygonVertices, holeVertices);
+            });
+            triangles.forEach((triangle) => {
+                const triangleVertices: THREE.Vector2[] = (
+                    triangle.map<THREE.Vector2>(
+                        (vertexIndex) => polygonVertices[vertexIndex]));
+                sectorTriangles.push({ // Floor
+                    lightLevel: mapSector.light,
+                    vertices: triangleVertices,
+                    height: mapSector.floorHeight,
+                    texture: mapSector.floorFlat,
+                    textureSet: TextureSet.Flats,
+                    normalVector: new THREE.Vector3(0, 1, 0),
+                    reverse: true,
+                    place: SectorTrianglePlace.Floor,
+                }, { // Ceiling
+                    lightLevel: mapSector.light,
+                    vertices: triangleVertices,
+                    height: mapSector.ceilingHeight,
+                    texture: mapSector.ceilingFlat,
+                    textureSet: TextureSet.Flats,
+                    normalVector: new THREE.Vector3(0, -1, 0),
+                    reverse: false,
+                    place: SectorTrianglePlace.Ceiling,
+                });
+            });
+        });
+        return sectorTriangles;
+    }
+
+    protected findDuplicateVertices(vertices: WADMapVertex[]){
+        // Find duplicate vertices
+        const vertexIndices: {[position: string]: number} = {};
+        vertices.forEach((vertex, vertexIndex) => {
+            // Position as string
+            const position = `${vertex.x} ${vertex.y}`;
+            if(vertexIndices[position] == null){
+                vertexIndices[position] = vertexIndex;
+            }else{
+                // This vertex is in the same position as another!
+                const firstVertexIndex = vertexIndices[position];
+                this.duplicateVertices[vertexIndex] = firstVertexIndex;
+            }
+        });
     }
 
     // Get quads for a particular line
@@ -1088,107 +1231,6 @@ export class MapGeometryBuilder {
         return [];
     }
 
-    // Create all of the sector triangles for the map
-    protected getSectorTriangles(sector: number, lines: WADMapLine[]): SectorTriangle[] {
-        // if(hasGlNodes){  // GL nodes contain data useful for triangulating sectors
-        // }else{
-        // Get sector polygons and triangulate the sector
-        const sectorRawPolygons = this.getPolygonsFromLines(lines, sector);
-        const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
-        (rawPolygon) => {
-            // Convert indices to positions
-            const polygonVertices = rawPolygon.map((vertexIndex) => {
-                return new THREE.Vector2(
-                    this.vertices[vertexIndex].x, -this.vertices[vertexIndex].y);
-            });
-            return {
-                vertices: polygonVertices,
-                holes: [],
-                boundingBox: BoundingBox.from(polygonVertices),
-                isHole: false,
-            };
-        });
-        // Sort by area in descending order.
-        // I think this will make it faster to build the sector
-        // ceiling/floor triangles.
-        sectorPolygons.sort((polyA, polyB) =>
-            polyB.boundingBox.area() - polyA.boundingBox.area());
-        // Find holes
-        sectorPolygons.forEach((polygon, polygonIndex) => {
-            // Find out which polygons "contain" this one
-            let containerPolygons = sectorPolygons.slice(0, polygonIndex);
-            containerPolygons = containerPolygons.filter((otherPolygon) => {
-                // Get vertices of this polygon that are not part of the other
-                const uniqueVertices = polygon.vertices.filter((vertex) => {
-                    for(const otherVertex of otherPolygon.vertices){
-                        if(vertex.equals(otherVertex)){
-                            return false;
-                        }
-                    }
-                    return true;
-                });
-                // The polygon is a container if all vertices are shared, or at
-                // least one unique vertex is inside the other polygon
-                return uniqueVertices.some(
-                    (point) => pointInPolygon(point, otherPolygon.vertices)) ||
-                    uniqueVertices.length === 0;
-            });
-            // The polygon is a hole if the amount of polygons containing this
-            // one is odd.
-            const isHole = containerPolygons.length % 2 === 1;
-            // Get the smallest polygon containing this one, and make this
-            // polygon a hole if the smallest polygon containing this one is not.
-            const smallestContainerPolygon: SectorPolygon | undefined = (
-                containerPolygons[containerPolygons.length - 1]);
-            if(isHole){
-                if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
-                    smallestContainerPolygon.holes.push(polygon.vertices);
-                    polygon.isHole = true;
-                }
-            }
-        });
-        const mapSector = this.map.sectors!.getSector(sector);
-        const sectorTriangles: SectorTriangle[] = [];
-        sectorPolygons.forEach((polygon) => {
-            if(polygon.isHole){
-                return;
-            }
-            // triangulateShape expects data structures like this:
-            // (contour) [{x: 10, y: 10}, {x: -10, y: 10}, {x: -10, y: -10}, {x: 10, y: -10}]
-            // (holes) [[{x: 5, y: 5}, {x: -5, y: 5}, {x: -5, y: -5}, {x: 5, y: -5}], etc.]
-            const triangles = THREE.ShapeUtils.triangulateShape(polygon.vertices, polygon.holes);
-            const polygonVertices: THREE.Vector2[] = polygon.vertices.slice();
-            polygon.holes.forEach((holeVertices) => {
-                Array.prototype.push.apply(polygonVertices, holeVertices);
-            });
-            triangles.forEach((triangle) => {
-                const triangleVertices: THREE.Vector2[] = (
-                    triangle.map<THREE.Vector2>(
-                        (vertexIndex) => polygonVertices[vertexIndex]));
-                sectorTriangles.push({ // Floor
-                    lightLevel: mapSector.light,
-                    vertices: triangleVertices,
-                    height: mapSector.floorHeight,
-                    texture: mapSector.floorFlat,
-                    textureSet: TextureSet.Flats,
-                    normalVector: new THREE.Vector3(0, 1, 0),
-                    reverse: true,
-                    place: SectorTrianglePlace.Floor,
-                }, { // Ceiling
-                    lightLevel: mapSector.light,
-                    vertices: triangleVertices,
-                    height: mapSector.ceilingHeight,
-                    texture: mapSector.ceilingFlat,
-                    textureSet: TextureSet.Flats,
-                    normalVector: new THREE.Vector3(0, -1, 0),
-                    reverse: false,
-                    place: SectorTrianglePlace.Ceiling,
-                });
-            });
-        });
-        return sectorTriangles;
-    }
-
     // Build the 3D mesh for the map
     public rebuild(): MapGeometry {
         // The map is missing one of the necessary data lumps
@@ -1201,6 +1243,7 @@ export class MapGeometryBuilder {
         const sectorLines: {[sector: number]: WADMapLine[]} = {};
         // Vertices
         this.vertices = Array.from(this.map.enumerateVertexes());
+        this.findDuplicateVertices(this.vertices);
         // Array of quads - used for rendering walls
         const wallQuads: LineQuad[] = [];
         // Construct all of the quads for the lines on this map
