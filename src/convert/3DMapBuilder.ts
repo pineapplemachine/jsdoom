@@ -148,7 +148,7 @@ class SectorPolygonBuilder {
                 fixVertexReference(line.startVertex)
             ];
             const checkEdge = (sectorEdge: Edge) => {
-                return arrayEquals<number>(sectorEdge, edge) &&
+                return arrayEquals<number>(sectorEdge, edge) ||
                     arrayEquals<number>(sectorEdge, edgeDuplicate);
             };
             if(!this.sectorEdges.some(checkEdge)){
