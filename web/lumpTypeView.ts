@@ -754,7 +754,7 @@ const LumpTypeViewMap3D = function(
                 0, playerStart ? -playerStart.y : 0);
             // Direction control
             const playerAngle = playerStart ? // Player angle is 0-360 degrees
-                playerStart.angle / (180 / Math.PI) : 0;
+                (playerStart.angle / (180 / Math.PI)) - (Math.PI / 2) : 0;
             const directionSphere = new THREE.Spherical(
                 1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
