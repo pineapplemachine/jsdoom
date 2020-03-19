@@ -168,8 +168,8 @@ class SectorPolygonBuilder {
     public static angleBetween(p1: THREE.Vector2, center: THREE.Vector2,
             p2: THREE.Vector2, clockwise: boolean = false): number {
         // Rewritten to be simpler and work better with the THREE.js API
-        const ab = p1.clone().sub(center).normalize();
-        const cb = p2.clone().sub(center).normalize();
+        const ab = p1.clone().sub(center);
+        const cb = p2.clone().sub(center);
         // Dot and cross product of the two vectors
         const dot = ab.dot(cb);
         const cross = ab.cross(cb);

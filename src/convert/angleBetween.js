@@ -1,3 +1,4 @@
+{
 function angleBetween(p1, p2, p3){
     // http://stackoverflow.com/questions/3486172/angle-between-3-points
     // modified not to bother converting to degrees
@@ -40,7 +41,7 @@ function angleBetween(p1, p2, p3){
     return rs;
 }
 
-function angleBetween2(p1, p2, p3){
+function angleBetween2(p1, p2, p3, clockwise = false){
     // http://stackoverflow.com/questions/3486172/angle-between-3-points
     // modified not to bother converting to degrees
     const ab = {x: p2.x - p1.x, y: p2.y - p1.y};
@@ -49,11 +50,25 @@ function angleBetween2(p1, p2, p3){
     const dot = (ab.x * cb.x + ab.y * cb.y); // dot product
     const cross = (ab.x * cb.y - ab.y * cb.x); // cross product
 
-    const alpha = Math.atan2(cross, dot);
-    if(alpha < 0){
-        return 2 * Math.PI + alpha;
-    }
-    return alpha;
+    return Math.atan2(clockwise ? cross : -cross, -dot) + Math.PI;
+}
+
+function angleBetween3(p1, p2, p3, clockwise = false){
+    // http://stackoverflow.com/questions/3486172/angle-between-3-points
+    // modified not to bother converting to degrees
+    const ab = {x: p2.x - p1.x, y: p2.y - p1.y};
+    const cb = {x: p2.x - p3.x, y: p2.y - p3.y};
+    const ablen = Math.sqrt(ab.x * ab.x + ab.y * ab.y);
+    const cblen = Math.sqrt(cb.x * cb.x + cb.y * cb.y);
+    ab.x /= ablen;
+    ab.y /= ablen;
+    cb.x /= cblen;
+    cb.y /= cblen;
+
+    const dot = (ab.x * cb.x + ab.y * cb.y); // dot product
+    const cross = (ab.x * cb.y - ab.y * cb.x); // cross product
+
+    return Math.atan2(clockwise ? cross : -cross, -dot) + Math.PI;
 }
 
 const vectorTests = [
@@ -109,6 +124,32 @@ for(const vectors of vectorTests){
     for(const vector of vectors){
         console.log("(x: %d, y: %d)", vector.x, vector.y);
     }
-    console.log("angleBetween", angleBetween.apply(null, vectors) * (180 / Math.PI));
-    console.log("angleBetween2", angleBetween2.apply(null, vectors) * (180 / Math.PI));
+    // Using JS port of original SLADE implementation
+    const angle1 = angleBetween.apply(null, vectors);
+    console.log("angleBetween", angle1 * (180 / Math.PI));
+    // Performance test
+    let timer = performance.now();
+    for(let i = 0; i < 1000000; i++){
+        angleBetween.apply(null, vectors);
+    }
+    console.log("angleBetween took", performance.now() - timer, "milliseconds for 1 million iterations");
+    // Using my version
+    const angle2 = angleBetween2.apply(null, vectors);
+    console.log("angleBetween2", angle2 * (180 / Math.PI));
+    timer = performance.now();
+    for(let i = 0; i < 1000000; i++){
+        angleBetween2.apply(null, vectors);
+    }
+    console.log("angleBetween2 took", performance.now() - timer, "milliseconds for 1 million iterations");
+    // Using my version, but normalizing the ab/cb vectors in the process
+    const angle3 = angleBetween3.apply(null, vectors);
+    console.log("angleBetween3", angle3 * (180 / Math.PI));
+    timer = performance.now();
+    for(let i = 0; i < 1000000; i++){
+        angleBetween3.apply(null, vectors);
+    }
+    console.log("angleBetween3 took", performance.now() - timer, "milliseconds for 1 million iterations");
+    console.log("angle1 and angle2 are equal:", angle1 === angle2);
+    console.log("angle1 and angle3 are equal:", angle1 === angle3);
+}
 }
