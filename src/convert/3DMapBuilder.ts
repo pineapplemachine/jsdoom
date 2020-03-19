@@ -560,6 +560,88 @@ class BoundingBox implements IBoundingBox {
     }
 }
 
+// Represents a line on a 2D plane, defined by an equation of the form
+// Ax + By + C = 0. Used for storing the ABC values, and calculating the
+// distance from the line to a point. This is more efficient than calculating
+// the distance from a line defined by two points every time.
+class Line2D {
+    a: number;
+    b: number;
+    c: number;
+
+    constructor(a: number = 0, b: number = 0, c: number = 0){
+        this.a = a;
+        this.b = b;
+        this.c = c;
+    }
+
+    // Given two points, calculate the equation terms for the line, and return
+    // the line.
+    // https://en.wikipedia.org/wiki/Linear_equation#Two-point_form
+    static fromTwoPoints(pointA: THREE.Vector2, pointB: THREE.Vector2): Line2D {
+        const a = pointA.y - pointB.y;
+        const b = pointB.x - pointA.x;
+        const c = pointA.cross(pointB);
+        return new Line2D(a, b, c);
+    }
+
+    // Calculate the distance from this line to the given point
+    distanceTo(point: THREE.Vector2): number {
+        const divisor = this.a * point.x + this.b * point.y + this.c;
+        const dividend = Math.sqrt(this.a * this.a + this.b * this.b);
+        return divisor / dividend;
+    }
+}
+
+// Represents a plane for a sector floor or ceiling. Used for calculating the
+// height of any vertex connected to that sector if said sector is sloped.
+// A sector plane is defined by an equation of the form Ax + By + Cz + D = 0,
+// and can be set using any of the following, which are evaluated in the given
+// order:
+// UDMF sector plane properties
+// Plane_Align
+// Line slope things
+// Sector tilt things
+// Vavoom slope things
+// Slope copy things
+// UDMF vertex heights (for triangular sectors)
+// Vertex height things (for triangular sectors)
+// Plane_Copy
+class SectorPlane {
+    // The plane which represents the slope of the sector floor or ceiling
+    plane: THREE.Plane;
+
+    constructor(){
+        this.plane = new THREE.Plane();
+    }
+
+    static fromHeight(height: number, place: SectorTrianglePlace): SectorPlane {
+        const sectorPlane = new SectorPlane();
+        sectorPlane.plane.constant = height;
+        if(place === SectorTrianglePlace.Ceiling){
+            sectorPlane.plane.normal.z *= -1;
+        }
+        return sectorPlane;
+    }
+
+    zAt(position: THREE.Vector2): number {
+        return this.heightAt(position.x, position.y);
+    }
+
+    heightAt(x: number, y: number): number {
+        // Ax + By + Cz + D = 0
+        // -Cz = Ax + By + D
+        // Cz = -Ax - By - D
+        // z = (-Ax - By - D) / C
+        // z = (Ax + By + D) / -C
+        const planeNormal = this.plane.normal;
+        const baseHeight = this.plane.constant;
+        const negativeC = -planeNormal.z;
+        const dividend = (planeNormal.x * x + planeNormal.y * y + baseHeight);
+        return dividend / negativeC;
+    }
+}
+
 interface SectorPolygon {
     // The 2D vertex coordinates of the contour of this polygon
     vertices: THREE.Vector2[];
