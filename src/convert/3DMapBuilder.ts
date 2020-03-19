@@ -124,7 +124,7 @@ class SectorPolygonBuilder {
     constructor(
         sectorLines: WADMapLine[],
         mapVertices: WADMapVertex[],
-        duplicateVertices: {[vertex: number]: number} = {},
+        duplicateVertices: {[vertex: number]: number},
         debug: boolean = false,
     ){
         this.sectorEdges = [];
@@ -159,6 +159,9 @@ class SectorPolygonBuilder {
         // Sector vertices
         this.mapVertices = mapVertices;
         this.debug = debug;
+        if(debug){
+            console.log("new SectorPolygonBuilder");
+        }
     }
 
     // Get the clockwise or counterclockwise angle between three points
@@ -340,11 +343,11 @@ class SectorPolygonBuilder {
     // Checks whether a polygon is complete. It is expected that "last" is
     // "nextVertex" from this.findNextVertex
     protected isPolygonComplete(polygon: number[], last: number): boolean {
+        // There is no such thing as a 2 sided polygon
         if(polygon.length < 3){
-            // There is no such thing as a 2 sided polygon
             return false;
         }
-        // First vertex of polygon
+        // The polygon is expected to be cyclic.
         const first = polygon[0];
         return last === first;
     }
@@ -407,9 +410,11 @@ class SectorPolygonBuilder {
         // Polygon array
         // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
         const sectorPolygons: number[][] = [startEdge];
+        // Incomplete polygons - polygons will be added to this array if they
+        // are incomplete (no edge connecting the first and last vertices)
+        const incompletePolygons: number[][] = [];
         while(this.sectorEdges.some(
-            (edge) => this.edgesLeft[edge.join(" ")] === false)
-        ){
+            (edge) => this.edgesLeft[edge.join(" ")] === false)){
             // The vertex from which to start the search for the next vertex
             const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
             this.visitEdge(prevVertex, lastVertex);
@@ -420,10 +425,14 @@ class SectorPolygonBuilder {
             }
             // No more vertices left in this polygon
             if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
-                if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0])){
-                    // Last polygon is a dud
-                    sectorPolygons.pop();
-                    curPolygon -= 1;
+                if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0]) ||
+                    sectorPolygons[curPolygon].length < 3){
+                    // Last polygon is incomplete
+                    const badPolygon = sectorPolygons.pop();
+                    if(badPolygon != null){
+                        incompletePolygons.push(badPolygon);
+                        curPolygon -= 1;
+                    }
                 }
                 // Find the first edge of the next polygon, and add it to the
                 // polygons that make up this sector
@@ -455,22 +464,27 @@ class SectorPolygonBuilder {
             }else if(this.visitEdge(lastVertex, nextVertex)){
                 // There is another edge in the polygon, mark it as added.
                 sectorPolygons[curPolygon].push(nextVertex);
-            }else{
-                // The polygon is a dud
-                sectorPolygons.pop();
-                curPolygon -= 1;
             }
         }
-        // Check to see whether each polygon is complete, and remove incomplete
-        // polygons.
-        const completeSectorPolygons = sectorPolygons.filter((polygon) => {
-            return this.edgeExists(polygon[0], polygon[polygon.length - 1]) !== "";
-        });
-        if(this.debug){
-            console.log(sectorPolygons);
-            console.log(completeSectorPolygons);
+        // Check to see whether each polygon is complete, and remove or join
+        // incomplete polygons.
+        for(let polygonIndex: number = sectorPolygons.length - 1; polygonIndex >= 0; polygonIndex--){
+            const polygon = sectorPolygons[polygonIndex];
+            const first = polygon[0];
+            const last = polygon[polygon.length - 1];
+            // Is polygon incomplete?
+            if(polygon.length < 3 || this.edgeExists(first, last) === ""){
+                // Remove it and add it to the list of incomplete polygons
+                const badPolygon = polygon;
+                incompletePolygons.push(badPolygon);
+                sectorPolygons.splice(polygonIndex, 1);
+            }
         }
-        return completeSectorPolygons;
+        if(this.debug){
+            console.log("sectorPolygons", sectorPolygons);
+            console.log("incompletePolygons", incompletePolygons);
+        }
+        return sectorPolygons;
     }
 }
 
