@@ -36,6 +36,7 @@ class BufferModel {
         const loader = new THREE.TextureLoader();
         return loader.load("assets/textures/missing.png",
         (texture: THREE.Texture) => {
+            texture.flipY = false;
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
             texture.magFilter = THREE.NearestFilter;
