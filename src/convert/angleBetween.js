@@ -44,11 +44,14 @@ function angleBetween(p1, p2, p3){
 function angleBetween2(p1, p2, p3, clockwise = false){
     // http://stackoverflow.com/questions/3486172/angle-between-3-points
     // modified not to bother converting to degrees
-    const ab = {x: p2.x - p1.x, y: p2.y - p1.y};
-    const cb = {x: p2.x - p3.x, y: p2.y - p3.y};
+    const ab = {x: p1.x - p2.x, y: p1.y - p2.y};
+    const cb = {x: p3.x - p2.x, y: p3.y - p2.y};
 
     const dot = (ab.x * cb.x + ab.y * cb.y); // dot product
     const cross = (ab.x * cb.y - ab.y * cb.x); // cross product
+    // NOTE: Although the cross product for 2 2D vectors is not officially
+    // defined, an unofficial definition can be found here:
+    // http://allenchou.net/2013/07/cross-product-of-2d-vectors/
 
     return Math.atan2(clockwise ? cross : -cross, -dot) + Math.PI;
 }
@@ -56,8 +59,9 @@ function angleBetween2(p1, p2, p3, clockwise = false){
 function angleBetween3(p1, p2, p3, clockwise = false){
     // http://stackoverflow.com/questions/3486172/angle-between-3-points
     // modified not to bother converting to degrees
-    const ab = {x: p2.x - p1.x, y: p2.y - p1.y};
-    const cb = {x: p2.x - p3.x, y: p2.y - p3.y};
+    const ab = {x: p1.x - p2.x, y: p1.y - p2.y};
+    const cb = {x: p3.x - p2.x, y: p3.y - p2.y};
+    // Normalize
     const ablen = Math.sqrt(ab.x * ab.x + ab.y * ab.y);
     const cblen = Math.sqrt(cb.x * cb.x + cb.y * cb.y);
     ab.x /= ablen;
@@ -69,6 +73,19 @@ function angleBetween3(p1, p2, p3, clockwise = false){
     const cross = (ab.x * cb.y - ab.y * cb.x); // cross product
 
     return Math.atan2(clockwise ? cross : -cross, -dot) + Math.PI;
+}
+
+function angleBetween4(p1, p2, p3){
+    // http://stackoverflow.com/questions/3486172/angle-between-3-points
+    // modified not to bother converting to degrees
+    const ab = {x: p1.x - p2.x, y: p1.y - p2.y};
+    const cb = {x: p3.x - p2.x, y: p3.y - p2.y};
+
+    const dot = (ab.x * cb.x + ab.y * cb.y); // dot product
+    const cross = (ab.x * cb.y - ab.y * cb.x); // cross product
+
+    // Assume counterclockwise
+    return Math.atan2(-cross, -dot) + Math.PI;
 }
 
 const vectorTests = [
@@ -149,6 +166,15 @@ for(const vectors of vectorTests){
         angleBetween3.apply(null, vectors);
     }
     console.log("angleBetween3 took", performance.now() - timer, "milliseconds for 1 million iterations");
+    // Using my version, but without a "clockwise" argument
+    const angle4 = angleBetween4.apply(null, vectors);
+    console.log("angleBetween4", angle4 * (180 / Math.PI));
+    timer = performance.now();
+    for(let i = 0; i < 1000000; i++){
+        angleBetween4.apply(null, vectors);
+    }
+    console.log("angleBetween4 took", performance.now() - timer, "milliseconds for 1 million iterations");
+    // Make sure everything is good
     console.log("angle1 and angle2 are equal:", angle1 === angle2);
     console.log("angle1 and angle3 are equal:", angle1 === angle3);
 }
