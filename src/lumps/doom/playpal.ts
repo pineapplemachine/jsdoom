@@ -42,7 +42,7 @@ export class WADPalette {
     // Returns false otherwise.
     static match(lump: WADLump): boolean {
         return lump.name.toUpperCase() === WADPalette.LumpName && !!(
-            lump.length && (lump.length % WADPalette.BytesPerPalette === 0)
+            lump.length && lump.length >= WADPalette.BytesPerPalette
         );
     }
     
@@ -67,7 +67,7 @@ export class WADPalette {
     // Get the total number of colors,
     // i.e. number of palettes * 256 colors.
     getColorCount(): number {
-        return Math.floor(this.data.length / WADPalette.BytesPerColor);
+        return this.getPaletteCount() * WADPalette.BytesPerColor;
     }
     
     // Get the color at a palette and color index.

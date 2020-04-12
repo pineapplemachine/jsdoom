@@ -33,7 +33,7 @@ export class WADColorMap {
     // Returns false otherwise.
     static match(lump: WADLump): boolean {
         return lump.name.toUpperCase() === WADColorMap.LumpName && !!(
-            lump.length && (lump.length % 256 === 0)
+            lump.length && lump.length >= 256
         );
     }
     
