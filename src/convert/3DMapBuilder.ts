@@ -609,18 +609,38 @@ class Line2D {
 // Plane_Copy
 class SectorPlane {
     // The plane which represents the slope of the sector floor or ceiling
-    plane: THREE.Plane;
+    a: number;
+    b: number;
+    c: number;
+    d: number; // Also the height of the plane
 
     constructor(){
-        this.plane = new THREE.Plane();
+        this.a = 0;
+        this.b = 0;
+        this.c = 1;
+        this.d = 0;
     }
 
     static fromHeight(height: number, place: SectorTrianglePlace): SectorPlane {
         const sectorPlane = new SectorPlane();
-        sectorPlane.plane.constant = height;
+        sectorPlane.d = height;
         if(place === SectorTrianglePlace.Ceiling){
-            sectorPlane.plane.normal.z *= -1;
+            sectorPlane.c *= -1;
         }
+        return sectorPlane;
+    }
+
+    static fromTriangle(triangle: THREE.Triangle): SectorPlane {
+        const cb = new THREE.Vector3();
+        const ab = new THREE.Vector3();
+        cb.subVectors(triangle.c, triangle.b);
+        ab.subVectors(triangle.a, triangle.b);
+        const normal = cb.cross(ab).normalize();
+        const sectorPlane = new SectorPlane();
+        sectorPlane.a = normal.x;
+        sectorPlane.b = normal.y;
+        sectorPlane.c = normal.z;
+        sectorPlane.d = -(triangle.a.dot(normal));
         return sectorPlane;
     }
 
@@ -634,10 +654,8 @@ class SectorPlane {
         // Cz = -Ax - By - D
         // z = (-Ax - By - D) / C
         // z = (Ax + By + D) / -C
-        const planeNormal = this.plane.normal;
-        const baseHeight = this.plane.constant;
-        const negativeC = -planeNormal.z;
-        const dividend = (planeNormal.x * x + planeNormal.y * y + baseHeight);
+        const negativeC = -this.c;
+        const dividend = (this.a * x + this.b * y + this.d);
         return dividend / negativeC;
     }
 }
