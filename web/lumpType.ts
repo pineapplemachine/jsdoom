@@ -353,6 +353,7 @@ export const LumpTypeList: LumpType[] = [
     new LumpType({
         name: "Map Macros",
         icon: "assets/icons/lump-map.png",
+        views: [view.LumpTypeViewMacros],
         filter: (lump: WADLump) => {
             return lump.name === "MACROS";
         }
