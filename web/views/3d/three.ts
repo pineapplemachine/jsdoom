@@ -36,6 +36,7 @@ class BufferModel {
         const loader = new THREE.TextureLoader();
         return loader.load("assets/textures/missing.png",
         (texture: THREE.Texture) => {
+            texture.flipY = false;
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
             texture.magFilter = THREE.NearestFilter;
@@ -45,7 +46,7 @@ class BufferModel {
     static readonly nullMaterial = new THREE.MeshBasicMaterial({
         name: "-",
         map: BufferModel.nullTexture,
-        vertexColors: THREE.VertexColors,
+        vertexColors: true,
     });
     // The THREE.js buffer geometry
     protected geometry: THREE.BufferGeometry;
@@ -250,7 +251,7 @@ class BufferModel {
                     map: texture,
                     transparent,
                     alphaTest: transparent ? BufferModel.alphaTest : 0,
-                    vertexColors: THREE.VertexColors,
+                    vertexColors: true,
                 });
                 this.textures.push(texture);
                 return this.getOrAddMaterial(materialName, material);
@@ -298,7 +299,7 @@ class BufferModel {
                     name: materialName,
                     map: texture,
                     transparent: false,
-                    vertexColors: THREE.VertexColors,
+                    vertexColors: true,
                 });
                 this.textures.push(texture);
                 return this.getOrAddMaterial(materialName, material);

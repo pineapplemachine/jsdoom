@@ -398,7 +398,7 @@ const LumpTypeViewMap3D = function(
     const makeMouseController = (direction: THREE.Spherical): (event: MouseEvent) => void => {
         mouseController = (event: MouseEvent) => {
             direction.theta -= event.movementX / (180 / Math.PI);
-            direction.phi += event.movementY / (180 / Math.PI);
+            direction.phi -= event.movementY / (180 / Math.PI);
             direction.makeSafe();
         };
         return mouseController;
@@ -515,6 +515,10 @@ const LumpTypeViewMap3D = function(
                 root.appendChild(fullscreenButton);
             }
             disposables.push(renderer);
+            // The "head" which moves around, and contains the camera(s).
+            // All cameras are contained by this object so that orientation
+            // is more consistent across devices and camera types.
+            const viewHead = new THREE.Object3D();
             // VR controls
             const controller = renderer.xr.getController(0);
             let viewHeadMoving = false;
@@ -524,6 +528,7 @@ const LumpTypeViewMap3D = function(
             controller.addEventListener("selectend", () => {
                 viewHeadMoving = false;
             });
+            mapScene.add(viewHead);
             const mapCamera = new THREE.PerspectiveCamera(
                 options.fov || 90, // FOV
                 root.clientWidth / root.clientHeight, // Aspect ratio
@@ -531,13 +536,28 @@ const LumpTypeViewMap3D = function(
                 10000, // Far clip
             );
             const mapCubeCamera = new THREE.CubeCamera(1, 10000, 1024);
-            const equirectangularViewCamera = new THREE.OrthographicCamera(-.5, .5, -.5, .5, -1, 1);
-            const equirectangularViewScene = new THREE.Scene();
-            disposables.push(equirectangularViewScene);
-            const equirectangularViewMaterial = new THREE.ShaderMaterial({
+            // Ensure omnidirectional view plane is twice the width of its height
+            const omniDirViewCamera = new THREE.OrthographicCamera(-.5, .5, -.5, .5, -1, 1);
+            const viewAspectRatio = root.clientHeight / root.clientWidth;
+            if(viewAspectRatio < .5){
+                omniDirViewCamera.top = -.5;
+                omniDirViewCamera.bottom = .5;
+                omniDirViewCamera.left = -1 + viewAspectRatio;
+                omniDirViewCamera.right = 1 - viewAspectRatio;
+            }else{
+                omniDirViewCamera.top = -viewAspectRatio;
+                omniDirViewCamera.bottom = viewAspectRatio;
+                omniDirViewCamera.left = -.5;
+                omniDirViewCamera.right = .5;
+            }
+            omniDirViewCamera.updateProjectionMatrix();
+            const omniDirViewScene = new THREE.Scene();
+            disposables.push(omniDirViewScene);
+            const omniDirViewMaterial = new THREE.ShaderMaterial({
                 side: THREE.DoubleSide,
                 uniforms: {
                     "tex": {value: mapCubeCamera.renderTarget.texture},
+                    "projectionMode": {value: 0},
                 },
                 vertexShader: `
                 varying vec2 vUv;
@@ -550,8 +570,25 @@ const LumpTypeViewMap3D = function(
                 #define PI 3.1415926535897932384626433
                 varying vec2 vUv;
                 uniform samplerCube tex;
+                uniform int projectionMode;
+
+                // Enumerated constants for projection mode
+                #define PROJECTION_EQUIRECTANGULAR 0
+                #define PROJECTION_CUBE 1
+
+                // Enumerated constants for cubeFace function
+                #define FACE_LEFT 0
+                #define FACE_FRONT 1
+                #define FACE_RIGHT 2
+                #define FACE_TOP 3
+                #define FACE_BOTTOM 4
+                #define FACE_BACK 5
+
+                #define HFACES 3.
+                #define VFACES 2.
 
                 // These are in column-major order
+                // Return an X rotation matrix for the given angle in radians
                 mat3 rotationX(float angle){
                     return mat3(
                         1., 0., 0.,
@@ -560,6 +597,7 @@ const LumpTypeViewMap3D = function(
                     );
                 }
 
+                // Return a Y rotation matrix for the given angle in radians
                 mat3 rotationY(float angle){
                     return mat3(
                         cos(angle), 0., -sin(angle),
@@ -568,6 +606,7 @@ const LumpTypeViewMap3D = function(
                     );
                 }
 
+                // Return a Z rotation matrix for the given angle in radians
                 mat3 rotationZ(float angle){
                     return mat3(
                         cos(angle), sin(angle), 0.,
@@ -576,27 +615,63 @@ const LumpTypeViewMap3D = function(
                     );
                 }
 
-                void main(){
-                    // When looking up texels from a cubemap sampler, the
-                    // vector is from the center of the cube to the texel.
-                    float longitude = vUv.x * PI * -2.;
-                    float latitude = vUv.y * PI;
+                // Return the direction vector for equirectangular projection
+                vec3 equirectangularDirection(vec2 coords){
+                    float longitude = coords.x * PI * -2.;
+                    float latitude = coords.y * PI;
                     vec3 direction = vec3(
                         sin(latitude) * cos(longitude),
                         sin(latitude) * sin(longitude),
                         cos(latitude)
                     );
                     direction = direction * rotationX(.5 * PI) * rotationY(-1.5 * PI);
+                    return direction;
+                }
+
+                // Return the direction vector for cube projection
+                vec3 cubeFace(vec2 coords, int face){
+                    vec2 normalizedCoords = (coords - .5) * 2.;
+                    vec3 direction = vec3(normalizedCoords, 1.);
+                    direction = normalize(direction);
+                    direction *= rotationX(PI);
+                    if(face == FACE_LEFT){
+                        direction *= rotationY(-.5 * PI);
+                    }else if(face == FACE_RIGHT){
+                        direction *= rotationY(.5 * PI);
+                    }else if(face == FACE_BOTTOM){
+                        direction *= rotationX(.5 * PI);
+                    }else if(face == FACE_TOP){
+                        direction *= rotationX(-.5 * PI);
+                    }else if(face == FACE_BACK){
+                        direction *= rotationY(PI);
+                    }
+                    return direction;
+                }
+
+                void main(){
+                    // When looking up texels from a cubemap sampler, the
+                    // vector is from the center of the cube to the texel.
+                    vec3 direction = vec3(0.);
+                    if(projectionMode == PROJECTION_EQUIRECTANGULAR){
+                        direction = equirectangularDirection(vUv);
+                    }else if(projectionMode == PROJECTION_CUBE){
+                        vec2 cubeSize = vec2(HFACES, VFACES);
+                        vec2 cubeFaceSize = vec2(1./HFACES, 1./VFACES);
+                        int face = int(floor(vUv.x * cubeSize.x)) + int(floor(vUv.y * cubeSize.y) * HFACES);
+                        vec2 coords = mod(vUv, cubeFaceSize) * cubeSize;
+                        direction = cubeFace(coords, face);
+                    }
                     gl_FragColor = texture(tex, direction);
                 }`,
             });
-            const equirectangularViewMesh = new THREE.Mesh(
+            const omniDirViewMesh = new THREE.Mesh(
                 new THREE.PlaneBufferGeometry(),
-                equirectangularViewMaterial,
+                omniDirViewMaterial,
             );
-            equirectangularViewScene.add(equirectangularViewMesh);
-            equirectangularViewScene.add(equirectangularViewCamera);
-            mapScene.add(mapCubeCamera);
+            omniDirViewScene.add(omniDirViewMesh);
+            omniDirViewScene.add(omniDirViewCamera);
+            viewHead.add(mapCamera);
+            viewHead.add(mapCubeCamera);
             // Set up controls
             // Detect devices that have a built-in compass and/or accelerometer
             let orientableDevice = false;
@@ -604,8 +679,10 @@ const LumpTypeViewMap3D = function(
                 // Thanks to https://stackoverflow.com/a/22097717
                 orientableDevice = true;
             }
+            // DeviceOrientationControls does not *really* need a camera, based
+            // on the source code of DeviceOrientationControls.js
             const controls: (KeyboardListener | DeviceOrientationControls) = (
-                orientableDevice ? new DeviceOrientationControls(mapCamera) :
+                orientableDevice ? new DeviceOrientationControls(viewHead as any) :
                 new KeyboardListener());
             // Handle touches
             handleTouchStart = () => {
@@ -621,19 +698,49 @@ const LumpTypeViewMap3D = function(
             disposables.push(controls);
             // Bind resize and fullscreen event handler
             handleResize = () => {
+                // Map camera
                 mapCamera.aspect = root.clientWidth / root.clientHeight;
                 renderer.setSize(root.clientWidth, root.clientHeight, false);
                 renderer.setPixelRatio(window.devicePixelRatio);
                 mapCamera.updateProjectionMatrix();
+                // Omnidirectional view
+                const viewAspectRatio = root.clientHeight / root.clientWidth;
+                if(viewAspectRatio < .5){
+                    omniDirViewCamera.top = -.5;
+                    omniDirViewCamera.bottom = .5;
+                    omniDirViewCamera.left = -1 + viewAspectRatio;
+                    omniDirViewCamera.right = 1 - viewAspectRatio;
+                }else{
+                    omniDirViewCamera.top = -viewAspectRatio;
+                    omniDirViewCamera.bottom = viewAspectRatio;
+                    omniDirViewCamera.left = -.5;
+                    omniDirViewCamera.right = .5;
+                }
+                omniDirViewCamera.updateProjectionMatrix();
             };
             handleFullscreen = () => {
                 if(fscreen.fullscreenElement){
                     const sceneWidth = window.outerWidth;
                     const sceneHeight = window.outerHeight;
+                    // Map camera
                     mapCamera.aspect = sceneWidth / sceneHeight;
                     renderer.setSize(sceneWidth, sceneHeight, false);
                     renderer.setPixelRatio(window.devicePixelRatio);
                     mapCamera.updateProjectionMatrix();
+                    // Omnidirectional view
+                    const viewAspectRatio = sceneHeight / sceneWidth;
+                    if(viewAspectRatio < .5){
+                        omniDirViewCamera.top = -.5;
+                        omniDirViewCamera.bottom = .5;
+                        omniDirViewCamera.left = -1 + viewAspectRatio;
+                        omniDirViewCamera.right = 1 - viewAspectRatio;
+                    }else{
+                        omniDirViewCamera.top = -viewAspectRatio;
+                        omniDirViewCamera.bottom = viewAspectRatio;
+                        omniDirViewCamera.left = -.5;
+                        omniDirViewCamera.right = .5;
+                    }
+                    omniDirViewCamera.updateProjectionMatrix();
                 }else{
                     handleResize();
                 }
@@ -641,16 +748,13 @@ const LumpTypeViewMap3D = function(
             window.addEventListener("resize", handleResize);
             fscreen.addEventListener("fullscreenchange", handleFullscreen);
             // Set viewpoint from player 1 start
-            const viewHead = new THREE.Object3D(); // Also for VR camera
             const playerStart = map.getPlayerStart(1);
             viewHead.position.set(
                 playerStart ? playerStart.x : 0,
                 0, playerStart ? -playerStart.y : 0);
-            viewHead.add(mapCamera);
-            mapScene.add(viewHead);
             // Direction control
             const playerAngle = playerStart ? // Player angle is 0-360 degrees
-                playerStart.angle / (180 / Math.PI) : 0;
+                (playerStart.angle / (180 / Math.PI)) - (Math.PI / 2) : 0;
             const directionSphere = new THREE.Spherical(
                 1, 90 / (180 / Math.PI), playerAngle);
             makeMouseController(directionSphere);
@@ -695,24 +799,28 @@ const LumpTypeViewMap3D = function(
             }, Math.floor(tickRate));
             const render = () => {
                 // Movement in VR
-                let directionQuaternion: THREE.Quaternion = mapCamera.quaternion;
+                let directionQuaternion: THREE.Quaternion = viewHead.quaternion;
                 if(renderer.xr.isPresenting){
                     directionQuaternion = renderer.xr.getCamera(mapCamera).quaternion;
                 }else if(orientableDevice){
                     const touchControls = controls as DeviceOrientationControls;
                     touchControls.update();
-                    directionQuaternion = mapCamera.quaternion;
+                    directionQuaternion = viewHead.quaternion;
                 }else{
                     // Set view head direction (for non-VR users)
                     const lookAtMe = new THREE.Vector3();
                     lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
-                    mapCamera.lookAt(lookAtMe);
+                    viewHead.lookAt(lookAtMe);
                 }
                 const destination = velocity.vector;
                 destination.applyQuaternion(directionQuaternion);
                 viewHead.position.add(destination);
-                // Render
-                // mapCubeCamera.update(renderer, mapScene);
+                // Render (omnidirectional view)
+                /*
+                mapCubeCamera.update(renderer, mapScene);
+                renderer.render(omniDirViewScene, omniDirViewCamera);
+                */
+                // Render (default view)
                 renderer.render(mapScene, mapCamera);
             };
             renderer.setAnimationLoop(render); // Needed for VR support
