@@ -32,40 +32,89 @@ export enum WADMapLineFlag {
 }
 
 // Represents a single linedef read from a Doom format LINEDEFS lump.
-export class WADMapLine {
+class WADMapLineBase {
     // The index of the start vertex.
     startVertex: number;
     // The index of the end vertex.
     endVertex: number;
-    // Linedef flags. See WADMapLineFlag for possible values.
-    flags: number;
-    // Action or other special.
-    special: number;
-    // Sector tag. Usually indicates the target of linedef actions.
-    tag: number;
     // Front sidedef index. (0xffff means no sidedef.)
     frontSidedef: number;
     // Back sidedef index. (0xffff means no sidedef.)
     backSidedef: number;
+    // Linedef flags. See WADMapLineFlag for possible values.
+    flags: number;
     // The format of the map this linedef comes from.
     format: WADMapFormat;
     
     constructor(options: {
         startVertex: number,
         endVertex: number,
-        flags: number,
-        special: number,
-        tag: number,
         frontSidedef: number,
         backSidedef: number,
+        flags?: number,
     }) {
         this.startVertex = options.startVertex;
         this.endVertex = options.endVertex;
-        this.flags = options.flags;
-        this.special = options.special;
-        this.tag = options.tag;
         this.frontSidedef = options.frontSidedef;
         this.backSidedef = options.backSidedef;
+        this.flags = options.flags ? options.flags : 0;
+        this.format = WADMapFormat.Doom;
+    }
+    
+    get alwaysAutomapFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.AlwaysAutomap);
+    }
+    get blockMonstersFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.BlockMonsters);
+    }
+    get blockSoundFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.BlockSound);
+    }
+    get impassableFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.Impassable);
+    }
+    get lowerUnpeggedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.LowerUnpegged);
+    }
+    get noAutomapFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.NoAutomap);
+    }
+    get secretFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.Secret);
+    }
+    get twoSidedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.TwoSided);
+    }
+    get upperUnpeggedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.UpperUnpegged);
+    }
+}
+
+export class WADMapDoomLine extends WADMapLineBase {
+    // Action or other special.
+    special: number;
+    // Sector tag. Usually indicates the target of linedef actions.
+    tag: number;
+    
+    constructor(options: {
+        startVertex: number,
+        endVertex: number,
+        frontSidedef: number,
+        backSidedef: number,
+        special: number,
+        tag: number,
+        flags: number,
+    }) {
+        const baseLineOptions = {
+            startVertex: options.startVertex,
+            endVertex: options.endVertex,
+            frontSidedef: options.frontSidedef,
+            backSidedef: options.backSidedef,
+            flags: options.flags,
+        };
+        super(baseLineOptions);
+        this.special = options.special;
+        this.tag = options.tag;
         this.format = WADMapFormat.Doom;
     }
     
@@ -83,40 +132,15 @@ export class WADMapLine {
         return null;
     }
     
-    get impassableFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.Impassable);
-    }
-    get blockMonstersFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.BlockMonsters);
-    }
-    get twoSidedFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.TwoSided);
-    }
-    get upperUnpeggedFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.UpperUnpegged);
-    }
-    get lowerUnpeggedFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.LowerUnpegged);
-    }
-    get secretFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.Secret);
-    }
-    get blockSoundFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.BlockSound);
-    }
-    get noAutomapFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.NoAutomap);
-    }
-    get alwaysAutomapFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.AlwaysAutomap);
-    }
     get passThroughFlag(): boolean {
         return !!(this.flags & WADMapLineFlag.PassThrough);
     }
 }
 
 // Represents a linedef from a Hexen format map
-export class WADMapHexenLine extends WADMapLine {
+export class WADMapHexenLine extends WADMapLineBase {
+    // Action or other special.
+    special: number;
     // The arguments for the line's action special.
     specialArgs: number[];
     
@@ -131,19 +155,17 @@ export class WADMapHexenLine extends WADMapLine {
     }) {
         // WADMapHexenLine does not make use of the "tag" property. Instead, it
         // uses up to 5 "special arguments" which act as arguments for the
-        // action special
-        const doomLineOptions = {
+        // action special.
+        const baseLineOptions = {
             startVertex: options.startVertex,
             endVertex: options.endVertex,
             flags: options.flags,
-            special: options.special,
-            tag: options.specialArgs[0],
             frontSidedef: options.frontSidedef,
             backSidedef: options.backSidedef,
         };
-        super(doomLineOptions);
+        super(baseLineOptions);
+        this.special = options.special;
         this.specialArgs = options.specialArgs;
-        this.tag = this.specialArgs[0];
         this.format = WADMapFormat.Hexen;
     }
     
@@ -154,6 +176,111 @@ export class WADMapHexenLine extends WADMapLine {
             }
         }
         return null;
+    }
+    
+    get passThroughFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.PassThrough);
+    }
+}
+
+// Enumeration of line flags used by Doom 64 linedefs, according to the Doom 64
+// tech bible. Does not include unknown/unused flags.
+enum WADMapDoom64LineFlag {
+    // Show middle texture on a two-sided line
+    ShowMidtex = 0x0200,
+    // Not clipped against occlusion buffer
+    Unclipped = 0x0400,
+    // Middle texture is unpegged, and blocks projectiles
+    MiddleUnpegged = 0x0800,
+    // Activated when a thing with a TID matching the tag is killed
+    ActivateOnKill = 0x1000,
+    // Switch masks - determines where and how a switch is drawn on the line
+    SwitchMask1 = 0x2000,
+    SwitchMask2 = 0x4000,
+    SwitchMask3 = 0x8000,
+    // "Check for player floor height. Checks for ceiling height if flag is not set."
+    FloorHeightCheck = 0x10000,
+    // Scroll texture right
+    ScrollRight = 0x20000,
+    // Scroll texture left
+    ScrollLeft = 0x40000,
+    // Scroll texture up
+    ScrollUp = 0x80000,
+    // Scroll texture down
+    ScrollDown = 0x100000,
+    // Clamp gradient to upper part
+    ClampUpper = 0x200000,
+    // Clamp gradient to lower part
+    ClampLower = 0x400000,
+    // Use lower/upper gradient colours instead of thing colour
+    UseGradient = 0x800000,
+    // Prevent activation from the back side
+    FrontActivation = 0x1000000,
+    // Reverse the gradient; use the top colour on the bottom and vice versa
+    ReverseGradient = 0x4000000,
+    // Mirror the texture horizontally
+    MirrorHorizontal = 0x40000000,
+    // Mirror the texture vertically
+    MirrorVertical = 0x80000000,
+}
+
+// Enumeration of flags in the "special" field of a Doom 64 LINEDEFS lump,
+// according to the Doom 64 tech bible.
+enum WADMapDoom64SpecialFlag {
+    // The line special also activates a macro script
+    Macro = 0x100,
+    // Requires red key to activate
+    RedKey = 0x200,
+    // Requires blue key to activate
+    BlueKey = 0x400,
+    // Requires yellow key to activate
+    YellowKey = 0x800,
+    // Special is activated by player crossing the line
+    ActivateByCrossing = 0x1000,
+    // Special is activated by player shooting the line
+    ActivateByShooting = 0x2000,
+    // Special is activated by player using the line
+    ActivateByUsing = 0x4000,
+    // Special can be activated more than once
+    ActivateRepeatedly = 0x8000,
+}
+
+// Represents a linedef from a Doom 64 format map
+export class WADMapDoom64Line extends WADMapLineBase {
+    // The line's action special, or the macro number, and flags specifying how
+    // the action special can be triggered.
+    special: number;
+    // Tag of sector to apply the action special to, OR the TID of the thing
+    // that must die in order for the special to be activated, if the
+    // ActivateOnKill flag is set.
+    tag: number;
+    
+    constructor(options: {
+        startVertex: number,
+        endVertex: number,
+        flags: number,
+        tag: number,
+        special: number,
+        frontSidedef: number,
+        backSidedef: number,
+    }) {
+        super(options);
+        this.special = options.special;
+        this.tag = options.tag;
+        this.format = WADMapFormat.Doom64;
+    }
+    
+    getSpecialObject(): (WADMapLineSpecial | null) {
+        for(const special of WADMapHexenLineSpecialList){
+            if(this.special === special.id){
+                return special;
+            }
+        }
+        return null;
+    }
+    
+    get macro(): boolean {
+        return(this.special & WADMapDoom64SpecialFlag.Macro) > 0;
     }
 }
 
@@ -169,7 +296,10 @@ function linedefsEntrySizeForFormat(format: WADMapFormat): number {
     }
 }
 
-// Represents a Doom format "LINEDEFS" lump.
+// Combined Doom, Hexen, and Doom 64 line class type
+export type WADMapLine = WADMapDoomLine | WADMapHexenLine | WADMapDoom64Line;
+
+// Represents a LINEDEFS lump.
 // See: https://doomwiki.org/wiki/Linedef
 export class WADMapLines {
     // Map linedef lumps are always named "LINEDEFS".
@@ -224,14 +354,32 @@ export class WADMapLines {
         return Math.floor(this.data.length / this.itemSize);
     }
     
-    // Get the linedef at an index.
-    getLine(lineIndex: number): WADMapLine {
-        if(lineIndex < 0 || lineIndex >= this.length){
-            throw new Error("Linedef index out of bounds.");
-        }
-        const lineOffset: number = this.itemSize * lineIndex;
-        if(this.format === WADMapFormat.Hexen){
-            return new WADMapHexenLine({
+    protected parseDoomLine(lineOffset: number): WADMapDoomLine {
+        return new WADMapDoomLine({
+            startVertex: this.data.readUInt16LE(lineOffset),
+            endVertex: this.data.readUInt16LE(lineOffset + 2),
+            flags: this.data.readUInt16LE(lineOffset + 4),
+            special: this.data.readUInt16LE(lineOffset + 6),
+            tag: this.data.readUInt16LE(lineOffset + 8),
+            frontSidedef: this.data.readUInt16LE(lineOffset + 10),
+            backSidedef: this.data.readUInt16LE(lineOffset + 12),
+        });
+    }
+    
+    protected parseDoom64Line(lineOffset: number): WADMapDoom64Line {
+        return new WADMapDoom64Line({
+            startVertex: this.data.readUInt16LE(lineOffset),
+            endVertex: this.data.readUInt16LE(lineOffset + 2),
+            flags: this.data.readUInt32LE(lineOffset + 4),
+            special: this.data.readUInt16LE(lineOffset + 8),
+            tag: this.data.readUInt16LE(lineOffset + 10),
+            frontSidedef: this.data.readUInt16LE(lineOffset + 12),
+            backSidedef: this.data.readUInt16LE(lineOffset + 14),
+        });
+    }
+    
+    protected parseHexenLine(lineOffset: number): WADMapHexenLine {
+        return new WADMapHexenLine({
                 startVertex: this.data.readUInt16LE(lineOffset),
                 endVertex: this.data.readUInt16LE(lineOffset + 2),
                 flags: this.data.readUInt16LE(lineOffset + 4),
@@ -246,17 +394,21 @@ export class WADMapLines {
                 frontSidedef: this.data.readUInt16LE(lineOffset + 12),
                 backSidedef: this.data.readUInt16LE(lineOffset + 14),
             });
+    }
+    
+    // Get the linedef at an index.
+    getLine(lineIndex: number): WADMapLine {
+        if(lineIndex < 0 || lineIndex >= this.length){
+            throw new Error("Linedef index out of bounds.");
+        }
+        const lineOffset: number = this.itemSize * lineIndex;
+        if(this.format === WADMapFormat.Hexen){
+            return this.parseHexenLine(lineOffset);
+        }else if(this.format === WADMapFormat.Doom64){
+            return this.parseDoom64Line(lineOffset);
         }
         // Assume Doom format
-        return new WADMapLine({
-            startVertex: this.data.readUInt16LE(lineOffset),
-            endVertex: this.data.readUInt16LE(lineOffset + 2),
-            flags: this.data.readUInt16LE(lineOffset + 4),
-            special: this.data.readUInt16LE(lineOffset + 6),
-            tag: this.data.readUInt16LE(lineOffset + 8),
-            frontSidedef: this.data.readUInt16LE(lineOffset + 10),
-            backSidedef: this.data.readUInt16LE(lineOffset + 12),
-        });
+        return this.parseDoomLine(lineOffset);
     }
     
     // Enumerate all of the linedefs in the lump.
