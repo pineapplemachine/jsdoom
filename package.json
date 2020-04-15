@@ -12,7 +12,6 @@
   "license": "GPL-3.0",
   "dependencies": {
     "fscreen": "^1.0.2",
-    "unzip": "0.1.11",
     "upng-js": "2.1.0"
   },
   "devDependencies": {
@@ -22,9 +21,10 @@
     "@types/node": "^12.7.11",
     "@types/unzip": "0.1.1",
     "@types/upng-js": "2.1.1",
+    "extract-zip": "^2.0.0",
     "three": "^0.115.0",
-    "tscpaths": "0.0.5",
-    "typescript": "^3.7.5",
+    "tscpaths": "0.0.9",
+    "typescript": "^3.8.3",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11"
   },
