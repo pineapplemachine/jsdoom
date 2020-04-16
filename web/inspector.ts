@@ -91,7 +91,7 @@ win.loadFromServer = function(url: string): void {
             let progressBytes = 0;
             const stream = response.body;
             const reader = stream!.getReader();
-            function readData(result: {done: boolean, value: Uint8Array}): Promise<Buffer> {
+            function readData(result: ReadableStreamReadResult<Uint8Array>): Promise<Buffer> {
                 if(result.done){
                     return Promise.resolve(fileBuffer);
                 }

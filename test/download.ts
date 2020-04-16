@@ -1,7 +1,7 @@
+import * as extractZip from "extract-zip";
 import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
-import * as unzip from "unzip";
 
 import {WADInfo, WADInfoList} from "@test/wadInfo";
 
@@ -43,6 +43,7 @@ function streamPipeAsync(pipeFrom: any, pipeTo: any): Promise<any> {
 // the actual WAD files in this code repository. There are no such gotchas
 // if the files are downloaded to the user's machine from somewhere else when
 // they are needed.
+// Why not use Freedoom? - Talon1024
 export async function downloadTestWad(
     testWadDirectory: string, fileName: string
 ): Promise<any> {
@@ -73,10 +74,7 @@ export async function downloadTestWad(
     console.log(`Finished downloading file to path "${downloadFilePath}".`);
     if(downloadFileName.toLowerCase().endsWith(".zip")){
         console.log("Extracting downloaded archive...");
-        const readStream = fs.createReadStream(downloadFilePath);
-        await streamPipeAsync(readStream, unzip.Extract({
-            path: testWadDirectory,
-        }));
+        await extractZip(downloadFileName, {dir: testWadDirectory});
         console.log("Finished extracting.");
         if(wad.archivedWad && wad.archivedWad !== fileName){
             const archivedPath = path.join(testWadDirectory, wad.archivedWad);
