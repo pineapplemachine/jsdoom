@@ -194,7 +194,12 @@ class BufferModel {
     }
 
     // Add a quad to the buffer.
-    addQuad(quad: map3D.LineQuad, library: TextureLibrary){
+    addQuad(
+        quad: map3D.LineQuad,
+        library: TextureLibrary,
+        topColour: THREE.Color = new THREE.Color(255),
+        bottomColour: THREE.Color = new THREE.Color(255)
+    ){
         function xyzFor(position: map3D.QuadVertexPosition): number[] {
             // Note that midtexture quads MUST be recalculated before
             // calling this function
@@ -264,9 +269,11 @@ class BufferModel {
         quad = map3D.MapGeometryBuilder.recalculateMidtex(quad, texture.height);
         const wallAngle = ((reverse: boolean) => {
             const wallAngle = Math.atan2(
-                (quad.startY - quad.endY) / quad.width,
-                (quad.startX - quad.endX) / quad.width);
-            return reverse ? wallAngle + Math.PI / 2 : wallAngle - Math.PI / 2;
+                (quad.startY - quad.endY),
+                (quad.startX - quad.endX));
+            return reverse ?
+                wallAngle + Math.PI / 2 :
+                wallAngle - Math.PI / 2;
         })(quad.reverse);
         for(let vertexIterIndex = 0; vertexIterIndex < quadTriVertices.length; vertexIterIndex++){
             const quadTriVertex = (
@@ -274,16 +281,25 @@ class BufferModel {
                 quadTriVertices[vertexIterIndex] :
                 quadTriVertices[quadTriVertices.length - vertexIterIndex - 1]);
             const lightLevel = quad.lightLevel / 255;
+            const colour = (
+                quadTriVertex === map3D.QuadVertexPosition.UpperLeft ||
+                quadTriVertex === map3D.QuadVertexPosition.UpperRight) ?
+                topColour.multiplyScalar(lightLevel) :
+                bottomColour.multiplyScalar(lightLevel);
             this.setBufferElement(BufferType.Vertex, xyzFor(quadTriVertex));
             this.setBufferElement(BufferType.Normal, [Math.cos(wallAngle), 0, Math.sin(wallAngle)]);
             this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getQuadUVs(texture, quadTriVertex, quad));
-            this.setBufferElement(BufferType.Color, [lightLevel, lightLevel, lightLevel]);
+            this.setBufferElement(BufferType.Color, colour.toArray());
         }
         return materialIndex;
     }
 
     // Add a sector triangle to the buffer.
-    addTriangle(triangle: map3D.SectorTriangle, library: TextureLibrary){
+    addTriangle(
+        triangle: map3D.SectorTriangle,
+        library: TextureLibrary,
+        colour: THREE.Color = new THREE.Color(255)
+    ){
         const wadTexture = library.get(triangle.texture, triangle.textureSet);
         const materialIndex: number = (() => {
             const materialName: string = wadTexture ? triangle.texture : "-";
@@ -314,6 +330,7 @@ class BufferModel {
             const vertex = triangle.vertices[vertexIndex];
             const [x, y, z] = [vertex.x, triangle.height, vertex.y];
             const lightLevel = triangle.lightLevel / 255;
+            colour = colour.multiplyScalar(lightLevel);
             this.setBufferElement(BufferType.Vertex, [x, y, z]);
             this.setBufferElement(BufferType.Normal, [
                 triangle.normalVector.x,
@@ -321,7 +338,7 @@ class BufferModel {
                 triangle.normalVector.z,
             ]);
             this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getSectorVertexUVs(vertex, texture));
-            this.setBufferElement(BufferType.Color, [lightLevel, lightLevel, lightLevel]);
+            this.setBufferElement(BufferType.Color, colour.toArray());
         }
         return materialIndex;
     }
