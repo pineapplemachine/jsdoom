@@ -365,80 +365,80 @@ export const WADMapHexenLineSpecialList: WADMapLineSpecial[] = [
     {id: 0x3B, name: "Polyobj OR Move To Spot"}, // ZDoom
     {id: 0x3C, name: "Plat Perpetual Raise"}, // Hexen
     {id: 0x3D, name: "Plat Stop"}, // Hexen
-    {id: 0x3E, name: ""},
-    {id: 0x3F, name: ""},
-    {id: 0x40, name: ""},
-    {id: 0x41, name: ""},
-    {id: 0x42, name: ""},
-    {id: 0x43, name: ""},
-    {id: 0x44, name: ""},
-    {id: 0x45, name: ""},
-    {id: 0x46, name: ""},
-    {id: 0x47, name: ""},
-    {id: 0x48, name: ""},
-    {id: 0x49, name: ""},
-    {id: 0x4A, name: ""},
-    {id: 0x4B, name: ""},
-    {id: 0x4C, name: ""},
-    {id: 0x4D, name: ""},
-    {id: 0x4E, name: ""},
-    {id: 0x4F, name: ""},
-    {id: 0x50, name: ""},
-    {id: 0x51, name: ""},
-    {id: 0x52, name: ""},
-    {id: 0x53, name: ""},
-    {id: 0x54, name: ""},
-    {id: 0x55, name: ""},
-    {id: 0x56, name: ""},
-    {id: 0x57, name: ""},
-    {id: 0x58, name: ""},
-    {id: 0x59, name: ""},
-    {id: 0x5A, name: ""},
-    {id: 0x5B, name: ""},
-    {id: 0x5C, name: ""},
-    {id: 0x5D, name: ""},
-    {id: 0x5E, name: ""},
-    {id: 0x5F, name: ""},
-    {id: 0x60, name: ""},
-    {id: 0x64, name: ""},
-    {id: 0x65, name: ""},
-    {id: 0x66, name: ""},
-    {id: 0x67, name: ""},
-    {id: 0x6D, name: ""},
-    {id: 0x6E, name: ""},
-    {id: 0x6F, name: ""},
-    {id: 0x70, name: ""},
-    {id: 0x71, name: ""},
-    {id: 0x72, name: ""},
-    {id: 0x73, name: ""},
-    {id: 0x74, name: ""},
-    {id: 0x75, name: ""},
-    {id: 0x76, name: ""},
-    {id: 0x77, name: ""},
-    {id: 0x78, name: ""},
-    {id: 0x79, name: ""},
-    {id: 0x7D, name: ""},
-    {id: 0x7F, name: ""},
-    {id: 0x80, name: ""},
-    {id: 0x81, name: ""},
-    {id: 0x82, name: ""},
-    {id: 0x83, name: ""},
-    {id: 0x84, name: ""},
-    {id: 0x85, name: ""},
-    {id: 0x86, name: ""},
-    {id: 0x87, name: ""},
-    {id: 0x88, name: ""},
-    {id: 0x89, name: ""},
-    {id: 0x8A, name: ""},
-    {id: 0x8B, name: ""},
-    {id: 0x8C, name: ""},
-    {id: 0x91, name: ""},
-    {id: 0x98, name: ""},
-    {id: 0x99, name: ""},
-    {id: 0x9A, name: ""},
-    {id: 0x9D, name: ""},
-    {id: 0x9E, name: ""},
-    {id: 0x9F, name: ""},
+    {id: 0x3E, name: "Plat Lower, Wait, And Raise"}, // Hexen
+    {id: 0x3F, name: "Plat Lower By Value"}, // Hexen
+    {id: 0x40, name: "Plat Raise, Wait, And Lower"}, // Hexen
+    {id: 0x41, name: "Plat Raise By Value"}, // Hexen
+    {id: 0x42, name: "Floor Lower Instantly"}, // Hexen
+    {id: 0x43, name: "Floor Raise Instantly"}, // Hexen
+    {id: 0x44, name: "Floor Move To Value * 8"}, // Hexen
+    {id: 0x45, name: "Ceiling Move To Value * 8"}, // Hexen
+    {id: 0x46, name: "Teleport"}, // Hexen
+    {id: 0x47, name: "Teleport (Silent)"}, // Hexen
+    {id: 0x48, name: "Thrust Thing"}, // Hexen
+    {id: 0x49, name: "Damage Thing"}, // Hexen
+    {id: 0x4A, name: "Teleport To New Map"}, // Hexen
+    {id: 0x4B, name: "Teleport And End Game"}, // Hexen
+    {id: 0x4C, name: "Teleport Other"}, // ZDoom
+    {id: 0x4D, name: "Teleport Group"}, // ZDoom
+    {id: 0x4E, name: "Teleport In Sector"}, // ZDoom
+    {id: 0x4F, name: "Thing Set Conversation"}, // ZDoom
+    {id: 0x50, name: "ACS Execute"}, // Hexen
+    {id: 0x51, name: "ACS Suspend"}, // Hexen
+    {id: 0x52, name: "ACS Terminate"}, // Hexen
+    {id: 0x53, name: "ACS Execute (Locked)"}, // Hexen
+    {id: 0x54, name: "ACS Execute With Result"}, // ZDoom, Eternity
+    {id: 0x55, name: "ACS Locked Execute"}, // ZDoom, Eternity
+    {id: 0x56, name: "Polyobject Move To Spot"}, // ZDoom
+    {id: 0x57, name: "Polyobject Stop"}, // ZDoom, Eternity
+    {id: 0x58, name: "Polyobject Move To"}, // ZDoom
+    {id: 0x59, name: "Polyobject OR Move To"}, // ZDoom
+    {id: 0x5A, name: "Polyobject OR Rotate Left"}, // Hexen
+    {id: 0x5B, name: "Polyobject OR Rotate Right"}, // Hexen
+    {id: 0x5C, name: "Polyobject OR Move"}, // Hexen
+    {id: 0x5D, name: "Polyobject OR Move * 8"}, // Hexen
+    {id: 0x5E, name: "Pillar Build And Crush"}, // Hexen
+    {id: 0x5F, name: "Floor And Ceiling Lower By Value"}, // Hexen
+    {id: 0x60, name: "Floor And Ceiling Raise By Value"}, // Hexen
+    {id: 0x64, name: "Scroll Texture Left"}, // Hexen
+    {id: 0x65, name: "Scroll Texture Right"}, // Hexen
+    {id: 0x66, name: "Scroll Texture Up"}, // Hexen
+    {id: 0x67, name: "Scroll Texture Down"}, // Hexen
+    {id: 0x6D, name: "Light Force Lightning"}, // Hexen (not Eternity)
+    {id: 0x6E, name: "Light Raise By Value"}, // Hexen
+    {id: 0x6F, name: "Light Lower By Value"}, // Hexen
+    {id: 0x70, name: "Light Change To Value"}, // Hexen
+    {id: 0x71, name: "Light Fade"}, // Hexen
+    {id: 0x72, name: "Light Glow"}, // Hexen
+    {id: 0x73, name: "Light Flicker"}, // Hexen
+    {id: 0x74, name: "Light Strobe"}, // Hexen
+    {id: 0x75, name: "Light Stop"}, // ZDoom, Eternity
+    {id: 0x76, name: "Plane Copy"}, // ZDoom, Eternity
+    {id: 0x77, name: "Thing Damage"}, // ZDoom, Eternity
+    {id: 0x78, name: "Radius Quake"}, // Hexen
+    {id: 0x79, name: "Line Set Identification"}, // Hexen
+    {id: 0x7D, name: "Thing Move"}, // ZDoom
+    {id: 0x7F, name: "Thing Set Special"}, // ZDoom
+    {id: 0x80, name: "Thrust Thing Z"}, // ZDoom, Eternity
+    {id: 0x81, name: "Use Puzzle Item"}, // Hexen (not Eternity)
+    {id: 0x82, name: "Thing Activate"}, // Hexen
+    {id: 0x83, name: "Thing Deactivate"}, // Hexen
+    {id: 0x84, name: "Thing Remove"}, // Hexen
+    {id: 0x85, name: "Thing Destroy"}, // Hexen
+    {id: 0x86, name: "Thing Projectile"}, // Hexen
+    {id: 0x87, name: "Thing Spawn"}, // Hexen
+    {id: 0x88, name: "Thing Projectile Gravity"}, // Hexen
+    {id: 0x89, name: "Thing Spawn No Fog"}, // Hexen
+    {id: 0x8A, name: "Floor Waggle"}, // Hexen
+    {id: 0x8B, name: "Thing Spawn Facing"}, // ZDoom
+    {id: 0x8C, name: "Sector Change Sound"}, // Hexen
+    {id: 0x91, name: "Player Set Team"}, // Skulltag/Zandronum
+    {id: 0x98, name: "Team Score"}, // Skulltag/Zandronum
+    {id: 0x99, name: "Team Give Points"}, // Skulltag/Zandronum
+    {id: 0x9A, name: "Teleport No Stop"}, // ZDoom
+    {id: 0x9D, name: "Set Global Fog Parameter"}, // ZDoom
+    {id: 0x9E, name: "FS Execute"}, // ZDoom
+    {id: 0x9F, name: "Sector Set Plane Reflection"}, // ZDoom
     {id: 0xA0, name: ""},
     {id: 0xA1, name: ""},
     {id: 0xA9, name: ""},
