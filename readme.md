@@ -2,6 +2,7 @@
 
 [![GNU GPLv3 License][license-image]][license]
 [![Build Status][travis-image]][travis-url]
+![CI](https://github.com/pineapplemachine/jsdoom/workflows/CI/badge.svg)
 
 This package contains tools for reading, writing, and manipulating WAD files,
 written in TypeScript.
