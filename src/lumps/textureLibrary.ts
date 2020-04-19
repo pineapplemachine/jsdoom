@@ -1,3 +1,4 @@
+import {Mappable} from "@src/convert/3DGeneral";
 import {WADFlat} from "@src/lumps/doom/flat";
 import {WADTexture, WADTextures} from "@src/lumps/doom/textures";
 import {WADFileList} from "@src/wad/fileList";
@@ -32,6 +33,16 @@ export class TextureLibrary {
         [TextureSet.Walls]: {[name: string]: (Buffer | null)};
         [TextureSet.Flats]: {[name: string]: (Buffer | null)};
     };
+    // Indexed (red, alpha) pixel buffers created from each texture
+    protected indexed: {
+        [TextureSet.Walls]: {[name: string]: (Buffer | null)};
+        [TextureSet.Flats]: {[name: string]: (Buffer | null)};
+    };
+    // Sizes (width and height) of each texture
+    protected size: {
+        [TextureSet.Walls]: {[name: string]: Mappable};
+        [TextureSet.Flats]: {[name: string]: Mappable};
+    };
     public fileList: WADFileList;
     
     constructor(fileList: WADFileList){
@@ -45,6 +56,14 @@ export class TextureLibrary {
             [TextureSet.Flats]: {},
         };
         this.rgba = {
+            [TextureSet.Walls]: {},
+            [TextureSet.Flats]: {},
+        };
+        this.indexed = {
+            [TextureSet.Walls]: {},
+            [TextureSet.Flats]: {},
+        };
+        this.size = {
             [TextureSet.Walls]: {},
             [TextureSet.Flats]: {},
         };
@@ -147,6 +166,41 @@ export class TextureLibrary {
             return this.rgba[set][upperCaseName];
         }
         return null;
+    }
+    
+    // Lazily get the indexed data for a texture
+    getIndexed(name: string, set: TextureSet): Buffer | null {
+        const upperCaseName = name.toUpperCase();
+        if(this.indexed[set][upperCaseName]){
+            return this.indexed[set][upperCaseName];
+        }
+        const texture = this.textures[set][upperCaseName];
+        if(texture && isWadTexture(texture, set)){
+            this.indexed[set][upperCaseName] = texture.getPixelDataIndexed(this.fileList);
+            return this.indexed[set][upperCaseName];
+        }else if(texture && isWadFlat(texture, set)){
+            this.indexed[set][upperCaseName] = texture.getPixelDataIndexed();
+            return this.indexed[set][upperCaseName];
+        }
+        return null;
+    }
+    
+    // Get the size of a texture
+    getSize(name: string, set: TextureSet): Mappable {
+        const upperCaseName = name.toUpperCase();
+        if(this.size[set][upperCaseName]){
+            return this.size[set][upperCaseName];
+        }
+        const texture = this.textures[set][upperCaseName];
+        if(texture != null){
+            const {width, height} = texture;
+            const size = {width, height};
+            this.size[set][upperCaseName] = size;
+            return size;
+        }
+        const size = {width: 64, height: 64};
+        this.size[set][upperCaseName] = size;
+        return size;
     }
 }
 

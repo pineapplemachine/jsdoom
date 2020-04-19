@@ -91,6 +91,22 @@ export class WADFlat {
         return data;
     }
     
+    // Get pixel data in indexed (index + alpha) format, stored in row-major
+    // format
+    getPixelDataIndexed(): Buffer {
+        // Create the pixel data: 64 * 64 pixels * 2 color channels
+        const data: Buffer = Buffer.alloc(8192);
+        // Fill the array
+        for(let pixelIndex: number = 0; pixelIndex < 4096; pixelIndex++){
+            const colorIndex: number = this.data.readUInt8(pixelIndex);
+            // Combine the alpha and index before writing
+            const color = ((255 << 8) | colorIndex);
+            data.writeUInt16LE(color, 2 * pixelIndex);
+        }
+        // All done
+        return data;
+    }
+    
     // Tell whether or not this flat has transparent pixels in it.
     isTransparent() {
         // Flats are just 4096 bytes, each byte mapping to a palette index, so no pixels are transparent.

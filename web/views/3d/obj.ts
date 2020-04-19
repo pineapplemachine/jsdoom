@@ -1,3 +1,4 @@
+import {Mappable} from "@src/convert/3DGeneral";
 import * as map3D from "@src/convert/3DMapBuilder";
 import {TextureSet, TextureLibrary} from "@src/lumps/textureLibrary";
 
@@ -43,7 +44,7 @@ export function ConvertMapToOBJ(
     let objUvIndex = 1;
     let objNormalIndex = 1;
     // Get all of the textures used by the map
-    const objTextures: {[name: string]: map3D.Mappable} = {};
+    const objTextures: {[name: string]: Mappable} = {};
     for(let wall of convertedMap.wallQuads){
         // Get the texture
         const textureKey = rawMtlNames ? wall.texture : `${TextureSet[wall.textureSet]}[${wall.texture}]`;

@@ -44,9 +44,11 @@ export class WADTexture {
     // Get pixel data in a standardized format:
     // Four channel 32-bit RGBA color stored in rows and then in columns.
     getPixelDataRGBA(files: WADFileList, colors?: WADColors): Buffer {
+        // The buffer has 4 channels: red, green, blue, alpha.
+        const channels = 4;
         const useColors: WADColors = colors || files.getColors();
         // Create the pixel data: size in pixels * 4 color channels
-        const data: Buffer = Buffer.alloc(this.width * this.height * 4, 0);
+        const data: Buffer = Buffer.alloc(this.width * this.height * channels, 0);
         // Get texture patches as WADPicture objects.
         const pictures: (WADPicture | null)[] = this.getPatchPictures(files);
         // Store patch posts in memory so that they don't have to be
@@ -95,7 +97,74 @@ export class WADTexture {
                         const colorIndex: number = post.data.readUInt8(postIndex);
                         const colorRGBA: number = useColors.getColorRGBA(colorIndex);
                         const pixelIndex = x + (this.width * y);
-                        data.writeUInt32LE(colorRGBA, 4 * pixelIndex);
+                        data.writeUInt32LE(colorRGBA, channels * pixelIndex);
+                        // Move on to the next pixel
+                        break EnumeratePatches;
+                    }
+                }
+            }
+        }
+        // All done
+        return data;
+    }
+    
+    // Get pixel data in indexed (index + alpha) format, stored in row-major
+    // format
+    getPixelDataIndexed(files: WADFileList): Buffer {
+        // The buffer will have two channels: index and alpha
+        const channels = 2;
+        // Create the pixel data: size in pixels * 2 color channels
+        const data: Buffer = Buffer.alloc(this.width * this.height * channels, 0);
+        // Get texture patches as WADPicture objects.
+        const pictures: (WADPicture | null)[] = this.getPatchPictures(files);
+        // Store patch posts in memory so that they don't have to be
+        // constantly recomputed.
+        const posts: WADPicturePost[][][] = this.getPatchPosts(pictures);
+        console.log(this.patches);
+        console.log(pictures);
+        // console.log(pictures.map(p => p && `${p.x}, ${p.y}`));
+        // Enumerate each pixel in the output image
+        // Pixels not covered by any patch are skipped; they will remain
+        // as 0x00000000, i.e. correctly transparent.
+        for(let x: number = 0; x < this.width; x++){
+            for(let y: number = 0; y < this.height; y++){
+                // Find the last (topmost) patch to intersect this pixel
+                EnumeratePatches: for(
+                    let patchIndex: number = this.patches.length - 1;
+                    patchIndex >= 0; patchIndex--
+                ){
+                    // Picture data for this patch
+                    const picPatch: (WADPicture | null) = pictures[patchIndex];
+                    if(!picPatch){
+                        continue;
+                    }
+                    // Offset data for this patch
+                    const texPatch: WADTexturePatch = this.patches[patchIndex];
+                    // Check if pixel is within the bounds of the patch
+                    // First compute X and Y coordinate within this patch
+                    const patchX: number = x - (texPatch.x);
+                    const patchY: number = y - (texPatch.y);
+                    if(
+                        patchX < 0 || patchX >= picPatch.width ||
+                        patchY < 0 || patchY >= picPatch.height
+                    ){
+                        continue;
+                    }
+                    // Find the post intersecting this pixel, if any
+                    for(const post of posts[patchIndex][patchX]){
+                        // Check if this post intersects
+                        if(!post || (
+                            post.y > patchY || post.y + post.length <= patchY
+                        )){
+                            continue;
+                        }
+                        // It does!
+                        const postIndex: number = patchY - post.y;
+                        const colorIndex: number = post.data.readUInt8(postIndex);
+                        const pixelIndex = x + (this.width * y);
+                        // Combine index and alpha before writing
+                        const color = 255 << 8 | colorIndex;
+                        data.writeUInt16LE(color, channels * pixelIndex);
                         // Move on to the next pixel
                         break EnumeratePatches;
                     }
