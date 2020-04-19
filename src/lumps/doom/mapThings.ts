@@ -24,7 +24,7 @@ export enum WADMapThingFlag {
 }
 
 // Represents a single thing read from a Doom or Heretic format THINGS lump.
-export class WADMapThing {
+class WADMapThingBase {
     // The x position of the thing.
     x: number;
     // The y position of the thing.
@@ -86,6 +86,39 @@ export class WADMapThing {
     }
 }
 
+export class WADMapDoomThing extends WADMapThingBase {}
+
+export class WADMapHexenThing extends WADMapThingBase {
+    // The up/down offset from the sector floor for the given thing.
+    z: number;
+    // The given thing's ID, used by scripts or specials.
+    tid: number;
+    // The action special to execute upon death or being picked up.
+    special: number;
+    // The arguments for the special (up to 5 unsigned bytes).
+    specialArgs: number[];
+    
+    constructor(options: {
+        type: number,
+        x: number,
+        y: number,
+        z: number,
+        tid: number,
+        angle: number,
+        flags: number,
+        special: number,
+        specialArgs: number[],
+    }){
+        super(options);
+        this.z = options.z;
+        this.tid = options.tid;
+        this.special = options.special;
+        this.specialArgs = options.specialArgs;
+    }
+}
+
+export type WADMapThing = WADMapDoomThing | WADMapHexenThing;
+
 // Represents a Doom or Heretic format "THINGS" lump.
 // See: https://doomwiki.org/wiki/Thing
 export class WADMapThings {
@@ -124,7 +157,7 @@ export class WADMapThings {
             throw new Error("Thing index out of bounds.");
         }
         const thingOffset: number = WADMapThings.ItemSize * thingIndex;
-        return new WADMapThing({
+        return new WADMapDoomThing({
             x: this.data.readInt16LE(thingOffset),
             y: this.data.readInt16LE(thingOffset + 2),
             angle: this.data.readInt16LE(thingOffset + 4),

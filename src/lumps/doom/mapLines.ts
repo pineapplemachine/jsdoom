@@ -245,6 +245,28 @@ enum WADMapDoom64SpecialFlag {
     ActivateRepeatedly = 0x8000,
 }
 
+// Represents the part of the sidedef.
+export enum WallPart {
+    Upper,
+    Middle,
+    Lower,
+}
+
+// Represents info relevant to switches on Doom 64 walls
+export interface Doom64SwitchInfo {
+    // Whether or not the switch is drawn on both sides
+    twoSided: boolean;
+    // Which part of the sidedef to draw the switch texture on
+    where: WallPart;
+    // For Doom 64 switches, an invisible part of the sidedef will reference the
+    // switch texture. For example, the upper or lower part of a one-sided
+    // linedef, or two-sided linedef with same front and back sector. This
+    // specifies which part of the sidedef references the switch texture. The
+    // Doom 64 tech bible's description of this particular piece of information
+    // is very confusing.
+    textureReferencePart: WallPart;
+}
+
 // Represents a linedef from a Doom 64 format map
 export class WADMapDoom64Line extends WADMapLineBase {
     // The line's action special, or the macro number, and flags specifying how
@@ -281,6 +303,71 @@ export class WADMapDoom64Line extends WADMapLineBase {
     
     get macro(): boolean {
         return(this.special & WADMapDoom64SpecialFlag.Macro) > 0;
+    }
+    get redKey(): boolean {
+        return(this.special & WADMapDoom64SpecialFlag.RedKey) > 0;
+    }
+    get blueKey(): boolean {
+        return(this.special & WADMapDoom64SpecialFlag.BlueKey) > 0;
+    }
+    get yellowKey(): boolean {
+        return(this.special & WADMapDoom64SpecialFlag.YellowKey) > 0;
+    }
+    get activation(): number {
+        const activationFlags = (
+            WADMapDoom64SpecialFlag.ActivateByCrossing |
+            WADMapDoom64SpecialFlag.ActivateByShooting |
+            WADMapDoom64SpecialFlag.ActivateByUsing |
+            WADMapDoom64SpecialFlag.ActivateRepeatedly);
+        return(this.special & activationFlags);
+    }
+    get switchInfo(): Doom64SwitchInfo | null {
+        const switchBits = (
+            WADMapDoom64LineFlag.SwitchMask1 |
+            WADMapDoom64LineFlag.SwitchMask2 |
+            WADMapDoom64LineFlag.SwitchMask3 |
+            WADMapDoom64LineFlag.FloorHeightCheck
+        );
+        const switchFlags = this.flags & switchBits;
+        // Copied from the Doom 64 tech bible
+        if(switchFlags === (WADMapDoom64LineFlag.SwitchMask1 | WADMapDoom64LineFlag.FloorHeightCheck)){
+            return {
+                twoSided: true,
+                where: WallPart.Lower,
+                textureReferencePart: WallPart.Upper,
+            };
+        }else if(switchFlags === (WADMapDoom64LineFlag.SwitchMask1 | WADMapDoom64LineFlag.SwitchMask3 | WADMapDoom64LineFlag.FloorHeightCheck)){
+            return {
+                twoSided: false,
+                where: WallPart.Middle,
+                textureReferencePart: WallPart.Upper,
+            };
+        }else if(switchFlags === (WADMapDoom64LineFlag.SwitchMask2 | WADMapDoom64LineFlag.SwitchMask3)){
+            return {
+                twoSided: true,
+                where: WallPart.Upper,
+                textureReferencePart: WallPart.Lower,
+            };
+        }else if(switchFlags === (WADMapDoom64LineFlag.SwitchMask2 | WADMapDoom64LineFlag.SwitchMask3 | WADMapDoom64LineFlag.FloorHeightCheck)){
+            return {
+                twoSided: false,
+                where: WallPart.Middle,
+                textureReferencePart: WallPart.Lower,
+            };
+        }else if(switchFlags === (WADMapDoom64LineFlag.SwitchMask1 | WADMapDoom64LineFlag.SwitchMask2 | WADMapDoom64LineFlag.FloorHeightCheck)){
+            return {
+                twoSided: true,
+                where: WallPart.Lower,
+                textureReferencePart: WallPart.Middle,
+            };
+        }else if(switchFlags === (WADMapDoom64LineFlag.SwitchMask1 | WADMapDoom64LineFlag.SwitchMask3 | WADMapDoom64LineFlag.FloorHeightCheck)){
+            return {
+                twoSided: true,
+                where: WallPart.Upper,
+                textureReferencePart: WallPart.Middle,
+            };
+        }
+        return null;
     }
 }
 
