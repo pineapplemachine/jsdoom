@@ -282,10 +282,12 @@ class SectorPolygonBuilder {
                 return edge.find((edgeVertex) => {
                     return edgeVertex !== from &&
                         edgeVertex !== previous;
-                }) || null;
+                });
             }).filter<number>(
-                (vertex): vertex is number => vertex != null
-            );
+                // The vertex index could be 0. Checking inequality against
+                // undefined is necessary to ensure the number 0 is not
+                // filtered out.
+                (vertex): vertex is number => vertex !== undefined);
             // Find the vertex that is connected by the lowest angle
             let mostAcuteAngle = Math.PI * 2;
             let mostAcuteVertex = 0;
