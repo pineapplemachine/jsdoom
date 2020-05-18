@@ -1,5 +1,7 @@
 import {Mappable} from "@src/convert/3DGeneral";
+import {WADColorMap} from "@src/lumps/doom/colormap";
 import {WADFlat} from "@src/lumps/doom/flat";
+import {WADPalette} from "@src/lumps/doom/playpal";
 import {WADTexture, WADTextures} from "@src/lumps/doom/textures";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump, WADCategory} from "@src/wad/lump";
@@ -17,6 +19,7 @@ export function isWadFlat(texture: (WADTexture | WADFlat), set: TextureSet): tex
     return set === TextureSet.Flats;
 }
 
+// This class is intended to provide easy access to texture data.
 export class TextureLibrary {
     // The textures themselves
     protected textures: {
@@ -201,6 +204,15 @@ export class TextureLibrary {
         const size = {width: 64, height: 64};
         this.size[set][upperCaseName] = size;
         return size;
+    }
+
+    // Get the palette
+    public get palette(): WADPalette {
+        return this.fileList.getPlaypal();
+    }
+    // Get the colormap
+    public get colormap(): WADColorMap {
+        return this.fileList.getColormap();
     }
 }
 
