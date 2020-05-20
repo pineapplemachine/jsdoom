@@ -112,7 +112,7 @@ export class WADTexture {
     // format
     getPixelDataIndexed(files: WADFileList): Buffer {
         // The buffer will have two channels: index and alpha
-        const channels = 2;
+        const channels = 3;
         // Create the pixel data: size in pixels * 2 color channels
         const data: Buffer = Buffer.alloc(this.width * this.height * channels, 0);
         // Get texture patches as WADPicture objects.
@@ -163,7 +163,8 @@ export class WADTexture {
                         const colorIndex: number = post.data.readUInt8(postIndex);
                         const pixelIndex = x + (this.width * y);
                         // Combine index and alpha before writing
-                        const color = 255 << 8 | colorIndex;
+                        const alpha = 255;
+                        const color = alpha << 8 | colorIndex;
                         data.writeUInt16LE(color, channels * pixelIndex);
                         // Move on to the next pixel
                         break EnumeratePatches;
