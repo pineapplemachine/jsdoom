@@ -82,7 +82,7 @@ export class WADColorMap {
         const maps: number = this.getMapCount();
         const data: Buffer = Buffer.alloc(1024 * maps);
         // Fill the array. TODO: Can this be optimized?
-        const total: number = this.data.length;
+        const total: number = maps * 256;
         for(let colorIndex: number = 0; colorIndex < total; colorIndex++){
             const index: number = this.data.readUInt8(colorIndex);
             const rgba: number = playpal.getColorRGBA(palIndex, index);
