@@ -102,6 +102,10 @@ export class TextureLibrary {
                         this.textures[set][upperCaseName] = texture;
                         // this.transparent[set][upperCaseName] = texture.isTransparent(this.fileList);
                         // this.rgba[set][upperCaseName] = texture.getPixelDataRGBA(this.fileList);
+                        this.size[set][upperCaseName] = {
+                            width: texture.width,
+                            height: texture.height,
+                        };
                         return texture;
                     }
                 }
@@ -116,6 +120,10 @@ export class TextureLibrary {
                 if(lump != null){
                     const flat = WADFlat.from(lump);
                     this.textures[set][upperCaseName] = flat;
+                    this.size[set][upperCaseName] = {
+                        width: flat.width,
+                        height: flat.height,
+                    };
                 }else{
                     console.error("Lump is null");
                 }
@@ -205,7 +213,13 @@ export class TextureLibrary {
         this.size[set][upperCaseName] = size;
         return size;
     }
-
+    
+    // Get the palette, and the colormap for each palette, as a buffer
+    getColormaps(palIndex: number = 0): Buffer {
+        const palette = this.fileList.getPlaypal();
+        const colormap = this.fileList.getColormap();
+        return colormap.getPixelDataRGBA(palette, palIndex);
+    }
     // Get the palette
     public get palette(): WADPalette {
         return this.fileList.getPlaypal();

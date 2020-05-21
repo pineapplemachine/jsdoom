@@ -11,8 +11,10 @@ enum BufferType {
     Normal,
     UV,
     Color,
+    LightLevel,
 }
 
+// A "group" for rendering
 interface ThreeGroup {
     // The name of the texture/material
     material: string;
@@ -22,77 +24,12 @@ interface ThreeGroup {
     count: number;
 }
 
-// Create a material which uses a shader to render indexed textures as true colour
-function createIndexedShaderMaterial(
-    name: string,
-    data: Buffer,
-    size: Mappable,
-    palette: WADPalette,
-    colormap: WADColorMap,
-    palIndex: number = 0
-): THREE.ShaderMaterial {
-    const colormapTexture = new THREE.DataTexture(
-        colormap.getPixelDataRGBA(palette, palIndex),
-        WADPalette.ColorsPerPalette,
-        colormap.getMapCount(),
-        THREE.RGBAFormat,
-        THREE.UnsignedByteType,
-        THREE.UVMapping,
-        THREE.RepeatWrapping,
-        THREE.RepeatWrapping,
-        THREE.NearestFilter,
-        THREE.LinearFilter,
-        4 // Anisotropy
-    );
-    const texture = new THREE.DataTexture(
-        data, // Buffer
-        size.width, // Width
-        size.height, // Height
-        THREE.RGFormat, // Texture format
-        THREE.UnsignedByteType, // Data type
-        THREE.UVMapping, // Mapping
-        THREE.RepeatWrapping, // X wrapping
-        THREE.RepeatWrapping, // Y wrapping
-        THREE.NearestFilter, // Mag filter
-        THREE.LinearFilter, // Min filter
-        4 // Anisotropy
-    );
-    return new THREE.ShaderMaterial({
-    uniforms: {image: texture, colours: colormapTexture},
-    vertexShader: `
-    in vec3 position;
-    in vec3 normal;
-    in vec2 uv;
-    in vec3 color;
-    
-    out float distance;
-    out vec3 vertexNormal;
-    out vec2 textureCoordinate;
-    out vec3 colour;
-    
-    void main(){
-        vec4 aPos = vec4(position, 1.);
-        textureCoordinate = uv;
-        vertexNormal = normal;
-        colour = color;
-        gl_Position = projectionMatrix * modelViewMatrix * aPos;
-        distance = gl_Position.z;
-    }
-    `, fragmentShader: `
-    uniform sampler2D image;
-    uniform sampler2D colours;
-    
-    in float distance;
-    in vec3 vertexNormal;
-    in vec2 textureCoordinate;
-    in vec3 colour;
-    out vec4 gl_FragColor;
-    
-    void main(){
-        vec4 texel = texture(image, textureCoordinate);
-        gl_FragColor = texel;
-    }
-    `});
+// How to render the textures
+enum MaterialStyle {
+    Pixelated,
+    Linear,
+    DoomSoftware,
+    Doom64,
 }
 
 class BufferModel {
@@ -101,6 +38,7 @@ class BufferModel {
     static readonly normalComponents: number = 3;
     static readonly uvComponents: number = 2;
     static readonly colorComponents: number = 3;
+    static readonly lightComponents: number = 1;
     // The threshold which determines whether a pixel is (completely)
     // transparent or not
     static readonly alphaTest: number = .1;
@@ -136,11 +74,14 @@ class BufferModel {
     protected uvBuffer: Float32Array;
     // The vertex color buffer
     protected colorBuffer: Float32Array;
+    // A buffer holding the sector light level for each vertex
+    protected lightBuffer: Uint8Array;
     // Current element indices for each buffer
     protected vertexElement: number;
     protected normalElement: number;
     protected uvElement: number;
     protected colorElement: number;
+    protected lightElement: number;
     // Array of THREE.js materials
     protected materials: THREE.Material[];
     // Array of THREE.js textures, for disposal
@@ -149,8 +90,17 @@ class BufferModel {
     protected materialIndices: {[name: string]: number};
     // The texture library to use for getting the texture data
     protected library: TextureLibrary;
+    // The texture to use for the palette and fade tables
+    protected colourMapTexture: THREE.Texture;
+    // Whether or not to use "vanilla-style" materials, wherein the materials
+    // are rendered in the style 
+    public materialStyle: MaterialStyle;
 
-    constructor(triangles: number, library: TextureLibrary) {
+    constructor(
+        triangles: number,
+        library: TextureLibrary,
+        style: MaterialStyle = MaterialStyle.Linear
+    ){
         // Constants
         const verticesPerTriangle = 3;
         // Initialize buffer element index helpers
@@ -158,6 +108,7 @@ class BufferModel {
         this.normalElement = 0;
         this.uvElement = 0;
         this.colorElement = 0;
+        this.lightElement = 0;
         // Initialize the buffer and its attributes
         this.geometry = new THREE.BufferGeometry();
         this.vertexBuffer = new Float32Array(triangles * BufferModel.positionComponents * verticesPerTriangle);
@@ -168,10 +119,13 @@ class BufferModel {
         const uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, BufferModel.uvComponents);
         this.colorBuffer = new Float32Array(triangles * BufferModel.colorComponents * verticesPerTriangle);
         const colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.colorComponents);
+        this.lightBuffer = new Uint8Array(triangles * BufferModel.lightComponents * verticesPerTriangle);
+        const lightBufferAttribute = new THREE.BufferAttribute(this.lightBuffer, BufferModel.lightComponents);
         this.geometry.setAttribute("position", vertexBufferAttribute);
         this.geometry.setAttribute("normal", normalBufferAttribute);
         this.geometry.setAttribute("uv", uvBufferAttribute);
         this.geometry.setAttribute("color", colorBufferAttribute);
+        this.geometry.setAttribute("light", lightBufferAttribute);
         // Initialize material and texture arrays
         // The null material being the first is necessary because Lilywhite
         // Lilith MAP02 will use the wrong textures on flats.
@@ -179,6 +133,119 @@ class BufferModel {
         this.materialIndices = {"-": 0};
         this.textures = [];
         this.library = library;
+        const colourMapBuffer = library.getColormaps();
+        this.colourMapTexture = new THREE.DataTexture(
+            colourMapBuffer,
+            WADPalette.ColorsPerPalette,
+            library.colormap.getMapCount(),
+            THREE.RGBAFormat,
+            THREE.UnsignedByteType,
+            THREE.UVMapping,
+            THREE.RepeatWrapping,
+            THREE.RepeatWrapping,
+            THREE.NearestFilter,
+            THREE.NearestFilter,
+            0
+        );
+        this.materialStyle = style;
+    }
+
+    // Create a material which uses a shader to render indexed textures in the
+    // style of the Doom software renderer. Requires an additional colourmap
+    // texture.
+    private static createSoftwareStyleMaterial(
+        // The name of the material
+        name: string,
+        // The texture, in palette index-alpha format
+        texture: THREE.Texture,
+        // Palette/colormap texture to use for the palette and fade table
+        colormapTexture: THREE.Texture,
+    ): THREE.ShaderMaterial {
+        texture.generateMipmaps = false;
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+        texture.needsUpdate = true;
+        colormapTexture.generateMipmaps = false;
+        colormapTexture.magFilter = THREE.NearestFilter;
+        colormapTexture.minFilter = THREE.NearestFilter;
+        colormapTexture.needsUpdate = true;
+        return new THREE.ShaderMaterial({
+        name,
+        uniforms: {
+            image: {value: texture},
+            colours: {value: colormapTexture},
+            maxColourmap: {value: 31},
+        },
+        vertexShader: `
+        /*
+        // Already defined
+        in vec3 position;
+        in vec3 normal;
+        in vec2 uv;
+        in vec3 color;
+        */
+        
+        in int light;
+        out float distance;
+        flat out int lightlevel;
+        out vec3 vertexNormal;
+        flat out vec3 lineNormal;
+        out vec2 textureCoordinate;
+        
+        void main(){
+            vec4 aPos = vec4(position, 1.);
+            textureCoordinate = uv;
+            lineNormal = vertexNormal = normal;
+            // Assume Doom-style lighting is being used
+            lightlevel = light;
+            gl_Position = projectionMatrix * modelViewMatrix * aPos;
+            distance = gl_Position.z;
+        }
+        `, fragmentShader: `
+        #define APPLY_FAKE_CONTRAST
+        
+        uniform sampler2D image; // Paletted image
+        uniform sampler2D colours; // Colourmap
+        uniform int maxColourmap;
+        
+        in float distance;
+        flat in int lightlevel;
+        in vec3 vertexNormal;
+        flat in vec3 lineNormal;
+        in vec2 textureCoordinate;
+        
+        int getColormapIndex(){
+            // From the Chocolate Doom source
+            // #define LIGHTLEVELS 16
+            // #define NUMCOLORMAPS 32
+            // #define DISTMAP 2
+            // startmap = (15 - i) * 4;
+            // level = startmap - j / DISTMAP;
+            int index = int(distance / 16.);
+            #ifdef APPLY_FAKE_CONTRAST
+            vec3 horizontal = vec3(1., 0., 0.);
+            vec3 vertical = vec3(0., 0., 1.);
+            // A "3D interpretation" of the first few lines of R_RenderMaskedSegRange
+            if(abs(dot(lineNormal, horizontal)) == 1.){
+                index -= 1;
+            }else if(abs(dot(lineNormal, vertical)) == 1.){
+                index += 1;
+            }
+            #endif
+            return clamp(index, 0, maxColourmap);
+        }
+        
+        void main(){
+            vec4 paltexel = texture(image, textureCoordinate);
+            int colourmapY = getColormapIndex();
+            int colourmapX = int(paltexel.r * 255.);
+            float alpha = paltexel.g;
+            ivec2 colourmapUv = ivec2(colourmapX, colourmapY);
+            vec3 rgb = texelFetch(colours, colourmapUv, 0).rgb;
+            vec4 texel = vec4(rgb, alpha);
+            gl_FragColor = texel;
+        }
+        `});
     }
 
     // Set an element of one of the buffers.
@@ -195,6 +262,8 @@ class BufferModel {
         }else if(buffer === BufferType.Color){
             const arrayIndex = elementIndex * BufferModel.colorComponents;
             this.colorBuffer.set(values, arrayIndex);
+        }else if(buffer === BufferType.LightLevel){
+            this.lightBuffer.set(values, elementIndex);
         }
     }
 
@@ -226,6 +295,13 @@ class BufferModel {
                 this.setBufferElementAt(buffer, values, this.colorElement);
                 if(increment){
                     this.colorElement += values.length / BufferModel.colorComponents;
+                }
+            }
+        }else if(buffer === BufferType.LightLevel){
+            if(values.length > 0){
+                this.setBufferElementAt(buffer, values, this.lightElement);
+                if(increment){
+                    this.lightElement += values.length;
                 }
             }
         }
@@ -260,18 +336,42 @@ class BufferModel {
             // Get texture data and make a THREE.js texture out of it
             const wadTexture = this.library.get(name, set);
             if(wadTexture != null){
-                const textureData = this.library.getRgba(name, set)!;
-                const texture = new THREE.DataTexture(textureData,
-                    wadTexture.width, wadTexture.height, THREE.RGBAFormat,
-                    THREE.UnsignedByteType, THREE.UVMapping, THREE.RepeatWrapping,
-                    THREE.RepeatWrapping, THREE.NearestFilter, THREE.LinearFilter,
-                    4);
+                // Figure out a few things before creating the material
+                const size = this.library.getSize(name, set);
+                let magFilter = THREE.LinearFilter;
+                if(this.materialStyle === MaterialStyle.Pixelated){
+                    magFilter = THREE.NearestFilter;
+                }
+                const minFilter = THREE.LinearFilter;
+                const format = (
+                    this.materialStyle === MaterialStyle.DoomSoftware ?
+                    THREE.RGBFormat : THREE.RGBAFormat);
+                const buffer = (
+                    this.materialStyle === MaterialStyle.DoomSoftware ?
+                    this.library.getIndexed(name, set)! :
+                    this.library.getRgba(name, set)!);
+                const anisotropy = (
+                    this.materialStyle === MaterialStyle.DoomSoftware ? 0 : 4);
+                const texture = new THREE.DataTexture(
+                    buffer, // Buffer
+                    size.width, // Width
+                    size.height, // Height
+                    format, // Texture format
+                    THREE.UnsignedByteType, // Data type
+                    THREE.UVMapping, // Mapping
+                    THREE.RepeatWrapping, // X (S) wrapping
+                    THREE.RepeatWrapping, // Y (T) wrapping
+                    magFilter, // Upscale filter
+                    minFilter, // Downscale filter
+                    anisotropy // Anisotropy
+                );
                 // Is the texture transparent?
                 const transparent = (place == null) ? false : (
                     // Only midtextures can be transparent
                     place === map3D.LineQuadPlace.Midtexture &&
                     this.library.isTransparent(name, set)
                 );
+                /*
                 const material = new THREE.MeshBasicMaterial({
                     name,
                     map: texture,
@@ -279,6 +379,15 @@ class BufferModel {
                     alphaTest: transparent ? BufferModel.alphaTest : 0,
                     vertexColors: true,
                 });
+                */
+                const material = (
+                    this.materialStyle === MaterialStyle.DoomSoftware ?
+                    BufferModel.createSoftwareStyleMaterial(name, texture, this.colourMapTexture) :
+                    new THREE.MeshBasicMaterial({name, map: texture}));
+                material.transparent = transparent;
+                material.alphaTest = transparent ? BufferModel.alphaTest : 0;
+                material.vertexColors = true;
+                material.needsUpdate = true;
                 this.textures.push(texture);
                 return this.getOrAddMaterial(name, material);
             }
@@ -304,6 +413,7 @@ class BufferModel {
         for(const texture of this.textures){
             texture.dispose();
         }
+        this.colourMapTexture.dispose();
     }
 
     // Add a quad to the buffer.
@@ -360,6 +470,7 @@ class BufferModel {
             this.setBufferElement(BufferType.Normal, [Math.cos(wallAngle), 0, Math.sin(wallAngle)]);
             this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getQuadUVs(textureSize, quadTriVertex, quad));
             this.setBufferElement(BufferType.Color, [lightLevel, lightLevel, lightLevel]);
+            this.setBufferElement(BufferType.LightLevel, [quad.lightLevel]);
         }
         return materialIndex;
     }
@@ -381,6 +492,7 @@ class BufferModel {
             ]);
             this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getSectorVertexUVs(vertex, textureSize));
             this.setBufferElement(BufferType.Color, [lightLevel, lightLevel, lightLevel]);
+            this.setBufferElement(BufferType.LightLevel, [triangle.lightLevel]);
         }
         return materialIndex;
     }
