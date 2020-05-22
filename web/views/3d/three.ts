@@ -343,15 +343,19 @@ class BufferModel {
                     magFilter = THREE.NearestFilter;
                 }
                 const minFilter = THREE.LinearFilter;
-                const format = (
+                // Use indexed buffer if possible, will be null otherwise.
+                const softwareStyleBuffer = (
                     this.materialStyle === MaterialStyle.DoomSoftware ?
+                    this.library.getIndexed(name, set) : null);
+                const format = (
+                    softwareStyleBuffer != null ?
                     THREE.RGBFormat : THREE.RGBAFormat);
                 const buffer = (
-                    this.materialStyle === MaterialStyle.DoomSoftware ?
-                    this.library.getIndexed(name, set)! :
+                    softwareStyleBuffer != null ?
+                    softwareStyleBuffer :
                     this.library.getRgba(name, set)!);
                 const anisotropy = (
-                    this.materialStyle === MaterialStyle.DoomSoftware ? 0 : 4);
+                    softwareStyleBuffer != null ? 0 : 4);
                 const texture = new THREE.DataTexture(
                     buffer, // Buffer
                     size.width, // Width
@@ -381,7 +385,7 @@ class BufferModel {
                 });
                 */
                 const material = (
-                    this.materialStyle === MaterialStyle.DoomSoftware ?
+                    softwareStyleBuffer != null ?
                     BufferModel.createSoftwareStyleMaterial(name, texture, this.colourMapTexture) :
                     new THREE.MeshBasicMaterial({name, map: texture}));
                 material.transparent = transparent;
