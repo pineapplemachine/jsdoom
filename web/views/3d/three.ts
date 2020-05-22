@@ -104,7 +104,7 @@ class BufferModel {
     constructor(
         triangles: number,
         library: TextureLibrary,
-        style: MaterialStyle = MaterialStyle.Linear
+        style: MaterialStyle = MaterialStyle.DoomSoftware
     ){
         // Constants
         const verticesPerTriangle = 3;
@@ -420,12 +420,13 @@ class BufferModel {
                 !quad.reverse ?
                 quadTriVertices[vertexIterIndex] :
                 quadTriVertices[quadTriVertices.length - vertexIterIndex - 1]);
-            const lightLevel = quad.lightLevel / 255;
+            const lightLevel = Math.max(Math.min(quad.lightLevel, 255), 0);
+            const lightGray = lightLevel / 255;
             this.setBufferElement(BufferType.Vertex, xyzFor(quadTriVertex));
             this.setBufferElement(BufferType.Normal, [Math.cos(wallAngle), 0, Math.sin(wallAngle)]);
             this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getQuadUVs(textureSize, quadTriVertex, quad));
-            this.setBufferElement(BufferType.Color, [lightLevel, lightLevel, lightLevel]);
-            this.setBufferElement(BufferType.LightLevel, [quad.lightLevel]);
+            this.setBufferElement(BufferType.Color, [lightGray, lightGray, lightGray]);
+            this.setBufferElement(BufferType.LightLevel, [lightLevel]);
         }
         return materialIndex;
     }
@@ -438,7 +439,8 @@ class BufferModel {
             const vertexIndex = !triangle.reverse ? vertexIterIndex : triangle.vertices.length - vertexIterIndex - 1;
             const vertex = triangle.vertices[vertexIndex];
             const [x, y, z] = [vertex.x, triangle.height, vertex.y];
-            const lightLevel = triangle.lightLevel / 255;
+            const lightLevel = Math.max(Math.min(triangle.lightLevel, 255), 0);
+            const lightGray = lightLevel / 255;
             this.setBufferElement(BufferType.Vertex, [x, y, z]);
             this.setBufferElement(BufferType.Normal, [
                 triangle.normalVector.x,
@@ -446,8 +448,8 @@ class BufferModel {
                 triangle.normalVector.z,
             ]);
             this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getSectorVertexUVs(vertex, textureSize));
-            this.setBufferElement(BufferType.Color, [lightLevel, lightLevel, lightLevel]);
-            this.setBufferElement(BufferType.LightLevel, [triangle.lightLevel]);
+            this.setBufferElement(BufferType.Color, [lightGray, lightGray, lightGray]);
+            this.setBufferElement(BufferType.LightLevel, [lightLevel]);
         }
         return materialIndex;
     }
