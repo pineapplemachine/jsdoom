@@ -3,6 +3,7 @@ import * as map3D from "@src/convert/3DMapBuilder";
 import {WADColorMap} from "@src/lumps/doom/colormap";
 import {WADPalette} from "@src/lumps/doom/playpal";
 import {TextureLibrary, TextureSet} from "@src/lumps/textureLibrary";
+import {FetchableString} from "@web/fetchable";
 import * as THREE from "three";
 
 // The type of buffer to get the index of an element from
@@ -31,6 +32,11 @@ enum MaterialStyle {
     DoomSoftware,
     Doom64,
 }
+
+const softwareVertexResource = new FetchableString(
+    "/assets/shaders/softwareStyle.vert", {mode: "no-cors"});
+const softwareFragmentResource = new FetchableString(
+    "/assets/shaders/softwareStyle.frag", {mode: "no-cors"});
 
 class BufferModel {
     // Constants helpful when modifying buffers
@@ -92,8 +98,7 @@ class BufferModel {
     protected library: TextureLibrary;
     // The texture to use for the palette and fade tables
     protected colourMapTexture: THREE.Texture;
-    // Whether or not to use "vanilla-style" materials, wherein the materials
-    // are rendered in the style 
+    // The style to render the materials in
     public materialStyle: MaterialStyle;
 
     constructor(
@@ -169,83 +174,29 @@ class BufferModel {
         colormapTexture.magFilter = THREE.NearestFilter;
         colormapTexture.minFilter = THREE.NearestFilter;
         colormapTexture.needsUpdate = true;
-        return new THREE.ShaderMaterial({
-        name,
-        uniforms: {
-            image: {value: texture},
-            colours: {value: colormapTexture},
-            maxColourmap: {value: 31},
-        },
-        vertexShader: `
-        /*
-        // Already defined
-        in vec3 position;
-        in vec3 normal;
-        in vec2 uv;
-        in vec3 color;
-        */
-        
-        in int light;
-        out float distance;
-        flat out int lightlevel;
-        out vec3 vertexNormal;
-        flat out vec3 lineNormal;
-        out vec2 textureCoordinate;
-        
-        void main(){
-            vec4 aPos = vec4(position, 1.);
-            textureCoordinate = uv;
-            lineNormal = vertexNormal = normal;
-            // Assume Doom-style lighting is being used
-            lightlevel = light;
-            gl_Position = projectionMatrix * modelViewMatrix * aPos;
-            distance = gl_Position.z;
-        }
-        `, fragmentShader: `
-        #define APPLY_FAKE_CONTRAST
-        
-        uniform sampler2D image; // Paletted image
-        uniform sampler2D colours; // Colourmap
-        uniform int maxColourmap;
-        
-        in float distance;
-        flat in int lightlevel;
-        in vec3 vertexNormal;
-        flat in vec3 lineNormal;
-        in vec2 textureCoordinate;
-        
-        int getColormapIndex(){
-            // From the Chocolate Doom source
-            // #define LIGHTLEVELS 16
-            // #define NUMCOLORMAPS 32
-            // #define DISTMAP 2
-            // startmap = (15 - i) * 4;
-            // level = startmap - j / DISTMAP;
-            int index = int(distance / 16.);
-            #ifdef APPLY_FAKE_CONTRAST
-            vec3 horizontal = vec3(1., 0., 0.);
-            vec3 vertical = vec3(0., 0., 1.);
-            // A "3D interpretation" of the first few lines of R_RenderMaskedSegRange
-            if(abs(dot(lineNormal, horizontal)) == 1.){
-                index -= 1;
-            }else if(abs(dot(lineNormal, vertical)) == 1.){
-                index += 1;
+        const material = new THREE.ShaderMaterial({
+            name,
+            uniforms: {
+                image: {value: texture},
+                colours: {value: colormapTexture},
+                maxColourmap: {value: 31},
+            },
+        });
+        softwareVertexResource.onComplete.push((data) => {
+            if(data != null){
+                material.vertexShader = data;
+                material.needsUpdate = true;
             }
-            #endif
-            return clamp(index, 0, maxColourmap);
-        }
-        
-        void main(){
-            vec4 paltexel = texture(image, textureCoordinate);
-            int colourmapY = getColormapIndex();
-            int colourmapX = int(paltexel.r * 255.);
-            float alpha = paltexel.g;
-            ivec2 colourmapUv = ivec2(colourmapX, colourmapY);
-            vec3 rgb = texelFetch(colours, colourmapUv, 0).rgb;
-            vec4 texel = vec4(rgb, alpha);
-            gl_FragColor = texel;
-        }
-        `});
+        });
+        softwareVertexResource.fetch(5);
+        softwareFragmentResource.onComplete.push((data) => {
+            if(data != null){
+                material.fragmentShader = data;
+                material.needsUpdate = true;
+            }
+        });
+        softwareFragmentResource.fetch(5);
+        return material;
     }
 
     // Set an element of one of the buffers.
