@@ -21,7 +21,7 @@ int mapIndex(int lightmap, int distcmap){
 
 int getColormapIndex(){
     // Eyeballed approximation - not perfect by any means!
-    int distcmap = 24 - int(floor(viewDistance / 24.));
+    int distcmap = max(24 - int(floor(viewDistance / 24.)), 0);
     int colormapIndex = mapIndex((lightlevel >> 4), distcmap);
     #ifdef APPLY_FAKE_CONTRAST
     vec3 horizontal = vec3(1., 0., 0.);

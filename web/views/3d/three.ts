@@ -108,6 +108,7 @@ class BufferModel {
     ){
         // Constants
         const verticesPerTriangle = 3;
+        const valuesPerTriangle = verticesPerTriangle * triangles;
         // Initialize buffer element index helpers
         this.vertexElement = 0;
         this.normalElement = 0;
@@ -116,15 +117,15 @@ class BufferModel {
         this.lightElement = 0;
         // Initialize the buffer and its attributes
         this.geometry = new THREE.BufferGeometry();
-        this.vertexBuffer = new Float32Array(triangles * BufferModel.positionComponents * verticesPerTriangle);
+        this.vertexBuffer = new Float32Array(valuesPerTriangle * BufferModel.positionComponents);
         const vertexBufferAttribute = new THREE.BufferAttribute(this.vertexBuffer, BufferModel.positionComponents);
-        this.normalBuffer = new Float32Array(triangles * BufferModel.normalComponents * verticesPerTriangle);
+        this.normalBuffer = new Float32Array(valuesPerTriangle * BufferModel.normalComponents);
         const normalBufferAttribute = new THREE.BufferAttribute(this.normalBuffer, BufferModel.normalComponents);
-        this.uvBuffer = new Float32Array(triangles * BufferModel.uvComponents * verticesPerTriangle);
+        this.uvBuffer = new Float32Array(valuesPerTriangle * BufferModel.uvComponents);
         const uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, BufferModel.uvComponents);
-        this.colorBuffer = new Float32Array(triangles * BufferModel.colorComponents * verticesPerTriangle);
+        this.colorBuffer = new Float32Array(valuesPerTriangle * BufferModel.colorComponents);
         const colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.colorComponents);
-        this.lightBuffer = new Uint8Array(triangles * BufferModel.lightComponents * verticesPerTriangle);
+        this.lightBuffer = new Uint8Array(valuesPerTriangle * BufferModel.lightComponents);
         const lightBufferAttribute = new THREE.BufferAttribute(this.lightBuffer, BufferModel.lightComponents);
         this.geometry.setAttribute("position", vertexBufferAttribute);
         this.geometry.setAttribute("normal", normalBufferAttribute);

@@ -18,7 +18,7 @@ void main(){
     textureCoordinate = uv;
     lineNormal = vertexNormal = normal;
     // Assume Doom-style lighting is being used
-    lightlevel = int(light);
+    lightlevel = int(floor(light));
     gl_Position = projectionMatrix * modelViewMatrix * aPos;
     viewDistance = gl_Position.z;
 }
