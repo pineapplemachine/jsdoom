@@ -6,7 +6,7 @@ in vec2 uv;
 in vec3 color;
 */
 
-in float light;
+in int light;
 out float viewDistance;
 flat out int lightlevel;
 out vec3 vertexNormal;
@@ -18,7 +18,7 @@ void main(){
     textureCoordinate = uv;
     lineNormal = vertexNormal = normal;
     // Assume Doom-style lighting is being used
-    lightlevel = int(floor(light));
+    lightlevel = light;
     gl_Position = projectionMatrix * modelViewMatrix * aPos;
     viewDistance = gl_Position.z;
 }

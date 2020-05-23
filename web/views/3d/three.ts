@@ -26,10 +26,14 @@ interface ThreeGroup {
 }
 
 // How to render the textures
-enum MaterialStyle {
+export enum MaterialStyle {
+    // Use "nearest neighbour" (pixelated) filtering
     Pixelated,
+    // Use linear filtering
     Linear,
+    // Emulate Doom planar software renderer
     DoomSoftware,
+    // Emulate Nintendo 64 three-point bilinear filtering
     Doom64,
 }
 
@@ -37,6 +41,10 @@ const softwareVertexResource = new FetchableString(
     "/assets/shaders/softwareStyle.vert", {mode: "no-cors"});
 const softwareFragmentResource = new FetchableString(
     "/assets/shaders/softwareStyle.frag", {mode: "no-cors"});
+const basicVertexResource = new FetchableString(
+    "/assets/shaders/basic.vert", {mode: "no-cors"});
+const N64FragmentResource = new FetchableString(
+    "/assets/shaders/threepoint.frag", {mode: "no-cors"});
 
 class BufferModel {
     // Constants helpful when modifying buffers
@@ -45,6 +53,7 @@ class BufferModel {
     static readonly uvComponents: number = 2;
     static readonly colorComponents: number = 3;
     static readonly lightComponents: number = 1;
+    static readonly mirrorComponents: number = 2;
     // The threshold which determines whether a pixel is (completely)
     // transparent or not
     static readonly alphaTest: number = .1;
@@ -80,14 +89,17 @@ class BufferModel {
     protected uvBuffer: Float32Array;
     // The vertex color buffer
     protected colorBuffer: Float32Array;
-    // A buffer holding the sector light level for each vertex
-    protected lightBuffer: Uint8Array;
+    // The sector light level for each vertex
+    protected lightBuffer: Int32Array;
+    // Whether or not to mirror the texture on this vertex
+    protected mirrorBuffer: Uint8Array;
     // Current element indices for each buffer
     protected vertexElement: number;
     protected normalElement: number;
     protected uvElement: number;
     protected colorElement: number;
     protected lightElement: number;
+    protected mirrorElement: number;
     // Array of THREE.js materials
     protected materials: THREE.Material[];
     // Array of THREE.js textures, for disposal
@@ -115,6 +127,7 @@ class BufferModel {
         this.uvElement = 0;
         this.colorElement = 0;
         this.lightElement = 0;
+        this.mirrorElement = 0;
         // Initialize the buffer and its attributes
         this.geometry = new THREE.BufferGeometry();
         this.vertexBuffer = new Float32Array(valuesPerTriangle * BufferModel.positionComponents);
@@ -125,13 +138,16 @@ class BufferModel {
         const uvBufferAttribute = new THREE.BufferAttribute(this.uvBuffer, BufferModel.uvComponents);
         this.colorBuffer = new Float32Array(valuesPerTriangle * BufferModel.colorComponents);
         const colorBufferAttribute = new THREE.BufferAttribute(this.colorBuffer, BufferModel.colorComponents);
-        this.lightBuffer = new Uint8Array(valuesPerTriangle * BufferModel.lightComponents);
+        this.lightBuffer = new Int32Array(valuesPerTriangle * BufferModel.lightComponents);
         const lightBufferAttribute = new THREE.BufferAttribute(this.lightBuffer, BufferModel.lightComponents);
+        this.mirrorBuffer = new Uint8Array(valuesPerTriangle * BufferModel.mirrorComponents);
+        const mirrorBufferAttribute = new THREE.BufferAttribute(this.mirrorBuffer, BufferModel.mirrorComponents);
         this.geometry.setAttribute("position", vertexBufferAttribute);
         this.geometry.setAttribute("normal", normalBufferAttribute);
         this.geometry.setAttribute("uv", uvBufferAttribute);
         this.geometry.setAttribute("color", colorBufferAttribute);
         this.geometry.setAttribute("light", lightBufferAttribute);
+        this.geometry.setAttribute("mirror", mirrorBufferAttribute);
         // Initialize material and texture arrays
         // The null material being the first is necessary because Lilywhite
         // Lilith MAP02 will use the wrong textures on flats.
@@ -199,7 +215,38 @@ class BufferModel {
         softwareFragmentResource.fetch(5);
         return material;
     }
-
+    
+    // Create a material which renders true-colour and indexed textures in the
+    // style of the Nintendo 64 (Doom 64)
+    private static createDoom64Material(
+        // The name of the material
+        name: string,
+        // The texture to use on the material
+        texture: THREE.Texture,
+    ): THREE.ShaderMaterial {
+        const material = new THREE.ShaderMaterial({
+            name,
+            uniforms: {
+                tex: {value: texture},
+            },
+        });
+        basicVertexResource.onComplete.push((data) => {
+            if(data != null){
+                material.vertexShader = data;
+                material.needsUpdate = true;
+            }
+        });
+        basicVertexResource.fetch(5);
+        N64FragmentResource.onComplete.push((data) => {
+            if(data != null){
+                material.fragmentShader = data;
+                material.needsUpdate = true;
+            }
+        });
+        N64FragmentResource.fetch(5);
+        return material;
+    }
+    
     // Set an element of one of the buffers.
     private setBufferElementAt(buffer: BufferType, values: number[], elementIndex: number){
         if(buffer === BufferType.Vertex){
@@ -327,19 +374,15 @@ class BufferModel {
                     place === map3D.LineQuadPlace.Midtexture &&
                     this.library.isTransparent(name, set)
                 );
-                /*
-                const material = new THREE.MeshBasicMaterial({
-                    name,
-                    map: texture,
-                    transparent,
-                    alphaTest: transparent ? BufferModel.alphaTest : 0,
-                    vertexColors: true,
-                });
-                */
-                const material = (
-                    softwareStyleBuffer != null ?
-                    BufferModel.createSoftwareStyleMaterial(name, texture, this.colourMapTexture) :
-                    new THREE.MeshBasicMaterial({name, map: texture}));
+                const material = (() => {
+                    if(softwareStyleBuffer != null){
+                        return BufferModel.createSoftwareStyleMaterial(
+                            name, texture, this.colourMapTexture);
+                    }else if(this.materialStyle === MaterialStyle.Doom64){
+                        return BufferModel.createDoom64Material(name, texture);
+                    }
+                    return new THREE.MeshBasicMaterial({name, map: texture});
+                })();
                 material.transparent = transparent;
                 material.alphaTest = transparent ? BufferModel.alphaTest : 0;
                 material.vertexColors = true;
@@ -421,7 +464,7 @@ class BufferModel {
                 !quad.reverse ?
                 quadTriVertices[vertexIterIndex] :
                 quadTriVertices[quadTriVertices.length - vertexIterIndex - 1]);
-            const lightLevel = Math.max(Math.min(quad.lightLevel, 255), 0);
+            const lightLevel = quad.lightLevel;
             const lightGray = lightLevel / 255;
             this.setBufferElement(BufferType.Vertex, xyzFor(quadTriVertex));
             this.setBufferElement(BufferType.Normal, [Math.cos(wallAngle), 0, Math.sin(wallAngle)]);
@@ -440,7 +483,7 @@ class BufferModel {
             const vertexIndex = !triangle.reverse ? vertexIterIndex : triangle.vertices.length - vertexIterIndex - 1;
             const vertex = triangle.vertices[vertexIndex];
             const [x, y, z] = [vertex.x, triangle.height, vertex.y];
-            const lightLevel = Math.max(Math.min(triangle.lightLevel, 255), 0);
+            const lightLevel = triangle.lightLevel;
             const lightGray = lightLevel / 255;
             this.setBufferElement(BufferType.Vertex, [x, y, z]);
             this.setBufferElement(BufferType.Normal, [
@@ -473,7 +516,16 @@ interface DisposableGroup {
     dispose: () => void;
 }
 
-export function ConvertMapToThree(map: map3D.MapGeometry, textureLibrary: TextureLibrary): DisposableGroup {
+// Options for converting a map to THREE.js format
+export interface ConvertOptions {
+    style: MaterialStyle;
+}
+
+export function ConvertMapToThree(
+    map: map3D.MapGeometry,
+    textureLibrary: TextureLibrary,
+    options?: ConvertOptions
+): DisposableGroup {
     // Get materials for map
     const midQuads: map3D.LineQuad[] = [];
     const wallQuads: map3D.LineQuad[] = [];
