@@ -53,6 +53,8 @@ export abstract class Fetchable<T> {
         // If the resource is already cached, return it immediately.
         if(this._fetchStatus === FetchStatus.Cached){
             this.onComplete.forEach((callback) => callback(this._data!));
+            // Avoid calling the onComplete callbacks more than once.
+            this.onComplete = [];
             return null;
         }
         // Set up the fetch.
@@ -95,11 +97,15 @@ export abstract class Fetchable<T> {
 
 export class FetchableString extends Fetchable<string | void> {
     protected handleResponse(response: Response) {
+        // If the server didn't respond with an error code
         if(response.ok){
             response.text().then((data) => {
                 this._fetchStatus = FetchStatus.Cached;
+                // Cache response data
                 this._data = data;
                 this.onComplete.forEach((callback) => callback(data));
+                // Avoid calling the onComplete callbacks more than once.
+                this.onComplete = [];
             });
         }
     }
