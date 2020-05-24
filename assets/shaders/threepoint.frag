@@ -2,7 +2,7 @@ uniform sampler2D tex;
 
 in vec2 textureCoordinate;
 in vec3 vertexColour;
-// flat in bvec2 mirror;
+in vec2 mirrorTexCoords;
 
 // Mirror UV coordinates
 float mirrorUV(float uvCoord){
@@ -13,15 +13,13 @@ float mirrorUV(float uvCoord){
     return coord;
 }
 
-vec2 mirrorUV(vec2 uv){
-    /*
+vec2 mirrorUV(vec2 uv, bvec2 mirror){
     if(mirror.x){
-        uv.x = mirrorUv(uv.x);
+        uv.x = mirrorUV(uv.x);
     }
     if(mirror.y){
-        uv.y = mirrorUv(uv.y);
+        uv.y = mirrorUV(uv.y);
     }
-    */
     return uv;
 }
 
@@ -67,7 +65,8 @@ vec4 n64BilinearFilter(vec2 uv, vec2 tex_res, sampler2D tex, vec4 vtx_color){
 void main()
 {
     vec2 tex_res = vec2(textureSize(tex, 0));
-    vec2 uv = mirrorUV(textureCoordinate);
+    bvec2 shouldMirror = bvec2(mirrorTexCoords.x > 0., mirrorTexCoords.y > 0.);
+    vec2 uv = mirrorUV(textureCoordinate, shouldMirror);
     vec4 pixel = n64BilinearFilter(uv, tex_res, tex, vec4(vertexColour, 1.));
     gl_FragColor = pixel;
 }
