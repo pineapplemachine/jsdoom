@@ -35,6 +35,8 @@ export enum MaterialStyle {
     DoomSoftware,
     // Emulate Nintendo 64 three-point bilinear filtering
     Doom64,
+    // Wireframe mode
+    Wireframe,
 }
 
 const softwareVertexResource = new FetchableString(
@@ -116,7 +118,7 @@ class BufferModel {
     constructor(
         triangles: number,
         library: TextureLibrary,
-        style: MaterialStyle = MaterialStyle.DoomSoftware
+        style: MaterialStyle = MaterialStyle.Linear
     ){
         // Constants
         const verticesPerTriangle = 3;
@@ -381,7 +383,11 @@ class BufferModel {
                     }else if(this.materialStyle === MaterialStyle.Doom64){
                         return BufferModel.createDoom64Material(name, texture);
                     }
-                    return new THREE.MeshBasicMaterial({name, map: texture});
+                    return new THREE.MeshBasicMaterial({
+                        name,
+                        map: texture,
+                        wireframe: this.materialStyle === MaterialStyle.Wireframe,
+                    });
                 })();
                 material.transparent = transparent;
                 material.alphaTest = transparent ? BufferModel.alphaTest : 0;
@@ -459,6 +465,28 @@ class BufferModel {
                 (quad.startX - quad.endX) / quad.width);
             return reverse ? wallAngle + Math.PI / 2 : wallAngle - Math.PI / 2;
         })(quad.reverse);
+        // Fake contrast value to add to vertex colour
+        const fakeContrast = ((wallAngle) => {
+            // From the Chocolate Doom source code:
+            // if (curline->v1->y == curline->v2->y)
+            // lightnum--;
+            // else if (curline->v1->x == curline->v2->x)
+            // lightnum++;
+            // Lightnum refers to the colormap index. A higher colormap
+            // index is darker, and a lower colormap index is brighter.
+            if(wallAngle === (-Math.PI / 2)){
+                // Horizontal; make it brighter
+                return 0.0625;
+            }else if(wallAngle === (Math.PI / 2)){
+                return 0.0625;
+            }else if(wallAngle === 0){
+                // Vertical; make it darker
+                return -0.0625;
+            }else if(wallAngle === Math.PI){
+                return -0.0625;
+            }
+            return 0;
+        })(wallAngle);
         for(let vertexIterIndex = 0; vertexIterIndex < quadTriVertices.length; vertexIterIndex++){
             const quadTriVertex = (
                 !quad.reverse ?
@@ -469,7 +497,7 @@ class BufferModel {
             this.setBufferElement(BufferType.Vertex, xyzFor(quadTriVertex));
             this.setBufferElement(BufferType.Normal, [Math.cos(wallAngle), 0, Math.sin(wallAngle)]);
             this.setBufferElement(BufferType.UV, map3D.MapGeometryBuilder.getQuadUVs(textureSize, quadTriVertex, quad));
-            this.setBufferElement(BufferType.Color, [lightGray, lightGray, lightGray]);
+            this.setBufferElement(BufferType.Color, [lightGray + fakeContrast, lightGray + fakeContrast, lightGray + fakeContrast]);
             this.setBufferElement(BufferType.LightLevel, [lightLevel]);
         }
         return materialIndex;
@@ -518,7 +546,8 @@ interface DisposableGroup {
 
 // Options for converting a map to THREE.js format
 export interface ConvertOptions {
-    style: MaterialStyle;
+    // The rendering style to use
+    style?: MaterialStyle;
 }
 
 export function ConvertMapToThree(
