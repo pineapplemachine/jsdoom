@@ -39,7 +39,7 @@ int getColormapIndex(){
 void main(){
     vec4 paltexel = texture(image, textureCoordinate);
     int colourmapY = getColormapIndex();
-    int colourmapX = int(paltexel.r * 255.);
+    int colourmapX = int(floor(min(paltexel.r * 256., 255.)));
     float alpha = paltexel.g;
     ivec2 colourmapUv = ivec2(colourmapX, colourmapY);
     vec3 rgb = texelFetch(colours, colourmapUv, 0).rgb;
