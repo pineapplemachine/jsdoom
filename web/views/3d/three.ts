@@ -35,6 +35,8 @@ export enum MaterialStyle {
     DoomSoftware,
     // Emulate Nintendo 64 three-point bilinear filtering
     Doom64,
+    // No textures
+    Untextured,
     // Wireframe mode
     Wireframe,
 }
@@ -118,7 +120,7 @@ class BufferModel {
     constructor(
         triangles: number,
         library: TextureLibrary,
-        style: MaterialStyle = MaterialStyle.Linear
+        style: MaterialStyle = MaterialStyle.Untextured
     ){
         // Constants
         const verticesPerTriangle = 3;
@@ -152,8 +154,10 @@ class BufferModel {
         this.geometry.setAttribute("mirror", mirrorBufferAttribute);
         // Initialize material and texture arrays
         // The null material being the first is necessary because Lilywhite
-        // Lilith MAP02 will use the wrong textures on flats.
-        this.materials = [BufferModel.nullMaterial];
+        // Lilith MAP02 will use the wrong textures on flats otherwise.
+        this.materials = style === MaterialStyle.Untextured ?
+            [new THREE.MeshBasicMaterial({vertexColors: true})] :
+            [BufferModel.nullMaterial];
         this.materialIndices = {"-": 0};
         this.textures = [];
         this.library = library;
@@ -329,7 +333,10 @@ class BufferModel {
 
     // Get the material index for the given texture, adding it to the material
     // array if it hasn't already been added.
-    private getMaterialIndexFor(name: string, set: TextureSet, place?: map3D.LineQuadPlace): number {
+    protected getMaterialIndexFor(name: string, set: TextureSet, place?: map3D.LineQuadPlace): number {
+        if(this.materialStyle === MaterialStyle.Untextured){
+            return 0;
+        }
         const materialIndex = this.getMaterialIndex(name);
         if(materialIndex >= 0){
             return materialIndex;
@@ -548,6 +555,9 @@ interface DisposableGroup {
 export interface ConvertOptions {
     // The rendering style to use
     style?: MaterialStyle;
+    // Whether or not to use textures. Turning this off can provide a huge
+    // performance boost.
+    textured?: boolean;
 }
 
 export function ConvertMapToThree(
