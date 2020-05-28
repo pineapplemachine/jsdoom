@@ -120,7 +120,7 @@ class BufferModel {
     constructor(
         triangles: number,
         library: TextureLibrary,
-        style: MaterialStyle = MaterialStyle.Untextured
+        style: MaterialStyle = MaterialStyle.Linear
     ){
         // Constants
         const verticesPerTriangle = 3;
