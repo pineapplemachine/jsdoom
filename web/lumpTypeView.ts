@@ -539,7 +539,8 @@ const LumpTypeViewMap3D = function(
                 1, // Near clip
                 10000, // Far clip
             );
-            const mapCubeCamera = new THREE.CubeCamera(1, 10000, 1024);
+            const mapCubeTarget = new THREE.WebGLCubeRenderTarget(1024);
+            const mapCubeCamera = new THREE.CubeCamera(1, 10000, mapCubeTarget);
             // Ensure omnidirectional view plane is twice the width of its height
             const omniDirViewCamera = new THREE.OrthographicCamera(-.5, .5, -.5, .5, -1, 1);
             const viewAspectRatio = root.clientHeight / root.clientWidth;
