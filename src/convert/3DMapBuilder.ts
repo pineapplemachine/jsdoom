@@ -363,7 +363,7 @@ class SectorPolygonBuilder {
     protected logVertices(previous: number, current: number, next: number | null){
         const vertexIndexStrings = [previous, current, next].map(
         (vertexIndex) => {
-            const indexString = vertexIndex == null ? "null" :
+            const indexString = vertexIndex === null ? "null" :
                 vertexIndex.toString(10);
             // Doom map vertex indices are unsigned 16-bit integers,
             // which are no more than 5 decimal digits
@@ -427,7 +427,7 @@ class SectorPolygonBuilder {
                 this.logVertices(prevVertex, lastVertex, nextVertex);
             }
             // No more vertices left in this polygon
-            if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
+            if(nextVertex === null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
                 if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0]) ||
                     sectorPolygons[curPolygon].length < 3){
                     // Last polygon is incomplete
@@ -905,9 +905,6 @@ export class MapGeometryBuilder {
         // 3 = Lower right
         const uvFactorX = [0, 1, 0, 1];
         const uvFactorY = [0, 0, 1, 1];
-        if(texture == null){
-            return [uvFactorX[vertexIndex], uvFactorY[vertexIndex]];
-        }
         const xScale = (texture.xScale || 1) * (quad.xScale || 1);
         const yScale = (texture.yScale || 1) * (quad.yScale || 1);
         const texelX = 1 / texture.width;
