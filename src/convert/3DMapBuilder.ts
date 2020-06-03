@@ -96,21 +96,6 @@ interface SectorVertex {
 
 type Edge = [number, number];
 
-// Check whether two arrays of T are the same. Required because two identical
-// arrays can point to two different objects, and JS objects are compared by
-// their memory location (pointer) rather than the values they contain.
-function arrayEquals<T>(first: T[], second: T[]): boolean {
-    if(first.length !== second.length){
-        return false;
-    }
-    for(let index = 0; index < first.length; index++){
-        if(first[index] !== second[index]){
-            return false;
-        }
-    }
-    return true;
-}
-
 // Takes lines of a sector, and converts it to polygons
 class SectorPolygonBuilder {
     // The "edges" (start/end vertex of each line)
@@ -137,22 +122,23 @@ class SectorPolygonBuilder {
             }
             return vertex;
         };
-        // Add edges to sector edges
+        // Add edges to sector edges, ensuring duplicate edges are not added in
+        // the process.
         for(const line of sectorLines){
             const edge: Edge = [
                 fixVertexReference(line.startVertex),
                 fixVertexReference(line.endVertex)
             ];
-            // Ensure duplicate edges are not added
             const edgeDuplicate: Edge = [
                 fixVertexReference(line.endVertex),
                 fixVertexReference(line.startVertex)
             ];
-            const checkEdge = (sectorEdge: Edge) => {
-                return arrayEquals<number>(sectorEdge, edge) ||
-                    arrayEquals<number>(sectorEdge, edgeDuplicate);
-            };
-            if(!this.sectorEdges.some(checkEdge)){
+            // Hash table key lookups are faster than repeatedly iterating
+            // through an array to check for the existence of a specific value.
+            const edgeString = edge.join(" ");
+            const edgeDuplicateString = edgeDuplicate.join(" ");
+            if(!this.edgesLeft.hasOwnProperty(edgeString) &&
+                    !this.edgesLeft.hasOwnProperty(edgeDuplicateString)){
                 this.sectorEdges.push(edge);
                 this.edgesLeft[edge.join(" ")] = false;
             }
