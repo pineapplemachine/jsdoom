@@ -3,6 +3,7 @@
 uniform sampler2D image; // Paletted image
 uniform sampler2D colours; // Colourmap
 uniform int maxColourmap;
+uniform bool paletteInterpolation;
 
 in float viewDistance;
 flat in int lightlevel;
@@ -19,10 +20,12 @@ int mapIndex(int lightmap, int distcmap){
     return startmap - distcmap / 2;
 }
 
-int getColormapIndex(){
+int getColormapIndex(int distanceOffset, out float blendFactor){
+    float dist;
     // Eyeballed approximation - not perfect by any means!
-    int distcmap = max(24 - int(floor(viewDistance / 24.)), 0);
-    int colormapIndex = mapIndex((lightlevel >> 4), distcmap);
+    blendFactor = modf(viewDistance / 24., dist);
+    int distcmap = max(24 - int(dist), 0);
+    int colormapIndex = mapIndex((lightlevel >> 4), distcmap + distanceOffset);
     #ifdef APPLY_FAKE_CONTRAST
     vec3 horizontal = vec3(1., 0., 0.);
     vec3 vertical = vec3(0., 0., 1.);
@@ -38,11 +41,20 @@ int getColormapIndex(){
 
 void main(){
     vec4 paltexel = texture(image, textureCoordinate);
-    int colourmapY = getColormapIndex();
+    float blendFactor;
+    int colourmapY = getColormapIndex(0, blendFactor);
     int colourmapX = int(floor(min(paltexel.r * 256., 255.)));
     float alpha = paltexel.g;
     ivec2 colourmapUv = ivec2(colourmapX, colourmapY);
     vec3 rgb = texelFetch(colours, colourmapUv, 0).rgb;
-    vec4 texel = vec4(rgb, alpha);
+    vec4 texel = vec4(1.);
+    if(paletteInterpolation){
+        ivec2 colourmapUvNext = ivec2(colourmapUv);
+        colourmapUvNext.y = getColormapIndex(1, blendFactor);
+        vec3 rgbNext = texelFetch(colours, colourmapUvNext, 0).rgb;
+        texel = vec4(mix(rgbNext, rgb, blendFactor), alpha);
+    }else{
+        texel = vec4(rgb, alpha);
+    }
     gl_FragColor = texel;
 }

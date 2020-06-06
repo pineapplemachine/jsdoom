@@ -203,6 +203,7 @@ class BufferModel {
                 image: {value: texture},
                 colours: {value: colormapTexture},
                 maxColourmap: {value: 31},
+                paletteInterpolation: {value: true},
             },
         });
         softwareVertexResource.onComplete.push((data) => {
