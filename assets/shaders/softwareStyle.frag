@@ -41,10 +41,15 @@ int getColormapIndex(int distanceOffset, out float blendFactor){
 
 void main(){
     vec4 paltexel = texture(image, textureCoordinate);
+    float alpha = paltexel.g;
+    #ifdef ALPHATEST
+    if(alpha < ALPHATEST){
+        discard;
+    }
+    #endif
     float blendFactor;
     int colourmapY = getColormapIndex(0, blendFactor);
     int colourmapX = int(floor(min(paltexel.r * 256., 255.)));
-    float alpha = paltexel.g;
     ivec2 colourmapUv = ivec2(colourmapX, colourmapY);
     vec3 rgb = texelFetch(colours, colourmapUv, 0).rgb;
     vec4 texel = vec4(1.);

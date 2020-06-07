@@ -68,5 +68,10 @@ void main()
     bvec2 shouldMirror = bvec2(mirrorTexCoords.x > 0., mirrorTexCoords.y > 0.);
     vec2 uv = mirrorUV(textureCoordinate, shouldMirror);
     vec4 pixel = n64BilinearFilter(uv, tex_res, tex, vec4(vertexColour, 1.));
+    #ifdef ALPHATEST
+    if(pixel.a < ALPHATEST){
+        discard;
+    }
+    #endif
     gl_FragColor = pixel;
 }
