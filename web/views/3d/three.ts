@@ -13,6 +13,7 @@ enum BufferType {
     UV,
     Color,
     LightLevel,
+    Mirror,
 }
 
 // A "group" for rendering
@@ -222,7 +223,7 @@ class BufferModel {
         softwareFragmentResource.fetch(5);
         return material;
     }
-    
+
     // Create a material which renders true-colour and indexed textures in the
     // style of the Nintendo 64 (Doom 64)
     private static createDoom64Material(
@@ -253,7 +254,7 @@ class BufferModel {
         N64FragmentResource.fetch(5);
         return material;
     }
-    
+
     // Set an element of one of the buffers.
     private setBufferElementAt(buffer: BufferType, values: number[], elementIndex: number){
         if(buffer === BufferType.Vertex){
@@ -270,6 +271,8 @@ class BufferModel {
             this.colorBuffer.set(values, arrayIndex);
         }else if(buffer === BufferType.LightLevel){
             this.lightBuffer.set(values, elementIndex);
+        }else if(buffer === BufferType.Mirror){
+            this.mirrorBuffer.set(values, elementIndex);
         }
     }
 
@@ -308,6 +311,13 @@ class BufferModel {
                 this.setBufferElementAt(buffer, values, this.lightElement);
                 if(increment){
                     this.lightElement += values.length;
+                }
+            }
+        }else if(buffer === BufferType.Mirror){
+            if(values.length > 0){
+                this.setBufferElementAt(buffer, values, this.mirrorElement);
+                if(increment){
+                    this.mirrorElement += values.length;
                 }
             }
         }
