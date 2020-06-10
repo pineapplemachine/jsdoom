@@ -96,6 +96,13 @@ interface SectorVertex {
 
 type Edge = [number, number];
 
+// Status of an edge after "visiting" it - has it been used or not?
+enum EdgeVisitStatus {
+    DoesntExist = 0, // 0 is falsy. This is for backwards compatibility.
+    NotUsed,
+    AlreadyUsed,
+}
+
 // Takes lines of a sector, and converts it to polygons
 class SectorPolygonBuilder {
     // The "edges" (start/end vertex of each line)
@@ -320,13 +327,17 @@ class SectorPolygonBuilder {
 
     // Marks the given edge as being added to a polygon
     // Returns whether or not the given edge exists
-    protected visitEdge(edgeStart: number, edgeEnd: number): boolean {
+    protected visitEdge(edgeStart: number, edgeEnd: number): EdgeVisitStatus {
         const edgeKey = this.edgeExists(edgeStart, edgeEnd);
         if(edgeKey !== ""){
+            const status: EdgeVisitStatus = (
+                this.edgesLeft[edgeKey] === false ?
+                EdgeVisitStatus.NotUsed :
+                EdgeVisitStatus.AlreadyUsed);
             this.edgesLeft[edgeKey] = true;
-            return true;
+            return status;
         }
-        return false;
+        return EdgeVisitStatus.DoesntExist;
     }
 
     // Checks whether a polygon is complete. It is expected that "last" is
@@ -392,6 +403,8 @@ class SectorPolygonBuilder {
         if(this.debug){
             console.log("starting edge", startEdge);
         }
+        // "Use" the start edge
+        this.visitEdge.apply(this, startEdge);
         // Current polygon index
         let curPolygon = 0;
         // Choose next vertex by exterior angle rather than interior angle
@@ -402,15 +415,28 @@ class SectorPolygonBuilder {
         // Incomplete polygons - polygons will be added to this array if they
         // are incomplete (no edge connecting the first and last vertices)
         const incompletePolygons: number[][] = [];
-        while(this.sectorEdges.some(
-            (edge) => this.edgesLeft[edge.join(" ")] === false)){
-            // The vertex from which to start the search for the next vertex
+        // It's faster to count the edges that are used than to repeatedly
+        // iterate through the sectorEdges array
+        const edgesToUse = this.sectorEdges.length;
+        let edgesUsed = 1; // The number of edges currently used
+        while(edgesUsed !== edgesToUse){
+            // The edge from which to start the search for the next vertex
             const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
-            this.visitEdge(prevVertex, lastVertex);
+            // Mark edge as used
+            let edgeStatus = this.visitEdge(prevVertex, lastVertex);
+            if(edgeStatus === EdgeVisitStatus.NotUsed){
+                console.log("prevVertex lastVertex not used");
+                edgesUsed += 1;
+            }
             // The next vertex to add to the polygon
             const nextVertex = this.findNextVertex(lastVertex, prevVertex, exterior);
             if(this.debug){
                 this.logVertices(prevVertex, lastVertex, nextVertex);
+            }
+            if(nextVertex !== null){
+                edgeStatus = this.visitEdge(lastVertex, nextVertex);
+            }else{
+                edgeStatus === EdgeVisitStatus.DoesntExist;
             }
             // No more vertices left in this polygon
             if(nextVertex === null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
@@ -450,9 +476,12 @@ class SectorPolygonBuilder {
                 sectorPolygons.push(nextStartEdge);
                 // Mark the starting edge as added to the polygon
                 this.visitEdge.apply(this, nextStartEdge);
-            }else if(this.visitEdge(lastVertex, nextVertex)){
+            }else if(edgeStatus !== EdgeVisitStatus.DoesntExist){
                 // There is another edge in the polygon, mark it as added.
                 sectorPolygons[curPolygon].push(nextVertex);
+                if(edgeStatus === EdgeVisitStatus.NotUsed){
+                    edgesUsed += 1;
+                }
             }
         }
         // Check to see whether each polygon is complete, and remove or join
