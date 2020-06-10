@@ -601,29 +601,57 @@ body {
     }
 }
 
-.fullscreen-button {
+.overlay {
     position: absolute;
-    right: 5px;
+    left: 5px;
     top: 5px;
-    z-index: 3;
+    z-index: 5;
+    width: max-content;
+    height: max-content;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.options-button {
+    display: block;
     width: 40px;
     height: 40px;
     overflow: hidden;
     border: 1px solid #AAA;
     background-color: rgba(0,0,0,.25);
     border-radius: 7px;
-    text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     cursor: pointer;
     user-select: none;
-    color: #FFF;
-    font-size: 24px;
 }
-.fullscreen-button:hover,
-.fullscreen-button:active {
+.options-button::before {
+    content: "\2699";
+    display: block;
+    text-align: center;
+    font-size: 30px;
+    line-height: 40px;
+    color: #FFF;
+}
+.options-button:hover,
+.options-button:active {
     background-color: rgba(255,255,255,.25);
+}
+
+.options-dropdown {
+    display: none;
+}
+.options-dropdown.dropped {
+    display: block;
+    font-size: 10pt;
+    background-color: #222;
+    padding: 7px;
+    border-radius: 7px;
+    border: 1px solid #484848;
+    margin: 7px;
+    height: max-content;
+}
+
+.options-dropdown label {
+    display: block;
 }
 
 .flex-h {

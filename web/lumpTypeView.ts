@@ -507,16 +507,85 @@ const LumpTypeViewMap3D = function(
                 root.appendChild(vrButton);
             }else{
                 // Allow 3D view to be expanded to full screen
-                const fullscreenButton = util.createElement({
-                    tag: "div",
-                    class: "fullscreen-button",
-                    content: "\u26F6",
-                    onleftclick: () => {
-                        fscreen.requestFullscreen(canvas);
-                    },
+                const overlayContainer = util.createElement({
+                    class: "overlay",
                     appendTo: root,
                 });
-                root.appendChild(fullscreenButton);
+                const optionsButton = util.createElement({
+                    class: "options-button",
+                    onleftclick: () => {
+                        optionsDropdown.classList.toggle("dropped");
+                    },
+                    appendTo: overlayContainer,
+                });
+                const optionsDropdown = util.createElement({
+                    class: "options-dropdown",
+                    appendTo: overlayContainer,
+                });
+                const viewStyleOptionLabel = util.createElement({
+                    tag: "label",
+                    content: "View style: ",
+                    appendTo: optionsDropdown,
+                });
+                const viewStyleOptionSelect = util.createElement({
+                    tag: "select",
+                    appendTo: viewStyleOptionLabel,
+                });
+                const viewStyleOptionFirstPerson = util.createElement({
+                    tag: "option",
+                    content: "First-person",
+                    appendTo: viewStyleOptionSelect,
+                });
+                const viewStyleOptionEquirectangular = util.createElement({
+                    tag: "option",
+                    content: "Equirectangular",
+                    appendTo: viewStyleOptionSelect,
+                });
+                const renderStyleOptionLabel = util.createElement({
+                    tag: "label",
+                    content: "Render style: ",
+                    appendTo: optionsDropdown,
+                });
+                const renderStyleOptionSelect = util.createElement({
+                    tag: "select",
+                    appendTo: renderStyleOptionLabel,
+                });
+                const renderStyleOptionPixelated = util.createElement({
+                    tag: "option",
+                    content: "Pixelated",
+                    appendTo: renderStyleOptionSelect,
+                });
+                const renderStyleOptionLinear = util.createElement({
+                    tag: "option",
+                    content: "Linear",
+                    appendTo: renderStyleOptionSelect,
+                });
+                const renderStyleOptionPaletted = util.createElement({
+                    tag: "option",
+                    content: "Paletted",
+                    appendTo: renderStyleOptionSelect,
+                });
+                const renderStyleOptionN64 = util.createElement({
+                    tag: "option",
+                    content: "Nintendo 64",
+                    appendTo: renderStyleOptionSelect,
+                });
+                const renderStyleOptionUntextured = util.createElement({
+                    tag: "option",
+                    content: "Untextured",
+                    appendTo: renderStyleOptionSelect,
+                });
+                const renderStyleOptionWireframe = util.createElement({
+                    tag: "option",
+                    content: "Wireframe",
+                    appendTo: renderStyleOptionSelect,
+                });
+                const fullscreenButton = util.createElement({
+                    tag: "button",
+                    content: "Fullscreen",
+                    appendTo: optionsDropdown,
+                });
+                root.appendChild(overlayContainer);
             }
             disposables.push(renderer);
             // The "head" which moves around, and contains the camera(s).
