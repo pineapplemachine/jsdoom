@@ -32,38 +32,30 @@ import {FetchableString} from "@web/fetchable";
 
 const win: any = window as any;
 
-// Manages data for these views, so that stuff like the WAD file list and texture library can be reused between views.
+// Manages data for these views, so that stuff like the WAD file list and
+// texture library can be reused between views.
 class DataManager {
-    // The last WAD file loaded
-    private lastWadFile: WADFile | null;
     // The WAD file list
-    public wadFileList: WADFileList | null;
+    private _wadFileList: WADFileList | null;
     // The texture library
     private textureLibrary: TextureLibrary | null;
     constructor(){
-        this.lastWadFile = null;
-        this.wadFileList = null;
+        this._wadFileList = null;
         this.textureLibrary = null;
+    }
+    // Set WAD file list. Also creates a new texture library, since additional
+    // WADs may contain new textures, flats, etc.
+    public set wadFileList(value: WADFileList){
+        this._wadFileList = value;
+        this.textureLibrary = new TextureLibrary(value);
     }
     // Get WAD file list
     // Makes this file easier to maintain when the proper implementation is added
     getWadFileList(lump: WADLump): WADFileList {
-        return this.wadFileList || new WADFileList();
+        return this._wadFileList || new WADFileList();
     }
     // Get the texture library. If the WAD File list changes, a new texture library is needed.
     getTextureLibrary(lump: WADLump): TextureLibrary {
-        // Decide if a new texture library is needed
-        let newLibraryNeeded = this.textureLibrary == null;
-        // If there is no WAD file list, or the map lump is from a different WAD
-        if(this.lastWadFile !== lump.file || this.wadFileList == null){
-            newLibraryNeeded = true;
-            this.wadFileList = this.getWadFileList(lump);
-        }
-        // Make a new texture library
-        if(newLibraryNeeded){
-            console.log("New texture library using", this.wadFileList);
-            this.textureLibrary = new TextureLibrary(this.wadFileList);
-        }
         return this.textureLibrary!;
     }
 }
