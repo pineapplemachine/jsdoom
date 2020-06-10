@@ -436,7 +436,7 @@ class SectorPolygonBuilder {
             if(nextVertex !== null){
                 edgeStatus = this.visitEdge(lastVertex, nextVertex);
             }else{
-                edgeStatus === EdgeVisitStatus.DoesntExist;
+                edgeStatus = EdgeVisitStatus.DoesntExist;
             }
             // No more vertices left in this polygon
             if(nextVertex === null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
