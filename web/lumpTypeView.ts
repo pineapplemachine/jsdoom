@@ -36,27 +36,27 @@ const win: any = window as any;
 // texture library can be reused between views.
 class DataManager {
     // The WAD file list
-    private _wadFileList: WADFileList | null;
+    private _wadFileList: WADFileList;
     // The texture library
-    private textureLibrary: TextureLibrary | null;
+    private _textureLibrary: TextureLibrary;
     constructor(){
-        this._wadFileList = null;
-        this.textureLibrary = null;
+        this._wadFileList = new WADFileList();
+        this._textureLibrary = new TextureLibrary(this._wadFileList);
     }
     // Set WAD file list. Also creates a new texture library, since additional
     // WADs may contain new textures, flats, etc.
     public set wadFileList(value: WADFileList){
         this._wadFileList = value;
-        this.textureLibrary = new TextureLibrary(value);
+        this._textureLibrary = new TextureLibrary(value);
     }
     // Get WAD file list
     // Makes this file easier to maintain when the proper implementation is added
-    getWadFileList(lump: WADLump): WADFileList {
-        return this._wadFileList || new WADFileList();
+    public get wadFileList(): WADFileList {
+        return this._wadFileList;
     }
     // Get the texture library. If the WAD File list changes, a new texture library is needed.
-    getTextureLibrary(lump: WADLump): TextureLibrary {
-        return this.textureLibrary!;
+    public get textureLibrary(): TextureLibrary {
+        return this._textureLibrary;
     }
 }
 
@@ -228,7 +228,7 @@ export const LumpTypeViewTextures = new LumpTypeView({
     icon: "assets/icons/lump-textures.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = sharedDataManager.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.wadFileList;
         const textures = lumps.WADTextures.from(lump);
         const viewRoot = util.createElement({
             tag: "div",
@@ -277,7 +277,7 @@ export const LumpTypeViewFlatImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = sharedDataManager.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.wadFileList;
         const flat: lumps.WADFlat = lumps.WADFlat.from(lump);
         return util.createElement({
             tag: "img",
@@ -293,7 +293,7 @@ export const LumpTypeViewPictureImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = sharedDataManager.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.wadFileList;
         const picture: lumps.WADPicture = lumps.WADPicture.from(lump);
         return util.createElement({
             tag: "img",
@@ -474,7 +474,7 @@ const LumpTypeViewMap3D = function(
             // model that can be used by THREE.js.
             const meshGroup = ConvertMapToThree(
                 convertedMap!,
-                sharedDataManager.getTextureLibrary(lump),
+                sharedDataManager.textureLibrary,
             );
             // Initialize scene, renderer, and camera
             const mapScene = new THREE.Scene();
@@ -794,7 +794,7 @@ export const LumpTypeViewMapOBJ = function(rawMtlNames: boolean = false): LumpTy
                 createError(`${error}`, root);
                 return;
             }
-            const textureLibrary = sharedDataManager.getTextureLibrary(lump);
+            const textureLibrary = sharedDataManager.textureLibrary;
             const objText = ConvertMapToOBJ(convertedMap, textureLibrary, rawMtlNames);
             util.removeChildren(root);
             if(objText.length >= BigLumpThreshold){
@@ -998,7 +998,7 @@ export function LumpTypeViewColormapAll(scaleX: number = 2, scaleY: number = 2) 
         name: "Image",
         icon: "assets/icons/view-image.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const files = sharedDataManager.getWadFileList(lump);
+            const files = sharedDataManager.wadFileList;
             const colormap: lumps.WADColorMap = lumps.WADColorMap.from(lump);
             const playpal: lumps.WADPalette = files.getPlaypal();
             // Set up canvas and rendering context
@@ -1039,7 +1039,7 @@ export function LumpTypeViewColormapByMap(
         name: "Colormap",
         icon: "assets/icons/lump-colormap.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const files = sharedDataManager.getWadFileList(lump);
+            const files = sharedDataManager.wadFileList;
             const playpal = files.getPlaypal();
             const colormap = lumps.WADColorMap.from(lump);
             // Create a canvas element and a rendering context
