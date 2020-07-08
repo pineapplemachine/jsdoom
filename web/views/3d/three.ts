@@ -576,6 +576,8 @@ export function ConvertMapToThree(
     textureLibrary: TextureLibrary,
     options?: ConvertOptions
 ): DisposableGroup {
+    const blankMaterial = new THREE.MeshBasicMaterial();
+    const disposables: {dispose: () => void}[] = [blankMaterial];
     // Get materials for map
     const midQuads: map3D.LineQuad[] = [];
     const wallQuads: map3D.LineQuad[] = [];
@@ -595,6 +597,9 @@ export function ConvertMapToThree(
     const wallModel: BufferModel = new BufferModel(wallQuads.length * 2, textureLibrary);
     const midModel: BufferModel = new BufferModel(midQuads.length * 2, textureLibrary);
     const flatModel: BufferModel = new BufferModel(map.sectorTriangles.length, textureLibrary);
+    // These are only for raycasting
+    // const individualWallQuads: THREE.Mesh[] = [];
+    const individualSectorTris: THREE.Mesh[] = [];
     const currentGroup: ThreeGroup = {
         material: map.sectorTriangles[0].texture,
         start: 0,
@@ -602,6 +607,7 @@ export function ConvertMapToThree(
     };
     const mapMeshGroup = new THREE.Group();
     // Add sector polygon positions, normals, and colors to buffers
+    const sectorTriCount: {[sector: number]: number} = {};
     for(const triangle of map.sectorTriangles){
         if(triangle.texture !== currentGroup.material){
             flatModel.addGroup(currentGroup);
@@ -611,9 +617,37 @@ export function ConvertMapToThree(
         }
         flatModel.addTriangle(triangle);
         currentGroup.count += 3;
+        // Make sector triangle for raycasting
+        if(sectorTriCount[triangle.sector] == null){
+            sectorTriCount[triangle.sector] = 1;
+        }
+        const triGeo = new THREE.BufferGeometry();
+        const trianglePlace = (triangle.place === map3D.SectorTrianglePlace.Floor) ? "F" : "C";
+        const triBuffer = new Float32Array(1 * 3 * 3);
+        for(
+            let i = 0, v = triangle.reverse ? 2 : 0;
+            triangle.reverse ? v >= 0 : v < 3;
+            i++, triangle.reverse ? v-- : v++
+        ){
+            triBuffer[i * 3] = triangle.vertices[v].x;
+            triBuffer[i * 3 + 1] = triangle.height;
+            triBuffer[i * 3 + 2] = triangle.vertices[v].y;
+        }
+        const floorPosAttribute = new THREE.BufferAttribute(triBuffer, 3);
+        triGeo.setAttribute("position", floorPosAttribute);
+        const triMesh = new THREE.Mesh(triGeo, blankMaterial);
+        triMesh.name = `Sector${triangle.sector}${trianglePlace}tri${sectorTriCount[triangle.sector]}`;
+        triMesh.layers.set(1);
+        disposables.push(triGeo);
+        sectorTriCount[triangle.sector] += 1;
+        individualSectorTris.push(triMesh);
+        mapMeshGroup.add(triMesh);
     }
     flatModel.addGroup(currentGroup);
-    mapMeshGroup.add(flatModel.getMesh("flats"));
+    const flatModelMesh = flatModel.getMesh("flats");
+    flatModelMesh.layers.set(0);
+    disposables.push(flatModel);
+    mapMeshGroup.add(flatModelMesh);
     // Now add the one-sided/upper/lower quads
     currentGroup.start = 0;
     currentGroup.count = 0;
@@ -629,7 +663,10 @@ export function ConvertMapToThree(
         currentGroup.count += 6;
     }
     wallModel.addGroup(currentGroup);
-    mapMeshGroup.add(wallModel.getMesh("walls"));
+    const wallModelMesh = wallModel.getMesh("walls");
+    wallModelMesh.layers.set(0);
+    disposables.push(wallModel);
+    mapMeshGroup.add(wallModelMesh);
     // Add the midtexture quads
     currentGroup.start = 0;
     currentGroup.count = 0;
@@ -645,13 +682,16 @@ export function ConvertMapToThree(
         currentGroup.count += 6;
     }
     midModel.addGroup(currentGroup);
-    mapMeshGroup.add(midModel.getMesh("midtextures"));
+    const midModelMesh = midModel.getMesh("midtextures");
+    midModelMesh.layers.set(0);
+    disposables.push(midModel);
+    mapMeshGroup.add(midModelMesh);
     return {
         group: mapMeshGroup,
         dispose: () => {
-            flatModel.dispose();
-            wallModel.dispose();
-            midModel.dispose();
+            for(const disposableThing of disposables){
+                disposableThing.dispose();
+            }
         }
     };
 }

@@ -531,10 +531,13 @@ const LumpTypeViewMap3D = function(
                 1, // Near clip
                 10000, // Far clip
             );
+            mapCamera.layers.set(0);
             const mapCubeTarget = new THREE.WebGLCubeRenderTarget(1024);
             const mapCubeCamera = new THREE.CubeCamera(1, 10000, mapCubeTarget);
+            mapCubeCamera.layers.set(0);
             // Ensure omnidirectional view plane is twice the width of its height
             const omniDirViewCamera = new THREE.OrthographicCamera(-.5, .5, -.5, .5, -1, 1);
+            omniDirViewCamera.layers.set(0);
             const viewAspectRatio = root.clientHeight / root.clientWidth;
             if(viewAspectRatio < .5){
                 omniDirViewCamera.top = -.5;
@@ -575,6 +578,7 @@ const LumpTypeViewMap3D = function(
                 new THREE.PlaneBufferGeometry(),
                 omniDirViewMaterial,
             );
+            omniDirViewMesh.layers.set(0);
             omniDirViewScene.add(omniDirViewMesh);
             omniDirViewScene.add(omniDirViewCamera);
             viewHead.add(mapCamera);

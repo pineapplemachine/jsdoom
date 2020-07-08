@@ -814,7 +814,9 @@ export enum SectorTrianglePlace {
 }
 
 export interface SectorTriangle extends DoomTextured, DoomLighting {
-    // Vertices that make this triangle
+    // Index of the sector this triangle is associated with
+    sector: number;
+    // Vertices that make this triangle; there are 3 of them
     vertices: THREE.Vector2[];
     // Absolute height
     height: number;
@@ -1061,6 +1063,7 @@ export class MapGeometryBuilder {
                     triangle.map<THREE.Vector2>(
                         (vertexIndex) => polygonVertices[vertexIndex]));
                 sectorTriangles.push({ // Floor
+                    sector,
                     lightLevel: mapSector.light,
                     vertices: triangleVertices,
                     height: mapSector.floorHeight,
@@ -1070,6 +1073,7 @@ export class MapGeometryBuilder {
                     reverse: true,
                     place: SectorTrianglePlace.Floor,
                 }, { // Ceiling
+                    sector,
                     lightLevel: mapSector.light,
                     vertices: triangleVertices,
                     height: mapSector.ceilingHeight,
@@ -1352,7 +1356,9 @@ export class MapGeometryBuilder {
     }
 
     // Build the 3D mesh for the map
-    public rebuild(): MapGeometry {
+    // Sectors is an optional array of indices for the sectors to (re)build the
+    // geometry for.
+    public rebuild(sectors?: number[]): MapGeometry {
         // The map is missing one of the necessary data lumps
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
             throw new TypeError("Some map data is missing!");
@@ -1374,6 +1380,11 @@ export class MapGeometryBuilder {
             if(line.frontSidedef !== 0xffff){  // 0xffff means no sidedef.
                 const front = this.map.sides.getSide(line.frontSidedef);
                 if(!line.twoSidedFlag || line.backSidedef === 0xffff){
+                    // Discard this line if it's front side is not in the given
+                    // array of sectors to rebuild
+                    if(sectors && !sectors.includes(front.sector)){
+                        continue;
+                    }
                     // Ancient aliens MAP24 has some one-sided sidedefs marked
                     // as two-sided. There may be other maps that suffer from
                     // this issue as well.
@@ -1383,8 +1394,14 @@ export class MapGeometryBuilder {
                     sectorLines[front.sector].push(line);
                 }else{
                     if(line.backSidedef !== 0xffff){
-                        const back = this.map.sides.getSide(line.backSidedef);
                         // Line is two-sided
+                        const back = this.map.sides.getSide(line.backSidedef);
+                        // Discard this line if both front and back sectors are
+                        // not in the array of sectors to rebuild
+                        if(sectors && sectors.includes(front.sector) &&
+                            sectors.includes(back.sector)){
+                            continue;
+                        }
                         if(front.sector !== back.sector){
                             if(sectorLines[front.sector] == null){
                                 sectorLines[front.sector] = [];
