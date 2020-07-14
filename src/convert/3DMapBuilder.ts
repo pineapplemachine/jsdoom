@@ -191,7 +191,9 @@ class SectorPolygonBuilder {
         }
         // Get positions for all usable vertices
         const usableVertices: SectorVertex[] = usableEdges.reduce<number[]>((vertices, edge) => {
+            // Add vertices which have not been added yet
             return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
+            // Get position and map vertex index for each of them
         }, usableEdges[0]).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // And then find the upper rightmost vertex among them
         const rightMostVertex = usableVertices.reduce(
@@ -218,6 +220,7 @@ class SectorPolygonBuilder {
         })!;
         // Get vertices connected to the rightmost vertex
         const rightMostConnectedVertices: SectorVertex[] = rightMostEdges.map(
+            // Choose the vertex which isn't the rightmost vertex
             (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0]
         ).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // Get lowermost rightmost vertex out of those
