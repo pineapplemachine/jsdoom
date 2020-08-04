@@ -382,8 +382,8 @@ interface Map3DViewOptions {
     textured: boolean;
 }
 
-const omniDirVertex = new FetchableString("/assets/shaders/basic.vert", {mode: "no-cors"});
-const omniDirFragment = new FetchableString("/assets/shaders/equirectangularCamera.frag", {mode: "no-cors"});
+const omniDirVertex = new FetchableString("assets/shaders/basic.vert", {mode: "no-cors"});
+const omniDirFragment = new FetchableString("assets/shaders/equirectangularCamera.frag", {mode: "no-cors"});
 
 const LumpTypeViewMap3D = function(
     options: Map3DViewOptions

@@ -43,13 +43,13 @@ export enum MaterialStyle {
 }
 
 const softwareVertexResource = new FetchableString(
-    "/assets/shaders/softwareStyle.vert", {mode: "no-cors"});
+    "assets/shaders/softwareStyle.vert", {mode: "no-cors"});
 const softwareFragmentResource = new FetchableString(
-    "/assets/shaders/softwareStyle.frag", {mode: "no-cors"});
+    "assets/shaders/softwareStyle.frag", {mode: "no-cors"});
 const basicVertexResource = new FetchableString(
-    "/assets/shaders/basic.vert", {mode: "no-cors"});
+    "assets/shaders/basic.vert", {mode: "no-cors"});
 const N64FragmentResource = new FetchableString(
-    "/assets/shaders/threepoint.frag", {mode: "no-cors"});
+    "assets/shaders/threepoint.frag", {mode: "no-cors"});
 
 class BufferModel {
     // Constants helpful when modifying buffers
