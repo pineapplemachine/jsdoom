@@ -597,9 +597,6 @@ export function ConvertMapToThree(
     const wallModel: BufferModel = new BufferModel(wallQuads.length * 2, textureLibrary);
     const midModel: BufferModel = new BufferModel(midQuads.length * 2, textureLibrary);
     const flatModel: BufferModel = new BufferModel(map.sectorTriangles.length, textureLibrary);
-    // These are only for raycasting
-    // const individualWallQuads: THREE.Mesh[] = [];
-    const individualSectorTris: THREE.Mesh[] = [];
     const currentGroup: ThreeGroup = {
         material: map.sectorTriangles[0].texture,
         start: 0,
@@ -617,31 +614,6 @@ export function ConvertMapToThree(
         }
         flatModel.addTriangle(triangle);
         currentGroup.count += 3;
-        // Make sector triangle for raycasting
-        if(sectorTriCount[triangle.sector] == null){
-            sectorTriCount[triangle.sector] = 1;
-        }
-        const triGeo = new THREE.BufferGeometry();
-        const trianglePlace = (triangle.place === map3D.SectorTrianglePlace.Floor) ? "F" : "C";
-        const triBuffer = new Float32Array(1 * 3 * 3);
-        for(
-            let i = 0, v = triangle.reverse ? 2 : 0;
-            triangle.reverse ? v >= 0 : v < 3;
-            i++, triangle.reverse ? v-- : v++
-        ){
-            triBuffer[i * 3] = triangle.vertices[v].x;
-            triBuffer[i * 3 + 1] = triangle.height;
-            triBuffer[i * 3 + 2] = triangle.vertices[v].y;
-        }
-        const floorPosAttribute = new THREE.BufferAttribute(triBuffer, 3);
-        triGeo.setAttribute("position", floorPosAttribute);
-        const triMesh = new THREE.Mesh(triGeo, blankMaterial);
-        triMesh.name = `Sector${triangle.sector}${trianglePlace}tri${sectorTriCount[triangle.sector]}`;
-        triMesh.layers.set(1);
-        disposables.push(triGeo);
-        sectorTriCount[triangle.sector] += 1;
-        individualSectorTris.push(triMesh);
-        mapMeshGroup.add(triMesh);
     }
     flatModel.addGroup(currentGroup);
     const flatModelMesh = flatModel.getMesh("flats");
