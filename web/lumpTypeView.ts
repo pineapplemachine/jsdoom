@@ -478,7 +478,7 @@ const LumpTypeViewMap3D = function(
             );
             // Initialize scene, renderer, and camera
             const mapScene = new THREE.Scene();
-            disposables.push(mapScene);
+            // disposables.push(mapScene);
             mapScene.add(meshGroup.group);
             disposables.push(meshGroup);
             const renderer = new THREE.WebGLRenderer({
@@ -552,7 +552,7 @@ const LumpTypeViewMap3D = function(
             }
             omniDirViewCamera.updateProjectionMatrix();
             const omniDirViewScene = new THREE.Scene();
-            disposables.push(omniDirViewScene);
+            // disposables.push(omniDirViewScene);
             const omniDirViewMaterial = new THREE.ShaderMaterial({
                 side: THREE.DoubleSide,
                 uniforms: {
