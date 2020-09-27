@@ -106,6 +106,11 @@ export function createElement(options: any): any {
                 element.addEventListener(key, options.listener[key]);
             }
         },
+        dataset: (options: any) => {
+            for(const key in options.dataset){
+                element.dataset[key] = options.dataset[key].toString();
+            }
+        }
     };
     for(const key in options){
         if(options[key] !== undefined){

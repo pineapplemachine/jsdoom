@@ -1,4 +1,7 @@
+import {Mappable} from "@src/convert/3DGeneral";
+import {WADColorMap} from "@src/lumps/doom/colormap";
 import {WADFlat} from "@src/lumps/doom/flat";
+import {WADPalette} from "@src/lumps/doom/playpal";
 import {WADTexture, WADTextures} from "@src/lumps/doom/textures";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump, WADCategory} from "@src/wad/lump";
@@ -16,6 +19,7 @@ export function isWadFlat(texture: (WADTexture | WADFlat), set: TextureSet): tex
     return set === TextureSet.Flats;
 }
 
+// This class is intended to provide easy access to texture data.
 export class TextureLibrary {
     // The textures themselves
     protected textures: {
@@ -32,6 +36,16 @@ export class TextureLibrary {
         [TextureSet.Walls]: {[name: string]: (Buffer | null)};
         [TextureSet.Flats]: {[name: string]: (Buffer | null)};
     };
+    // Indexed (red, alpha) pixel buffers created from each texture
+    protected indexed: {
+        [TextureSet.Walls]: {[name: string]: (Buffer | null)};
+        [TextureSet.Flats]: {[name: string]: (Buffer | null)};
+    };
+    // Sizes (width and height) of each texture
+    protected size: {
+        [TextureSet.Walls]: {[name: string]: Mappable};
+        [TextureSet.Flats]: {[name: string]: Mappable};
+    };
     public fileList: WADFileList;
     
     constructor(fileList: WADFileList){
@@ -45,6 +59,14 @@ export class TextureLibrary {
             [TextureSet.Flats]: {},
         };
         this.rgba = {
+            [TextureSet.Walls]: {},
+            [TextureSet.Flats]: {},
+        };
+        this.indexed = {
+            [TextureSet.Walls]: {},
+            [TextureSet.Flats]: {},
+        };
+        this.size = {
             [TextureSet.Walls]: {},
             [TextureSet.Flats]: {},
         };
@@ -80,6 +102,10 @@ export class TextureLibrary {
                         this.textures[set][upperCaseName] = texture;
                         // this.transparent[set][upperCaseName] = texture.isTransparent(this.fileList);
                         // this.rgba[set][upperCaseName] = texture.getPixelDataRGBA(this.fileList);
+                        this.size[set][upperCaseName] = {
+                            width: texture.width,
+                            height: texture.height,
+                        };
                         return texture;
                     }
                 }
@@ -94,6 +120,10 @@ export class TextureLibrary {
                 if(lump != null){
                     const flat = WADFlat.from(lump);
                     this.textures[set][upperCaseName] = flat;
+                    this.size[set][upperCaseName] = {
+                        width: flat.width,
+                        height: flat.height,
+                    };
                 }else{
                     console.error("Lump is null");
                 }
@@ -147,6 +177,56 @@ export class TextureLibrary {
             return this.rgba[set][upperCaseName];
         }
         return null;
+    }
+    
+    // Lazily get the indexed data for a texture
+    getIndexed(name: string, set: TextureSet): Buffer | null {
+        const upperCaseName = name.toUpperCase();
+        if(this.indexed[set][upperCaseName]){
+            return this.indexed[set][upperCaseName];
+        }
+        const texture = this.textures[set][upperCaseName];
+        if(texture && isWadTexture(texture, set)){
+            this.indexed[set][upperCaseName] = texture.getPixelDataIndexed(this.fileList);
+            return this.indexed[set][upperCaseName];
+        }else if(texture && isWadFlat(texture, set)){
+            this.indexed[set][upperCaseName] = texture.getPixelDataIndexed();
+            return this.indexed[set][upperCaseName];
+        }
+        return null;
+    }
+    
+    // Get the size of a texture
+    getSize(name: string, set: TextureSet): Mappable {
+        const upperCaseName = name.toUpperCase();
+        if(this.size[set][upperCaseName]){
+            return this.size[set][upperCaseName];
+        }
+        const texture = this.textures[set][upperCaseName];
+        if(texture != null){
+            const {width, height} = texture;
+            const size = {width, height};
+            this.size[set][upperCaseName] = size;
+            return size;
+        }
+        const size = {width: 64, height: 64};
+        this.size[set][upperCaseName] = size;
+        return size;
+    }
+    
+    // Get the palette, and the colormap for each palette, as a buffer
+    getColormaps(palIndex: number = 0): Buffer {
+        const palette = this.fileList.getPlaypal();
+        const colormap = this.fileList.getColormap();
+        return colormap.getPixelDataRGBA(palette, palIndex);
+    }
+    // Get the palette
+    public get palette(): WADPalette {
+        return this.fileList.getPlaypal();
+    }
+    // Get the colormap
+    public get colormap(): WADColorMap {
+        return this.fileList.getColormap();
     }
 }
 

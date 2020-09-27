@@ -11,6 +11,7 @@ import {MapGeometryOptions} from "@web/views/2d/options";
 
 // 3D view related stuff
 import * as map3D from "@src/convert/3DMapBuilder";
+import {Velocity} from "@web/velocity";
 import {ConvertMapToGeometry} from "@web/views/3d/base";
 import {ConvertMapToMTL} from "@web/views/3d/mtl";
 import {ConvertMapToOBJ} from "@web/views/3d/obj";
@@ -27,43 +28,35 @@ import {TextureSet, TextureLibrary} from "@src/lumps/index";
 import {getPng64, bufferbtoa} from "@web/png64";
 import * as util from "@web/util";
 
-import {Velocity} from "@web/velocity";
+import {FetchableString} from "@web/fetchable";
 
 const win: any = window as any;
 
-// Manages data for these views, so that stuff like the WAD file list and texture library can be reused between views.
+// Manages data for these views, so that stuff like the WAD file list and
+// texture library can be reused between views.
 class DataManager {
-    // The last WAD file loaded
-    private lastWadFile: WADFile | null;
     // The WAD file list
-    public wadFileList: WADFileList | null;
+    private _wadFileList: WADFileList;
     // The texture library
-    private textureLibrary: TextureLibrary | null;
+    private _textureLibrary: TextureLibrary;
     constructor(){
-        this.lastWadFile = null;
-        this.wadFileList = null;
-        this.textureLibrary = null;
+        this._wadFileList = new WADFileList();
+        this._textureLibrary = new TextureLibrary(this._wadFileList);
+    }
+    // Set WAD file list. Also creates a new texture library, since additional
+    // WADs may contain new textures, flats, etc.
+    public set wadFileList(value: WADFileList){
+        this._wadFileList = value;
+        this._textureLibrary = new TextureLibrary(value);
     }
     // Get WAD file list
     // Makes this file easier to maintain when the proper implementation is added
-    getWadFileList(lump: WADLump): WADFileList {
-        return this.wadFileList || new WADFileList();
+    public get wadFileList(): WADFileList {
+        return this._wadFileList;
     }
     // Get the texture library. If the WAD File list changes, a new texture library is needed.
-    getTextureLibrary(lump: WADLump): TextureLibrary {
-        // Decide if a new texture library is needed
-        let newLibraryNeeded = this.textureLibrary == null;
-        // If there is no WAD file list, or the map lump is from a different WAD
-        if(this.lastWadFile !== lump.file || this.wadFileList == null){
-            newLibraryNeeded = true;
-            this.wadFileList = this.getWadFileList(lump);
-        }
-        // Make a new texture library
-        if(newLibraryNeeded){
-            console.log("New texture library using", this.wadFileList);
-            this.textureLibrary = new TextureLibrary(this.wadFileList);
-        }
-        return this.textureLibrary!;
+    public get textureLibrary(): TextureLibrary {
+        return this._textureLibrary;
     }
 }
 
@@ -235,7 +228,7 @@ export const LumpTypeViewTextures = new LumpTypeView({
     icon: "assets/icons/lump-textures.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = sharedDataManager.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.wadFileList;
         const textures = lumps.WADTextures.from(lump);
         const viewRoot = util.createElement({
             tag: "div",
@@ -284,7 +277,7 @@ export const LumpTypeViewFlatImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = sharedDataManager.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.wadFileList;
         const flat: lumps.WADFlat = lumps.WADFlat.from(lump);
         return util.createElement({
             tag: "img",
@@ -300,7 +293,7 @@ export const LumpTypeViewPictureImage = new LumpTypeView({
     icon: "assets/icons/view-image.png",
     view: (lump: WADLump, root: HTMLElement) => {
         // TODO: Proper WADFileList support
-        const files: WADFileList = sharedDataManager.getWadFileList(lump);
+        const files: WADFileList = sharedDataManager.wadFileList;
         const picture: lumps.WADPicture = lumps.WADPicture.from(lump);
         return util.createElement({
             tag: "img",
@@ -388,6 +381,9 @@ interface Map3DViewOptions {
     // performance boost.
     textured: boolean;
 }
+
+const omniDirVertex = new FetchableString("assets/shaders/basic.vert", {mode: "no-cors"});
+const omniDirFragment = new FetchableString("assets/shaders/equirectangularCamera.frag", {mode: "no-cors"});
 
 const LumpTypeViewMap3D = function(
     options: Map3DViewOptions
@@ -478,11 +474,11 @@ const LumpTypeViewMap3D = function(
             // model that can be used by THREE.js.
             const meshGroup = ConvertMapToThree(
                 convertedMap!,
-                sharedDataManager.getTextureLibrary(lump),
+                sharedDataManager.textureLibrary,
             );
             // Initialize scene, renderer, and camera
             const mapScene = new THREE.Scene();
-            disposables.push(mapScene);
+            // disposables.push(mapScene);
             mapScene.add(meshGroup.group);
             disposables.push(meshGroup);
             const renderer = new THREE.WebGLRenderer({
@@ -535,9 +531,13 @@ const LumpTypeViewMap3D = function(
                 1, // Near clip
                 10000, // Far clip
             );
-            const mapCubeCamera = new THREE.CubeCamera(1, 10000, 1024);
+            mapCamera.layers.set(0);
+            const mapCubeTarget = new THREE.WebGLCubeRenderTarget(1024);
+            const mapCubeCamera = new THREE.CubeCamera(1, 10000, mapCubeTarget);
+            mapCubeCamera.layers.set(0);
             // Ensure omnidirectional view plane is twice the width of its height
             const omniDirViewCamera = new THREE.OrthographicCamera(-.5, .5, -.5, .5, -1, 1);
+            omniDirViewCamera.layers.set(0);
             const viewAspectRatio = root.clientHeight / root.clientWidth;
             if(viewAspectRatio < .5){
                 omniDirViewCamera.top = -.5;
@@ -552,122 +552,33 @@ const LumpTypeViewMap3D = function(
             }
             omniDirViewCamera.updateProjectionMatrix();
             const omniDirViewScene = new THREE.Scene();
-            disposables.push(omniDirViewScene);
+            // disposables.push(omniDirViewScene);
             const omniDirViewMaterial = new THREE.ShaderMaterial({
                 side: THREE.DoubleSide,
                 uniforms: {
                     "tex": {value: mapCubeCamera.renderTarget.texture},
                     "projectionMode": {value: 0},
                 },
-                vertexShader: `
-                varying vec2 vUv;
-                void main(){
-                    vUv = uv;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }`,
-                // Fragment shader
-                fragmentShader: `
-                #define PI 3.1415926535897932384626433
-                varying vec2 vUv;
-                uniform samplerCube tex;
-                uniform int projectionMode;
-
-                // Enumerated constants for projection mode
-                #define PROJECTION_EQUIRECTANGULAR 0
-                #define PROJECTION_CUBE 1
-
-                // Enumerated constants for cubeFace function
-                #define FACE_LEFT 0
-                #define FACE_FRONT 1
-                #define FACE_RIGHT 2
-                #define FACE_TOP 3
-                #define FACE_BOTTOM 4
-                #define FACE_BACK 5
-
-                #define HFACES 3.
-                #define VFACES 2.
-
-                // These are in column-major order
-                // Return an X rotation matrix for the given angle in radians
-                mat3 rotationX(float angle){
-                    return mat3(
-                        1., 0., 0.,
-                        0., cos(angle), sin(angle),
-                        0., -sin(angle), cos(angle)
-                    );
-                }
-
-                // Return a Y rotation matrix for the given angle in radians
-                mat3 rotationY(float angle){
-                    return mat3(
-                        cos(angle), 0., -sin(angle),
-                        0., 1., 0.,
-                        sin(angle), 0., cos(angle)
-                    );
-                }
-
-                // Return a Z rotation matrix for the given angle in radians
-                mat3 rotationZ(float angle){
-                    return mat3(
-                        cos(angle), sin(angle), 0.,
-                        -sin(angle), cos(angle), 0.,
-                        0., 0., 1.
-                    );
-                }
-
-                // Return the direction vector for equirectangular projection
-                vec3 equirectangularDirection(vec2 coords){
-                    float longitude = coords.x * PI * -2.;
-                    float latitude = coords.y * PI;
-                    vec3 direction = vec3(
-                        sin(latitude) * cos(longitude),
-                        sin(latitude) * sin(longitude),
-                        cos(latitude)
-                    );
-                    direction = direction * rotationX(.5 * PI) * rotationY(-1.5 * PI);
-                    return direction;
-                }
-
-                // Return the direction vector for cube projection
-                vec3 cubeFace(vec2 coords, int face){
-                    vec2 normalizedCoords = (coords - .5) * 2.;
-                    vec3 direction = vec3(normalizedCoords, 1.);
-                    direction = normalize(direction);
-                    direction *= rotationX(PI);
-                    if(face == FACE_LEFT){
-                        direction *= rotationY(-.5 * PI);
-                    }else if(face == FACE_RIGHT){
-                        direction *= rotationY(.5 * PI);
-                    }else if(face == FACE_BOTTOM){
-                        direction *= rotationX(.5 * PI);
-                    }else if(face == FACE_TOP){
-                        direction *= rotationX(-.5 * PI);
-                    }else if(face == FACE_BACK){
-                        direction *= rotationY(PI);
-                    }
-                    return direction;
-                }
-
-                void main(){
-                    // When looking up texels from a cubemap sampler, the
-                    // vector is from the center of the cube to the texel.
-                    vec3 direction = vec3(0.);
-                    if(projectionMode == PROJECTION_EQUIRECTANGULAR){
-                        direction = equirectangularDirection(vUv);
-                    }else if(projectionMode == PROJECTION_CUBE){
-                        vec2 cubeSize = vec2(HFACES, VFACES);
-                        vec2 cubeFaceSize = vec2(1./HFACES, 1./VFACES);
-                        int face = int(floor(vUv.x * cubeSize.x)) + int(floor(vUv.y * cubeSize.y) * HFACES);
-                        vec2 coords = mod(vUv, cubeFaceSize) * cubeSize;
-                        direction = cubeFace(coords, face);
-                    }
-                    gl_FragColor = texture(tex, direction);
-                }`,
             });
+            omniDirVertex.onComplete.push((data) => {
+                if(data != null){
+                    omniDirViewMaterial.vertexShader = data;
+                    omniDirViewMaterial.needsUpdate = true;
+                }
+            });
+            omniDirVertex.fetch(5);
+            omniDirFragment.onComplete.push((data) => {
+                if(data != null){
+                    omniDirViewMaterial.fragmentShader = data;
+                    omniDirViewMaterial.needsUpdate = true;
+                }
+            });
+            omniDirFragment.fetch(5);
             const omniDirViewMesh = new THREE.Mesh(
                 new THREE.PlaneBufferGeometry(),
                 omniDirViewMaterial,
             );
+            omniDirViewMesh.layers.set(0);
             omniDirViewScene.add(omniDirViewMesh);
             omniDirViewScene.add(omniDirViewCamera);
             viewHead.add(mapCamera);
@@ -887,7 +798,7 @@ export const LumpTypeViewMapOBJ = function(rawMtlNames: boolean = false): LumpTy
                 createError(`${error}`, root);
                 return;
             }
-            const textureLibrary = sharedDataManager.getTextureLibrary(lump);
+            const textureLibrary = sharedDataManager.textureLibrary;
             const objText = ConvertMapToOBJ(convertedMap, textureLibrary, rawMtlNames);
             util.removeChildren(root);
             if(objText.length >= BigLumpThreshold){
@@ -1091,7 +1002,7 @@ export function LumpTypeViewColormapAll(scaleX: number = 2, scaleY: number = 2) 
         name: "Image",
         icon: "assets/icons/view-image.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const files = sharedDataManager.getWadFileList(lump);
+            const files = sharedDataManager.wadFileList;
             const colormap: lumps.WADColorMap = lumps.WADColorMap.from(lump);
             const playpal: lumps.WADPalette = files.getPlaypal();
             // Set up canvas and rendering context
@@ -1132,7 +1043,7 @@ export function LumpTypeViewColormapByMap(
         name: "Colormap",
         icon: "assets/icons/lump-colormap.png",
         view: (lump: WADLump, root: HTMLElement) => {
-            const files = sharedDataManager.getWadFileList(lump);
+            const files = sharedDataManager.wadFileList;
             const playpal = files.getPlaypal();
             const colormap = lumps.WADColorMap.from(lump);
             // Create a canvas element and a rendering context

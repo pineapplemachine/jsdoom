@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+import {Mappable} from "@src/convert/3DGeneral";
 import {WADMap} from "@src/lumps/doom/map";
 import {WADMapLine} from "@src/lumps/doom/mapLines";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
@@ -95,19 +96,11 @@ interface SectorVertex {
 
 type Edge = [number, number];
 
-// Check whether two arrays of T are the same. Required because two identical
-// arrays can point to two different objects, and JS objects are compared by
-// their memory location (pointer) rather than the values they contain.
-function arrayEquals<T>(first: T[], second: T[]): boolean {
-    if(first.length !== second.length){
-        return false;
-    }
-    for(let index = 0; index < first.length; index++){
-        if(first[index] !== second[index]){
-            return false;
-        }
-    }
-    return true;
+// Status of an edge after "visiting" it - has it been used or not?
+enum EdgeVisitStatus {
+    DoesntExist = 0, // 0 is falsy. This is for backwards compatibility.
+    NotUsed,
+    AlreadyUsed,
 }
 
 // Takes lines of a sector, and converts it to polygons
@@ -136,22 +129,23 @@ class SectorPolygonBuilder {
             }
             return vertex;
         };
-        // Add edges to sector edges
+        // Add edges to sector edges, ensuring duplicate edges are not added in
+        // the process.
         for(const line of sectorLines){
             const edge: Edge = [
                 fixVertexReference(line.startVertex),
                 fixVertexReference(line.endVertex)
             ];
-            // Ensure duplicate edges are not added
             const edgeDuplicate: Edge = [
                 fixVertexReference(line.endVertex),
                 fixVertexReference(line.startVertex)
             ];
-            const checkEdge = (sectorEdge: Edge) => {
-                return arrayEquals<number>(sectorEdge, edge) ||
-                    arrayEquals<number>(sectorEdge, edgeDuplicate);
-            };
-            if(!this.sectorEdges.some(checkEdge)){
+            // Hash table key lookups are faster than repeatedly iterating
+            // through an array to check for the existence of a specific value.
+            const edgeString = edge.join(" ");
+            const edgeDuplicateString = edgeDuplicate.join(" ");
+            if(!this.edgesLeft.hasOwnProperty(edgeString) &&
+                    !this.edgesLeft.hasOwnProperty(edgeDuplicateString)){
                 this.sectorEdges.push(edge);
                 this.edgesLeft[edge.join(" ")] = false;
             }
@@ -197,7 +191,9 @@ class SectorPolygonBuilder {
         }
         // Get positions for all usable vertices
         const usableVertices: SectorVertex[] = usableEdges.reduce<number[]>((vertices, edge) => {
+            // Add vertices which have not been added yet
             return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
+            // Get position and map vertex index for each of them
         }, usableEdges[0]).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // And then find the upper rightmost vertex among them
         const rightMostVertex = usableVertices.reduce(
@@ -224,6 +220,7 @@ class SectorPolygonBuilder {
         })!;
         // Get vertices connected to the rightmost vertex
         const rightMostConnectedVertices: SectorVertex[] = rightMostEdges.map(
+            // Choose the vertex which isn't the rightmost vertex
             (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0]
         ).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
         // Get lowermost rightmost vertex out of those
@@ -281,10 +278,12 @@ class SectorPolygonBuilder {
                 return edge.find((edgeVertex) => {
                     return edgeVertex !== from &&
                         edgeVertex !== previous;
-                }) || null;
+                });
             }).filter<number>(
-                (vertex): vertex is number => vertex != null
-            );
+                // The vertex index could be 0. Checking inequality against
+                // undefined is necessary to ensure the number 0 is not
+                // filtered out.
+                (vertex): vertex is number => vertex !== undefined);
             // Find the vertex that is connected by the lowest angle
             let mostAcuteAngle = Math.PI * 2;
             let mostAcuteVertex = 0;
@@ -331,13 +330,17 @@ class SectorPolygonBuilder {
 
     // Marks the given edge as being added to a polygon
     // Returns whether or not the given edge exists
-    protected visitEdge(edgeStart: number, edgeEnd: number): boolean {
+    protected visitEdge(edgeStart: number, edgeEnd: number): EdgeVisitStatus {
         const edgeKey = this.edgeExists(edgeStart, edgeEnd);
         if(edgeKey !== ""){
+            const status: EdgeVisitStatus = (
+                this.edgesLeft[edgeKey] === false ?
+                EdgeVisitStatus.NotUsed :
+                EdgeVisitStatus.AlreadyUsed);
             this.edgesLeft[edgeKey] = true;
-            return true;
+            return status;
         }
-        return false;
+        return EdgeVisitStatus.DoesntExist;
     }
 
     // Checks whether a polygon is complete. It is expected that "last" is
@@ -360,7 +363,7 @@ class SectorPolygonBuilder {
     protected logVertices(previous: number, current: number, next: number | null){
         const vertexIndexStrings = [previous, current, next].map(
         (vertexIndex) => {
-            const indexString = vertexIndex == null ? "null" :
+            const indexString = vertexIndex === null ? "null" :
                 vertexIndex.toString(10);
             // Doom map vertex indices are unsigned 16-bit integers,
             // which are no more than 5 decimal digits
@@ -403,6 +406,8 @@ class SectorPolygonBuilder {
         if(this.debug){
             console.log("starting edge", startEdge);
         }
+        // "Use" the start edge
+        this.visitEdge.apply(this, startEdge);
         // Current polygon index
         let curPolygon = 0;
         // Choose next vertex by exterior angle rather than interior angle
@@ -413,18 +418,31 @@ class SectorPolygonBuilder {
         // Incomplete polygons - polygons will be added to this array if they
         // are incomplete (no edge connecting the first and last vertices)
         const incompletePolygons: number[][] = [];
-        while(this.sectorEdges.some(
-            (edge) => this.edgesLeft[edge.join(" ")] === false)){
-            // The vertex from which to start the search for the next vertex
+        // It's faster to count the edges that are used than to repeatedly
+        // iterate through the sectorEdges array
+        const edgesToUse = this.sectorEdges.length;
+        let edgesUsed = 1; // The number of edges currently used
+        while(edgesUsed !== edgesToUse){
+            // The edge from which to start the search for the next vertex
             const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
-            this.visitEdge(prevVertex, lastVertex);
+            // Mark edge as used
+            let edgeStatus = this.visitEdge(prevVertex, lastVertex);
+            if(edgeStatus === EdgeVisitStatus.NotUsed){
+                console.log("prevVertex lastVertex not used");
+                edgesUsed += 1;
+            }
             // The next vertex to add to the polygon
             const nextVertex = this.findNextVertex(lastVertex, prevVertex, exterior);
             if(this.debug){
                 this.logVertices(prevVertex, lastVertex, nextVertex);
             }
+            if(nextVertex !== null){
+                edgeStatus = this.visitEdge(lastVertex, nextVertex);
+            }else{
+                edgeStatus = EdgeVisitStatus.DoesntExist;
+            }
             // No more vertices left in this polygon
-            if(nextVertex == null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
+            if(nextVertex === null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
                 if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0]) ||
                     sectorPolygons[curPolygon].length < 3){
                     // Last polygon is incomplete
@@ -461,9 +479,12 @@ class SectorPolygonBuilder {
                 sectorPolygons.push(nextStartEdge);
                 // Mark the starting edge as added to the polygon
                 this.visitEdge.apply(this, nextStartEdge);
-            }else if(this.visitEdge(lastVertex, nextVertex)){
+            }else if(edgeStatus !== EdgeVisitStatus.DoesntExist){
                 // There is another edge in the polygon, mark it as added.
                 sectorPolygons[curPolygon].push(nextVertex);
+                if(edgeStatus === EdgeVisitStatus.NotUsed){
+                    edgesUsed += 1;
+                }
             }
         }
         // Check to see whether each polygon is complete, and remove or join
@@ -679,20 +700,6 @@ interface DoomTextured {
     textureSet: TextureSet;
 }
 
-// Mappable thing - image or quad
-export interface Mappable {
-    // The width of the quad/texture in map units
-    width: number;
-    // The height of the quad/texture in map units
-    // For quads, negative values will force the height to be re-calculated
-    // based on the texture's height
-    height: number;
-    // The X scale of the quad or texture.
-    xScale?: number;
-    // The Y scale of the quad or texture.
-    yScale?: number;
-}
-
 // Different alignment types for textures on a line quad
 export enum TextureAlignmentType {
     // Middle texture for one-sided walls, or upper or lower texture for two-sided walls
@@ -810,7 +817,9 @@ export enum SectorTrianglePlace {
 }
 
 export interface SectorTriangle extends DoomTextured, DoomLighting {
-    // Vertices that make this triangle
+    // Index of the sector this triangle is associated with
+    sector: number;
+    // Vertices that make this triangle; there are 3 of them
     vertices: THREE.Vector2[];
     // Absolute height
     height: number;
@@ -916,9 +925,6 @@ export class MapGeometryBuilder {
         // 3 = Lower right
         const uvFactorX = [0, 1, 0, 1];
         const uvFactorY = [0, 0, 1, 1];
-        if(texture == null){
-            return [uvFactorX[vertexIndex], uvFactorY[vertexIndex]];
-        }
         const xScale = (texture.xScale || 1) * (quad.xScale || 1);
         const yScale = (texture.yScale || 1) * (quad.yScale || 1);
         const texelX = 1 / texture.width;
@@ -1060,6 +1066,7 @@ export class MapGeometryBuilder {
                     triangle.map<THREE.Vector2>(
                         (vertexIndex) => polygonVertices[vertexIndex]));
                 sectorTriangles.push({ // Floor
+                    sector,
                     lightLevel: mapSector.light,
                     vertices: triangleVertices,
                     height: mapSector.floorHeight,
@@ -1069,6 +1076,7 @@ export class MapGeometryBuilder {
                     reverse: true,
                     place: SectorTrianglePlace.Floor,
                 }, { // Ceiling
+                    sector,
                     lightLevel: mapSector.light,
                     vertices: triangleVertices,
                     height: mapSector.ceilingHeight,
@@ -1105,6 +1113,11 @@ export class MapGeometryBuilder {
         if(line.frontSidedef === 0xffff){
             return [];
         }
+        // All lines have a start and end vertex.
+        const startX = this.vertices[line.startVertex].x;
+        const startY = -this.vertices[line.startVertex].y;
+        const endX = this.vertices[line.endVertex].x;
+        const endY = -this.vertices[line.endVertex].y;
         // All lines are made of 1-3 quads - A top quad, and/or bottom quad,
         // and an optional middle quad for two-sided lines, and a middle quad
         // for one-sided lines.
@@ -1136,10 +1149,10 @@ export class MapGeometryBuilder {
                 yOffset: front.y,
                 texture: front.middle,
                 textureSet: TextureSet.Walls,
-                startX: this.vertices[line.startVertex].x,
-                startY: -this.vertices[line.startVertex].y,
-                endX: this.vertices[line.endVertex].x,
-                endY: -this.vertices[line.endVertex].y,
+                startX,
+                startY,
+                endX,
+                endY,
                 topHeight: frontSector.ceilingHeight,
                 ceilingHeight: frontSector.ceilingHeight,
                 floorHeight: frontSector.floorHeight,
@@ -1178,10 +1191,10 @@ export class MapGeometryBuilder {
                         yOffset: front.y,
                         texture: front.middle,
                         textureSet: TextureSet.Walls,
-                        startX: this.vertices[line.startVertex].x,
-                        startY: -this.vertices[line.startVertex].y,
-                        endX: this.vertices[line.endVertex].x,
-                        endY: -this.vertices[line.endVertex].y,
+                        startX,
+                        startY,
+                        endX,
+                        endY,
                         topHeight: midQuadTop,
                         ceilingHeight: heights.middleTop,
                         floorHeight: heights.middleBottom,
@@ -1208,10 +1221,10 @@ export class MapGeometryBuilder {
                         yOffset: back.y,
                         texture: back.middle,
                         textureSet: TextureSet.Walls,
-                        startX: this.vertices[line.startVertex].x,
-                        startY: -this.vertices[line.startVertex].y,
-                        endX: this.vertices[line.endVertex].x,
-                        endY: -this.vertices[line.endVertex].y,
+                        startX,
+                        startY,
+                        endX,
+                        endY,
                         topHeight: midQuadTop,
                         ceilingHeight: heights.middleTop,
                         floorHeight: heights.middleBottom,
@@ -1239,10 +1252,10 @@ export class MapGeometryBuilder {
                     yOffset: front.y,
                     texture: front.upper,
                     textureSet: TextureSet.Walls,
-                    startX: this.vertices[line.startVertex].x,
-                    startY: -this.vertices[line.startVertex].y,
-                    endX: this.vertices[line.endVertex].x,
-                    endY: -this.vertices[line.endVertex].y,
+                    startX,
+                    startY,
+                    endX,
+                    endY,
                     topHeight: heights.front.upperTop,
                     ceilingHeight: frontSector.ceilingHeight,
                     floorHeight: frontSector.floorHeight,
@@ -1268,10 +1281,10 @@ export class MapGeometryBuilder {
                     yOffset: front.y,
                     texture: front.lower,
                     textureSet: TextureSet.Walls,
-                    startX: this.vertices[line.startVertex].x,
-                    startY: -this.vertices[line.startVertex].y,
-                    endX: this.vertices[line.endVertex].x,
-                    endY: -this.vertices[line.endVertex].y,
+                    startX,
+                    startY,
+                    endX,
+                    endY,
                     topHeight: heights.front.lowerTop,
                     ceilingHeight: frontSector.ceilingHeight,
                     floorHeight: frontSector.floorHeight,
@@ -1297,10 +1310,10 @@ export class MapGeometryBuilder {
                     yOffset: back.y,
                     texture: back.upper,
                     textureSet: TextureSet.Walls,
-                    startX: this.vertices[line.endVertex].x,
-                    startY: -this.vertices[line.endVertex].y,
-                    endX: this.vertices[line.startVertex].x,
-                    endY: -this.vertices[line.startVertex].y,
+                    startX: endX,
+                    startY: endY,
+                    endX: startX,
+                    endY: startY,
                     topHeight: heights.back.upperTop,
                     ceilingHeight: backSector.ceilingHeight,
                     floorHeight: backSector.floorHeight,
@@ -1326,10 +1339,10 @@ export class MapGeometryBuilder {
                     yOffset: back.y,
                     texture: back.lower,
                     textureSet: TextureSet.Walls,
-                    startX: this.vertices[line.endVertex].x,
-                    startY: -this.vertices[line.endVertex].y,
-                    endX: this.vertices[line.startVertex].x,
-                    endY: -this.vertices[line.startVertex].y,
+                    startX: endX,
+                    startY: endY,
+                    endX: startX,
+                    endY: startY,
                     topHeight: heights.back.lowerTop,
                     ceilingHeight: backSector.ceilingHeight,
                     floorHeight: backSector.floorHeight,
@@ -1346,7 +1359,9 @@ export class MapGeometryBuilder {
     }
 
     // Build the 3D mesh for the map
-    public rebuild(): MapGeometry {
+    // Sectors is an optional array of indices for the sectors to (re)build the
+    // geometry for.
+    public rebuild(sectors?: number[]): MapGeometry {
         // The map is missing one of the necessary data lumps
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
             throw new TypeError("Some map data is missing!");
@@ -1368,6 +1383,11 @@ export class MapGeometryBuilder {
             if(line.frontSidedef !== 0xffff){  // 0xffff means no sidedef.
                 const front = this.map.sides.getSide(line.frontSidedef);
                 if(!line.twoSidedFlag || line.backSidedef === 0xffff){
+                    // Discard this line if it's front side is not in the given
+                    // array of sectors to rebuild
+                    if(sectors && !sectors.includes(front.sector)){
+                        continue;
+                    }
                     // Ancient aliens MAP24 has some one-sided sidedefs marked
                     // as two-sided. There may be other maps that suffer from
                     // this issue as well.
@@ -1377,8 +1397,14 @@ export class MapGeometryBuilder {
                     sectorLines[front.sector].push(line);
                 }else{
                     if(line.backSidedef !== 0xffff){
-                        const back = this.map.sides.getSide(line.backSidedef);
                         // Line is two-sided
+                        const back = this.map.sides.getSide(line.backSidedef);
+                        // Discard this line if both front and back sectors are
+                        // not in the array of sectors to rebuild
+                        if(sectors && sectors.includes(front.sector) &&
+                            sectors.includes(back.sector)){
+                            continue;
+                        }
                         if(front.sector !== back.sector){
                             if(sectorLines[front.sector] == null){
                                 sectorLines[front.sector] = [];
