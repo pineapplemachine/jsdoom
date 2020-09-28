@@ -23,8 +23,28 @@ export enum WADMapThingFlag {
     Friendly = 0x0080,
 }
 
+// A set of properties used to easily access thing flag metadata.
+export interface WADMapThingFlags {
+    // Whether or not the thing appears on skill 1 and 2
+    easyFlag: boolean;
+    // Whether or not the thing appears on skill 3
+    mediumFlag: boolean;
+    // Whether or not the thing appears on skill 4 and 5
+    hardFlag: boolean;
+    // If thing is a monster, wait until the player is in view before attacking
+    ambushFlag: boolean;
+    // Thing will only appear in a deathmatch or cooperative game
+    multiplayerOnlyFlag: boolean;
+    // Thing will not appear in a deathmatch game
+    noDeathmatchFlag: boolean;
+    // Thing will not appear in a cooperative game
+    noCooperativeFlag: boolean;
+    // Thing is friendly (MBF)
+    friendlyFlag: boolean;
+}
+
 // Represents a single thing read from a Doom or Heretic format THINGS lump.
-class WADMapThingBase {
+class WADMapThingBase implements WADMapThingFlags {
     // The x position of the thing.
     x: number;
     // The y position of the thing.
@@ -59,7 +79,18 @@ class WADMapThingBase {
         }
         return type;
     }
-    
+
+    get easyFlag(): boolean { return false; }
+    get mediumFlag(): boolean { return false; }
+    get hardFlag(): boolean { return false; }
+    get ambushFlag(): boolean { return false; }
+    get multiplayerOnlyFlag(): boolean { return false; }
+    get noDeathmatchFlag(): boolean { return false; }
+    get noCooperativeFlag(): boolean { return false; }
+    get friendlyFlag(): boolean { return false; }
+}
+
+export class WADMapDoomThing extends WADMapThingBase implements WADMapThingFlags {
     get easyFlag(): boolean {
         return !!(this.flags & WADMapThingFlag.Easy);
     }
@@ -86,9 +117,7 @@ class WADMapThingBase {
     }
 }
 
-export class WADMapDoomThing extends WADMapThingBase {}
-
-export class WADMapHexenThing extends WADMapThingBase {
+export class WADMapHexenThing extends WADMapThingBase implements WADMapThingFlags {
     // The up/down offset from the sector floor for the given thing.
     z: number;
     // The given thing's ID, used by scripts or specials.
@@ -114,6 +143,31 @@ export class WADMapHexenThing extends WADMapThingBase {
         this.tid = options.tid;
         this.special = options.special;
         this.specialArgs = options.specialArgs;
+    }
+
+    get easyFlag(): boolean {
+        return !!(this.flags & WADMapThingFlag.Easy);
+    }
+    get mediumFlag(): boolean {
+        return !!(this.flags & WADMapThingFlag.Medium);
+    }
+    get hardFlag(): boolean {
+        return !!(this.flags & WADMapThingFlag.Hard);
+    }
+    get ambushFlag(): boolean {
+        return !!(this.flags & WADMapThingFlag.Ambush);
+    }
+    get multiplayerOnlyFlag(): boolean {
+        return !!(this.flags & WADMapThingFlag.MultiplayerOnly);
+    }
+    get noDeathmatchFlag(): boolean {
+        return !!(this.flags & WADMapThingFlag.NoDeathmatch);
+    }
+    get noCooperativeFlag(): boolean {
+        return !!(this.flags & WADMapThingFlag.NoCooperative);
+    }
+    get friendlyFlag(): boolean {
+        return !!(this.flags & WADMapThingFlag.Friendly);
     }
 }
 
