@@ -1,4 +1,3 @@
-import {WADLump} from "@src/wad/lump";
 import {ZParser} from "./text";
 
 interface StringPointer {
@@ -130,12 +129,17 @@ export class WADUDMFMapThing implements Thing {
 
 // A parser for UDMF map data
 export class WADTextmapParser extends ZParser {
-    parseKeyValuePair(at: StringPointer){
+    parseKeyValuePair(at: StringPointer): KeyValuePair | null {
         // Parse the key
         let location = at.location;
         const keyRegex = /(\S+)\s*=\s*/ym;
+        const numRegex = /-?(\d*.\d+(e\d+)?|\d+)/ym; // Regex for float/int values
         keyRegex.lastIndex = location;
-        const key = keyRegex.exec(at.data);
+        let result: string[] | null = keyRegex.exec(at.data);
+        if(!result){
+            return null;
+        }
+        const key = result[1];
         let advance = 0;
         let value: string = "";
         if(key){
@@ -145,13 +149,19 @@ export class WADTextmapParser extends ZParser {
                 value = "true";
             }else if(at.data[location] === "f" || at.data[location] === "F"){
                 value = "false";
-            }else if(at.data[location] === "-"){
-                // Number
+            }else if(at.data[location] === "-" || !Number.isNaN(Number.parseInt(at.data[location], 10)) || at.data[location] === "."){
+                numRegex.lastIndex = location;
+                result = numRegex.exec(at.data);
+                if(!result){
+                    return null;
+                }
+                value = result[0];
             }else if(at.data[location] === "\""){
-                this.parseZString(location);
+                value = this.parseZString(location);
             }
         }
         this.position += advance;
+        return {key, value};
     }
 }
 

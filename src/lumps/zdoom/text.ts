@@ -117,7 +117,7 @@ export class ZParser {
                 }
                 advance += 1;
             }
-        }
+        };
         if(startsWithQuoteMark){
             // Strings must be enclosed within quotation marks. However, some
             // strings can have quotation marks within them if they are prefixed
