@@ -8,15 +8,15 @@ export async function testTextParse(){
     if(result1 !== expected1){
         throw new Error(`${toParse1} does not match expected result: ${expected1} Result: ${result1}`);
     }
-    const toParse2 = "\"\\cRZack\\cC is my name, and you are my \\C[DarkGreen]Bitch\\CC.\"";
-    const expected2 = "Zack is my name, and you are my Bitch.";
+    const toParse2 = "\"\\cRZack\\cC is my name, and my colour is... \\C[DarkGreen]red???\\CC.\"";
+    const expected2 = "Zack is my name, and my colour is... red???.";
     const parser2 = new ZParser(toParse2);
     const result2 = parser2.parseZString(0);
     if(result2 !== expected2){
         throw new Error(`${toParse2} does not match expected result: ${expected2}. Result: ${result2}`);
     }
-    const toParse3 = "\"textures\\\\stupid.png has a backslash. textures/stupid.png has a forward slash.\"";
-    const expected3 = "textures\\stupid.png has a backslash. textures/stupid.png has a forward slash.";
+    const toParse3 = "\"textures\\\\fullpath.png has a backslash. textures/fullpath.png has a forward slash.\"";
+    const expected3 = "textures\\fullpath.png has a backslash. textures/fullpath.png has a forward slash.";
     const parser3 = new ZParser(toParse3);
     const result3 = parser3.parseZString(0);
     if(result3 !== expected3){
