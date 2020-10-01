@@ -20,7 +20,8 @@ export class ZParser {
     data: string;
     // Parser position
     position: number;
-    // Handlers for escape sequences within strings of text. A pointer 
+    // Handlers for escape sequences within strings of text. Takes a "pointer",
+    // returns the data to be inserted, and how many places to move forward.
     static escapeHandlers: {[char: string]: (pointer: StringPointer) => HandledEscape} = {
         "0": ZParser.parseOctal,
         "1": ZParser.parseOctal,
@@ -41,8 +42,7 @@ export class ZParser {
             if(colourChar === "["){
                 let length = 1;
                 let location = pointer.location;
-                while(pointer.data[location] !== "]"){
-                    location += 1;
+                while(pointer.data[location++] !== "]"){
                     length += 1;
                 }
                 return {data: "", forward: length};
@@ -76,45 +76,63 @@ export class ZParser {
         return {data: "", forward: 3};
     }
 
-    constructor(data: Buffer, start: number = 0){
-        this.data = data.toString();
+    constructor(data: string, start: number = 0){
+        this.data = data;
         this.position = start;
     }
 
     parseZString(at: number): string {
         let location = at;
-        let advance = 0;
-        if(this.data[location] === "\""){
-            advance += 1;
+        let preAdvance = 0;
+        const startsWithQuoteMark = this.data[location] === "\"";
+        if(startsWithQuoteMark){
+            preAdvance += 1;
             location += 1;
         }
         // The next character is "escaped"
+        let advance = 0;
         let escape: boolean = false;
-        let lastEscapeEnd = location;
-        let sinceEscape = 0;
         let text = "";
-        // Strings must be enclosed within quotation marks. However, some
-        // strings can have quotation marks within them if they are prefixed
-        // with a backslash
-        while(this.data[location + advance] !== "\"" || escape){
-            if(escape){
-                text += this.data.substring(lastEscapeEnd, sinceEscape);
-                const escapeChar = this.data[location + advance];
-                if(ZParser.escapeHandlers.hasOwnProperty(escapeChar)){
-                    const escapeData = ZParser.escapeHandlers[escapeChar]({data: this.data, location: location + advance});
-                    text += escapeData.data;
-                    advance += escapeData.forward - 1;
+        const parseUntil = (stopCondition: () => boolean) => {
+            while(stopCondition()){
+                if(escape){
+                    // Escape character was seen - parse the data associated with it.
+                    const escapeChar = this.data[location + advance].toLowerCase();
+                    // Handle the special escape character if applicable
+                    if(ZParser.escapeHandlers.hasOwnProperty(escapeChar)){
+                        const escapeData = ZParser.escapeHandlers[escapeChar]({data: this.data, location: location + advance + 1});
+                        // Add escapeData.data to the text, and move the "cursor" ahead by escapeData.forward
+                        text += escapeData.data;
+                        advance += escapeData.forward;
+                    }else{
+                        // If not, just add it to the text.
+                        text += escapeChar;
+                    }
+                    escape = false;
+                }else if(this.data[location + advance] === "\\"){
+                    // The backslash usually indicates an escape character
+                    escape = true;
                 }else{
-                    text += escapeChar;
+                    text += this.data[location + advance];
                 }
-                lastEscapeEnd = location + advance;
-            }else if(this.data[location + advance] === "\\"){
-                escape = true;
-                sinceEscape -= 1;
+                advance += 1;
             }
-            advance += 1;
-            sinceEscape += 1;
         }
+        if(startsWithQuoteMark){
+            // Strings must be enclosed within quotation marks. However, some
+            // strings can have quotation marks within them if they are prefixed
+            // with a backslash
+            parseUntil(() => this.data[location + advance] !== "\"" || escape);
+        }else{
+            parseUntil(() => {
+                return (
+                    this.data[location + advance] !== " " &&
+                    this.data[location + advance] !== "\t" &&
+                    this.data[location + advance] !== "\n");
+            });
+        }
+        this.position += preAdvance;
+        this.position += advance;
         return text;
     }
 }
