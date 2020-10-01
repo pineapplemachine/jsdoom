@@ -11,7 +11,7 @@ interface StringPointer {
 interface HandledEscape {
     // The string data to be inserted in place of the escape sequence
     data: string;
-    // The length of the escape sequence, not including backslash
+    // The length of the escape sequence, not including backslash and the first character after it
     forward: number;
 }
 
@@ -27,21 +27,18 @@ export class ZParser {
         "1": ZParser.parseOctal,
         "2": ZParser.parseOctal,
         "3": ZParser.parseOctal,
-        /*
-        // Octal numbers >= 400 are >= 256 in decimal
         "4": ZParser.parseOctal,
         "5": ZParser.parseOctal,
         "6": ZParser.parseOctal,
         "7": ZParser.parseOctal,
-        */
-        "a": (pointer) => {return {data: "", forward: 1}; },
-        "b": (pointer) => {return {data: "", forward: 1}; },
+        "a": (pointer) => {return {data: "", forward: 0}; },
+        "b": (pointer) => {return {data: "", forward: 0}; },
         "c": (pointer) => {
-            const colourChar = pointer.data[pointer.location];
+            let location = pointer.location + 1;
+            const colourChar = pointer.data[location];
             // Color is from TEXTCOLO
             if(colourChar === "["){
                 let length = 1;
-                let location = pointer.location;
                 while(pointer.data[location++] !== "]"){
                     length += 1;
                 }
@@ -49,31 +46,37 @@ export class ZParser {
             }
             return {data: "", forward: 1};
         },
-        "f": (pointer) => {return {data: "", forward: 1}; },
-        "n": (pointer) => {return {data: "\n", forward: 1}; },
-        "r": (pointer) => {return {data: "\r", forward: 1}; },
-        "t": (pointer) => {return {data: "\t", forward: 1}; },
-        "v": (pointer) => {return {data: "\n", forward: 1}; },
+        "f": (pointer) => {return {data: "", forward: 0}; },
+        "n": (pointer) => {return {data: "\n", forward: 0}; },
+        "r": (pointer) => {return {data: "\r", forward: 0}; },
+        "t": (pointer) => {return {data: "\t", forward: 0}; },
+        "v": (pointer) => {return {data: "\n", forward: 0}; },
         "x": (pointer) => {
             const hexDigits = pointer.data.substring(pointer.location + 1, pointer.location + 3);
             const hex = Number.parseInt(hexDigits, 16);
-            return {data: String.fromCharCode(hex), forward: 3};
+            return {data: String.fromCharCode(hex), forward: 2};
         },
-        "?": (pointer) => {return {data: "", forward: 1}; },
-        "\n": (pointer) => {return {data: "", forward: 1}; }, // Ignore actual newline
+        "?": (pointer) => {return {data: "", forward: 0}; },
+        "\n": (pointer) => {return {data: "", forward: 0}; }, // Ignore actual newline
     };
 
     static parseOctal(pointer: StringPointer): HandledEscape {
-        const octalDigits = pointer.data.substring(pointer.location, pointer.location + 3);
+        let advance = 0;
+        const digitRegex = /\d/;
+        while(digitRegex.exec(pointer.data[pointer.location + advance]) && advance <= 3){
+            advance += 1;
+        }
+        const octalDigits = pointer.data.substring(pointer.location, pointer.location + advance);
+        console.log("Octal number:", octalDigits);
         const octal = Number.parseInt(octalDigits, 8);
         // Octal escapes are limited to ASCII
         if(octal <= 255){
             return {
                 data: String.fromCharCode(octal),
-                forward: 3,
+                forward: advance - 1,
             };
         }
-        return {data: "", forward: 3};
+        return {data: "", forward: advance - 1};
     }
 
     constructor(data: string, start: number = 0){
@@ -100,7 +103,7 @@ export class ZParser {
                     const escapeChar = this.data[location + advance].toLowerCase();
                     // Handle the special escape character if applicable
                     if(ZParser.escapeHandlers.hasOwnProperty(escapeChar)){
-                        const escapeData = ZParser.escapeHandlers[escapeChar]({data: this.data, location: location + advance + 1});
+                        const escapeData = ZParser.escapeHandlers[escapeChar]({data: this.data, location: location + advance});
                         // Add escapeData.data to the text, and move the "cursor" ahead by escapeData.forward
                         text += escapeData.data;
                         advance += escapeData.forward;

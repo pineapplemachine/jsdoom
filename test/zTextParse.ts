@@ -36,4 +36,18 @@ export async function testTextParse(){
     if(result5 !== expected5){
         throw new Error(`${toParse5} does not match expected result: ${expected5}. Result: ${result5}`);
     }
+    const toParse6 = "\"\\114\\151\\156\\165\\170\\40\\106\\124\\127\"";
+    const expected6 = "Linux FTW";
+    const parser6 = new ZParser(toParse6);
+    const result6 = parser6.parseZString(0);
+    if(result6 !== expected6){
+        throw new Error(`${toParse6} does not match expected result: ${expected6}. Result: ${result6}`);
+    }
+    const toParse7 = "\"\\x4c\\x69\\x6e\\x75\\x78\\x20\\x46\\x54\\x57\"";
+    const expected7 = "Linux FTW";
+    const parser7 = new ZParser(toParse7);
+    const result7 = parser7.parseZString(0);
+    if(result7 !== expected7){
+        throw new Error(`${toParse7} does not match expected result: ${expected7}. Result: ${result7}`);
+    }
 }
