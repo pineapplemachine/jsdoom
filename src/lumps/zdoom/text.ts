@@ -84,7 +84,7 @@ export class ZParser {
         this.position = start;
     }
 
-    parseZString(at: number): string {
+    parseZString(at: number, handleEscapes = true): string {
         let location = at;
         let preAdvance = 0;
         const startsWithQuoteMark = this.data[location] === "\"";
@@ -114,7 +114,7 @@ export class ZParser {
                     escape = false;
                 }else if(this.data[location + advance] === "\\"){
                     // The backslash usually indicates an escape character
-                    escape = true;
+                    escape = handleEscapes;
                 }else{
                     text += this.data[location + advance];
                 }
