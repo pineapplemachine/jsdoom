@@ -31,8 +31,31 @@ export enum WADMapLineFlag {
     PassThrough = 0x0200,
 }
 
+export interface WADMapLineFlags {
+    // Always shown on the automap.
+    alwaysAutomapFlag: boolean;
+    // Block movement of monsters (but not players)
+    blockMonstersFlag: boolean;
+    // Blocks sound propagation.
+    blockSoundFlag: boolean;
+    // Block movement of players and monsters
+    impassableFlag: boolean;
+    // Unpegged lower texture (affects vertical offset)
+    lowerUnpeggedFlag: boolean;
+    // Never shown on the automap.
+    noAutomapFlag: boolean;
+    // Shown as one-sided on automap
+    // Also prevents monsters from activating a door action linedef
+    secretFlag: boolean;
+    // One-sided linedefs separate a sector from the "void" whereas
+    // two-sided linedefs separate sectors from each other.
+    twoSidedFlag: boolean;
+    // Unpegged upper texture (affects vertical offset)
+    upperUnpeggedFlag: boolean;
+}
+
 // Represents a single linedef read from a Doom format LINEDEFS lump.
-class WADMapLineBase {
+export class WADMapLineBase implements WADMapLineFlags {
     // The index of the start vertex.
     startVertex: number;
     // The index of the end vertex.
@@ -41,8 +64,6 @@ class WADMapLineBase {
     frontSidedef: number;
     // Back sidedef index. (0xffff means no sidedef.)
     backSidedef: number;
-    // Linedef flags. See WADMapLineFlag for possible values.
-    flags: number;
     // The format of the map this linedef comes from.
     format: WADMapFormat;
     
@@ -51,16 +72,73 @@ class WADMapLineBase {
         endVertex: number,
         frontSidedef: number,
         backSidedef: number,
-        flags?: number,
     }) {
         this.startVertex = options.startVertex;
         this.endVertex = options.endVertex;
         this.frontSidedef = options.frontSidedef;
         this.backSidedef = options.backSidedef;
-        this.flags = options.flags ? options.flags : 0;
+        this.format = WADMapFormat.Doom;
+    }
+
+    get alwaysAutomapFlag(): boolean { return false; }
+    get blockMonstersFlag(): boolean { return false; }
+    get blockSoundFlag(): boolean { return false; }
+    get impassableFlag(): boolean { return false; }
+    get lowerUnpeggedFlag(): boolean { return false; }
+    get noAutomapFlag(): boolean { return false; }
+    get secretFlag(): boolean { return false; }
+    get twoSidedFlag(): boolean { return false; }
+    get upperUnpeggedFlag(): boolean { return false; }
+
+}
+
+export class WADMapDoomLine extends WADMapLineBase {
+    // Action or other special.
+    special: number;
+    // Sector tag. Usually indicates the target of linedef actions.
+    tag: number;
+    // Linedef flags. See WADMapLineFlag for possible values.
+    flags: number;
+    
+    constructor(options: {
+        startVertex: number,
+        endVertex: number,
+        frontSidedef: number,
+        backSidedef: number,
+        special: number,
+        tag: number,
+        flags: number,
+    }) {
+        const baseLineOptions = {
+            startVertex: options.startVertex,
+            endVertex: options.endVertex,
+            frontSidedef: options.frontSidedef,
+            backSidedef: options.backSidedef,
+        };
+        super(baseLineOptions);
+        this.flags = options.flags;
+        this.special = options.special;
+        this.tag = options.tag;
         this.format = WADMapFormat.Doom;
     }
     
+    getSpecialObject(): (WADMapLineSpecial | WADMapLineSpecialGeneralized | null) {
+        for(const special of WADMapLineSpecialGeneralizedList){
+            if(this.special >= special.low && this.special < special.high){
+                return special;
+            }
+        }
+        for(const special of WADMapLineSpecialList){
+            if(this.special === special.id){
+                return special;
+            }
+        }
+        return null;
+    }
+    
+    get passThroughFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.PassThrough);
+    }
     get alwaysAutomapFlag(): boolean {
         return !!(this.flags & WADMapLineFlag.AlwaysAutomap);
     }
@@ -90,59 +168,14 @@ class WADMapLineBase {
     }
 }
 
-export class WADMapDoomLine extends WADMapLineBase {
-    // Action or other special.
-    special: number;
-    // Sector tag. Usually indicates the target of linedef actions.
-    tag: number;
-    
-    constructor(options: {
-        startVertex: number,
-        endVertex: number,
-        frontSidedef: number,
-        backSidedef: number,
-        special: number,
-        tag: number,
-        flags: number,
-    }) {
-        const baseLineOptions = {
-            startVertex: options.startVertex,
-            endVertex: options.endVertex,
-            frontSidedef: options.frontSidedef,
-            backSidedef: options.backSidedef,
-            flags: options.flags,
-        };
-        super(baseLineOptions);
-        this.special = options.special;
-        this.tag = options.tag;
-        this.format = WADMapFormat.Doom;
-    }
-    
-    getSpecialObject(): (WADMapLineSpecial | WADMapLineSpecialGeneralized | null) {
-        for(const special of WADMapLineSpecialGeneralizedList){
-            if(this.special >= special.low && this.special < special.high){
-                return special;
-            }
-        }
-        for(const special of WADMapLineSpecialList){
-            if(this.special === special.id){
-                return special;
-            }
-        }
-        return null;
-    }
-    
-    get passThroughFlag(): boolean {
-        return !!(this.flags & WADMapLineFlag.PassThrough);
-    }
-}
-
 // Represents a linedef from a Hexen format map
 export class WADMapHexenLine extends WADMapLineBase {
     // Action or other special.
     special: number;
     // The arguments for the line's action special.
     specialArgs: number[];
+    // Linedef flags. See WADMapLineFlag for possible values.
+    flags: number;
     
     constructor(options: {
         startVertex: number,
@@ -159,11 +192,11 @@ export class WADMapHexenLine extends WADMapLineBase {
         const baseLineOptions = {
             startVertex: options.startVertex,
             endVertex: options.endVertex,
-            flags: options.flags,
             frontSidedef: options.frontSidedef,
             backSidedef: options.backSidedef,
         };
         super(baseLineOptions);
+        this.flags = options.flags;
         this.special = options.special;
         this.specialArgs = options.specialArgs;
         this.format = WADMapFormat.Hexen;
@@ -180,6 +213,33 @@ export class WADMapHexenLine extends WADMapLineBase {
     
     get passThroughFlag(): boolean {
         return !!(this.flags & WADMapLineFlag.PassThrough);
+    }
+    get alwaysAutomapFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.AlwaysAutomap);
+    }
+    get blockMonstersFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.BlockMonsters);
+    }
+    get blockSoundFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.BlockSound);
+    }
+    get impassableFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.Impassable);
+    }
+    get lowerUnpeggedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.LowerUnpegged);
+    }
+    get noAutomapFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.NoAutomap);
+    }
+    get secretFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.Secret);
+    }
+    get twoSidedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.TwoSided);
+    }
+    get upperUnpeggedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.UpperUnpegged);
     }
 }
 
@@ -261,7 +321,7 @@ export interface Doom64SwitchInfo {
     // For Doom 64 switches, an invisible part of the sidedef will reference the
     // switch texture. For example, the upper or lower part of a one-sided
     // linedef, or two-sided linedef with same front and back sector. This
-    // specifies which part of the sidedef references the switch texture. The
+    // specifies which part of the sidedef has the switch texture on it. The
     // Doom 64 tech bible's description of this particular piece of information
     // is very confusing.
     textureReferencePart: WallPart;
@@ -276,6 +336,8 @@ export class WADMapDoom64Line extends WADMapLineBase {
     // that must die in order for the special to be activated, if the
     // ActivateOnKill flag is set.
     tag: number;
+    // Linedef flags. See WADMapLineFlag for possible values.
+    flags: number;
     
     constructor(options: {
         startVertex: number,
@@ -287,6 +349,7 @@ export class WADMapDoom64Line extends WADMapLineBase {
         backSidedef: number,
     }) {
         super(options);
+        this.flags = options.flags;
         this.special = options.special;
         this.tag = options.tag;
         this.format = WADMapFormat.Doom64;
@@ -301,6 +364,36 @@ export class WADMapDoom64Line extends WADMapLineBase {
         return null;
     }
     
+    get passThroughFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.PassThrough);
+    }
+    get alwaysAutomapFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.AlwaysAutomap);
+    }
+    get blockMonstersFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.BlockMonsters);
+    }
+    get blockSoundFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.BlockSound);
+    }
+    get impassableFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.Impassable);
+    }
+    get lowerUnpeggedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.LowerUnpegged);
+    }
+    get noAutomapFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.NoAutomap);
+    }
+    get secretFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.Secret);
+    }
+    get twoSidedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.TwoSided);
+    }
+    get upperUnpeggedFlag(): boolean {
+        return !!(this.flags & WADMapLineFlag.UpperUnpegged);
+    }
     get macro(): boolean {
         return(this.special & WADMapDoom64SpecialFlag.Macro) > 0;
     }

@@ -44,7 +44,7 @@ export interface WADMapThingFlags {
 }
 
 // Represents a single thing read from a Doom or Heretic format THINGS lump.
-class WADMapThingBase implements WADMapThingFlags {
+export class WADMapThingBase implements WADMapThingFlags {
     // The x position of the thing.
     x: number;
     // The y position of the thing.
