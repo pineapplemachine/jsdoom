@@ -53,21 +53,17 @@ export class WADMapThingBase implements WADMapThingFlags {
     angle: number;
     // The thing type index.
     type: number;
-    // Thing flags. See WADMapThingFlag for possible values.
-    flags: number;
     
     constructor(options: {
         x: number,
         y: number,
         angle: number,
         type: number,
-        flags: number,
     }) {
         this.x = options.x;
         this.y = options.y;
         this.angle = options.angle;
         this.type = options.type;
-        this.flags = options.flags;
     }
     
     // Get a WADMapThingType object corresponding to the thing's type number.
@@ -91,6 +87,20 @@ export class WADMapThingBase implements WADMapThingFlags {
 }
 
 export class WADMapDoomThing extends WADMapThingBase implements WADMapThingFlags {
+    // Thing flags. See WADMapThingFlag for possible values.
+    flags: number;
+
+    constructor(options: {
+        x: number,
+        y: number,
+        angle: number,
+        type: number,
+        flags: number,
+    }){
+        super(options);
+        this.flags = options.flags;
+    }
+
     get easyFlag(): boolean {
         return !!(this.flags & WADMapThingFlag.Easy);
     }
@@ -126,6 +136,8 @@ export class WADMapHexenThing extends WADMapThingBase implements WADMapThingFlag
     special: number;
     // The arguments for the special (up to 5 unsigned bytes).
     specialArgs: number[];
+    // Thing flags. See WADMapThingFlag for possible values.
+    flags: number;
     
     constructor(options: {
         type: number,
@@ -139,6 +151,7 @@ export class WADMapHexenThing extends WADMapThingBase implements WADMapThingFlag
         specialArgs: number[],
     }){
         super(options);
+        this.flags = options.flags;
         this.z = options.z;
         this.tid = options.tid;
         this.special = options.special;
