@@ -29,4 +29,11 @@ export async function testTextParse(){
     if(result4 !== expected4){
         throw new Error(`${toParse4} does not match expected result: ${expected4}. Result: ${result4}`);
     }
+    const toParse5 = "\"The \\\"bouncing bomb\\\" succeeded\"";
+    const expected5 = "The \"bouncing bomb\" succeeded";
+    const parser5 = new ZParser(toParse5);
+    const result5 = parser5.parseZString(0);
+    if(result5 !== expected5){
+        throw new Error(`${toParse5} does not match expected result: ${expected5}. Result: ${result5}`);
+    }
 }
