@@ -136,9 +136,9 @@ function onLoadNewFile(file: File): void {
     const wad = new WADFile(file.name);
     const reader: FileReader = new FileReader();
     reader.readAsArrayBuffer(file);
-    reader.onload = function() {
+    reader.onload = async function() {
         if(reader.result){
-            wad.loadData(Buffer.from(reader.result as ArrayBuffer));
+            await wad.loadData(Buffer.from(reader.result as ArrayBuffer));
             addWadToList(wad);
             setCurrentWad(wad);
         }

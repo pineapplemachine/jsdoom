@@ -571,16 +571,17 @@ export interface ConvertOptions {
     textured?: boolean;
 }
 
-export function ConvertMapToThree(
+export async function ConvertMapToThree(
     map: map3D.MapGeometry,
     textureLibrary: TextureLibrary,
     options?: ConvertOptions
-): DisposableGroup {
+): Promise<DisposableGroup> {
     const blankMaterial = new THREE.MeshBasicMaterial();
-    const disposables: {dispose: () => void}[] = [blankMaterial];
     // Get materials for map
     const midQuads: map3D.LineQuad[] = [];
     const wallQuads: map3D.LineQuad[] = [];
+    // copy sectorTriangles
+    const sectorTriangles: map3D.SectorTriangle[] = map.sectorTriangles.slice();
     for(const wall of map.wallQuads){
         if(wall.place === map3D.LineQuadPlace.Midtexture){
             // Midtexture quads are the only quads which could possibly be transparent
@@ -589,81 +590,105 @@ export function ConvertMapToThree(
             wallQuads.push(wall);
         }
     }
-    // Sort wall quads, midtexture quads, and sector triangles by material name
-    wallQuads.sort((a, b) => a.texture.localeCompare(b.texture));
-    midQuads.sort((a, b) => a.texture.localeCompare(b.texture));
-    map.sectorTriangles.sort((a, b) => a.texture.localeCompare(b.texture));
-    // Set up each model, and group helper
-    const wallModel: BufferModel = new BufferModel(wallQuads.length * 2, textureLibrary);
-    const midModel: BufferModel = new BufferModel(midQuads.length * 2, textureLibrary);
-    const flatModel: BufferModel = new BufferModel(map.sectorTriangles.length, textureLibrary);
-    const currentGroup: ThreeGroup = {
-        material: map.sectorTriangles[0].texture,
-        start: 0,
-        count: 0,
-    };
-    const mapMeshGroup = new THREE.Group();
-    // Add sector polygon positions, normals, and colors to buffers
-    const sectorTriCount: {[sector: number]: number} = {};
-    for(const triangle of map.sectorTriangles){
-        if(triangle.texture !== currentGroup.material){
-            flatModel.addGroup(currentGroup);
-            currentGroup.start += currentGroup.count;
-            currentGroup.count = 0;
-            currentGroup.material = triangle.texture;
-        }
-        flatModel.addTriangle(triangle);
-        currentGroup.count += 3;
-    }
-    flatModel.addGroup(currentGroup);
-    const flatModelMesh = flatModel.getMesh("flats");
-    flatModelMesh.layers.set(0);
-    disposables.push(flatModel);
-    mapMeshGroup.add(flatModelMesh);
-    // Now add the one-sided/upper/lower quads
-    currentGroup.start = 0;
-    currentGroup.count = 0;
-    currentGroup.material = wallQuads[0].texture;
-    for(const wall of wallQuads){
-        if(wall.texture !== currentGroup.material){
-            wallModel.addGroup(currentGroup);
-            currentGroup.start += currentGroup.count;
-            currentGroup.count = 0;
-            currentGroup.material = wall.texture;
-        }
-        wallModel.addQuad(wall);
-        currentGroup.count += 6;
-    }
-    wallModel.addGroup(currentGroup);
-    const wallModelMesh = wallModel.getMesh("walls");
-    wallModelMesh.layers.set(0);
-    disposables.push(wallModel);
-    mapMeshGroup.add(wallModelMesh);
-    // Add the midtexture quads
-    currentGroup.start = 0;
-    currentGroup.count = 0;
-    currentGroup.material = midQuads.length > 0 ? midQuads[0].texture : "-";
-    for(const wall of midQuads){
-        if(wall.texture !== currentGroup.material){
-            midModel.addGroup(currentGroup);
-            currentGroup.start += currentGroup.count;
-            currentGroup.count = 0;
-            currentGroup.material = wall.texture;
-        }
-        midModel.addQuad(wall);
-        currentGroup.count += 6;
-    }
-    midModel.addGroup(currentGroup);
-    const midModelMesh = midModel.getMesh("midtextures");
-    midModelMesh.layers.set(0);
-    disposables.push(midModel);
-    mapMeshGroup.add(midModelMesh);
-    return {
-        group: mapMeshGroup,
-        dispose: () => {
-            for(const disposableThing of disposables){
-                disposableThing.dispose();
+    // "Groups" for walls, midtextures, and flats
+    const wallPromise = new Promise<BufferModel>((resolve, reject) => {
+        setTimeout(() => {
+        console.log("Starting wallModel promise");
+        // Sort by texture name
+        wallQuads.sort((a, b) => a.texture.localeCompare(b.texture));
+        const currentGroup: ThreeGroup = {
+            material: wallQuads[0].texture,
+            start: 0,
+            count: 0,
+        };
+        const wallModel: BufferModel = new BufferModel(wallQuads.length * 2, textureLibrary);
+        for(const wall of wallQuads){
+            if(wall.texture !== currentGroup.material){
+                wallModel.addGroup(currentGroup);
+                currentGroup.start += currentGroup.count;
+                currentGroup.count = 0;
+                currentGroup.material = wall.texture;
             }
+            wallModel.addQuad(wall);
+            currentGroup.count += 6; // Count is in vertices
         }
-    };
+        wallModel.addGroup(currentGroup);
+        return resolve(wallModel);
+        });
+    });
+    const flatPromise = new Promise<BufferModel>((resolve, reject) => {
+        setTimeout(() => {
+        console.log("Starting flatModel promise");
+        // Sort by texture name
+        sectorTriangles.sort((a, b) => a.texture.localeCompare(b.texture));
+        const currentGroup: ThreeGroup = {
+            material: sectorTriangles[0].texture,
+            start: 0,
+            count: 0,
+        };
+        const flatModel: BufferModel = new BufferModel(sectorTriangles.length, textureLibrary);
+        for(const triangle of sectorTriangles){
+            if(triangle.texture !== currentGroup.material){
+                flatModel.addGroup(currentGroup);
+                currentGroup.start += currentGroup.count;
+                currentGroup.count = 0;
+                currentGroup.material = triangle.texture;
+            }
+            flatModel.addTriangle(triangle);
+            currentGroup.count += 3;
+        }
+        flatModel.addGroup(currentGroup);
+        return resolve(flatModel);
+        });
+    });
+    const midPromise = new Promise<BufferModel>((resolve, reject) => {
+        setTimeout(() => {
+        console.log("Starting midModel promise");
+        // Sort by texture name
+        midQuads.sort((a, b) => a.texture.localeCompare(b.texture));
+        const currentGroup: ThreeGroup = {
+            material: midQuads.length > 0 ? midQuads[0].texture : "-",
+            start: 0,
+            count: 0,
+        };
+        const midModel: BufferModel = new BufferModel(midQuads.length * 2, textureLibrary);
+        for(const wall of midQuads){
+            if(wall.texture !== currentGroup.material){
+                midModel.addGroup(currentGroup);
+                currentGroup.start += currentGroup.count;
+                currentGroup.count = 0;
+                currentGroup.material = wall.texture;
+            }
+            midModel.addQuad(wall);
+            currentGroup.count += 6;
+        }
+        midModel.addGroup(currentGroup);
+        return resolve(midModel);
+        });
+    });
+    return Promise.all([wallPromise, flatPromise, midPromise]).then((models: BufferModel[]) => {
+        console.log("All ConvertMapToThree promises done!");
+        const mapMeshGroup = new THREE.Group();
+        const disposables: {dispose: () => void}[] = [blankMaterial];
+        const wallModel = models[0];
+        disposables.push(wallModel);
+        const wallModelMesh = wallModel.getMesh("walls");
+        mapMeshGroup.add(wallModelMesh);
+        const flatModel = models[1];
+        disposables.push(flatModel);
+        const flatModelMesh = flatModel.getMesh("flats");
+        mapMeshGroup.add(flatModelMesh);
+        const midModel = models[2];
+        disposables.push(midModel);
+        const midModelMesh = midModel.getMesh("midtextures");
+        mapMeshGroup.add(midModelMesh);
+        return Promise.resolve({
+            group: mapMeshGroup,
+            dispose: () => {
+                for(const disposableThing of disposables){
+                    disposableThing.dispose();
+                }
+            }
+        });
+    });
 }

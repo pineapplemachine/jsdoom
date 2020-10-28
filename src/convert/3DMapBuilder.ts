@@ -989,11 +989,16 @@ export class MapGeometryBuilder {
     }
 
     // Create all of the sector triangles for the map
-    protected getSectorTriangles(sector: number, lines: WADMapLine[]): SectorTriangle[] {
+    protected async getSectorTriangles(sector: number, lines: WADMapLine[]): Promise<SectorTriangle[]> {
+        return new Promise((resolve, reject) => {
+        setTimeout(() => {
         // if(hasGlNodes){  // GL nodes contain data useful for triangulating sectors
         // }else{
         // Get sector polygons and triangulate the sector
         const sectorRawPolygons = this.getPolygonsFromLines(lines, sector);
+        if(sectorRawPolygons.length === 0){
+            return resolve([]);
+        }
         const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
         (rawPolygon) => {
             // Convert indices to positions
@@ -1088,7 +1093,9 @@ export class MapGeometryBuilder {
                 });
             });
         });
-        return sectorTriangles;
+        return resolve(sectorTriangles);
+        });
+        });
     }
 
     protected findDuplicateVertices(vertices: WADMapVertex[]){
@@ -1108,10 +1115,12 @@ export class MapGeometryBuilder {
     }
 
     // Get quads for a particular line
-    protected getQuadsForLine(line: WADMapLine): LineQuad[] {
+    protected async getQuadsForLine(line: WADMapLine): Promise<LineQuad[]> {
+        return new Promise<LineQuad[]>((resolve, reject) => {
+        setTimeout(() => {
         // Ensure line has a valid front sidedef
         if(line.frontSidedef === 0xffff){
-            return [];
+            return resolve([]);
         }
         // All lines have a start and end vertex.
         const startX = this.vertices[line.startVertex].x;
@@ -1142,7 +1151,7 @@ export class MapGeometryBuilder {
                     TextureAlignmentFlags.LowerUnpegged :
                     TextureAlignmentFlags.Normal,
             };
-            return[{
+            return resolve([{
                 width: lineLength,
                 height: frontHeight,
                 xOffset: front.x,
@@ -1161,7 +1170,7 @@ export class MapGeometryBuilder {
                 lightLevel: frontLight,
                 reverse: false,
                 place: LineQuadPlace.Middle,
-            }];
+            }]);
         }else{
             // This line is a two-sided line. In other words, it has a sector
             // on both sides.
@@ -1353,19 +1362,23 @@ export class MapGeometryBuilder {
                     place: LineQuadPlace.Lower,
                 });
             }
-            return lineQuads;
+            return resolve(lineQuads);
         }
-        return [];
+        return resolve([]);
+        });
+        });
     }
 
     // Build the 3D mesh for the map
     // Sectors is an optional array of indices for the sectors to (re)build the
     // geometry for.
-    public rebuild(sectors?: number[]): MapGeometry {
+    public rebuild(sectors?: number[]): Promise<MapGeometry> {
         // The map is missing one of the necessary data lumps
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
-            throw new TypeError("Some map data is missing!");
+            return Promise.reject("Some map data is missing!");
         }
+        // Promises to resolve before returning
+        const promises: Promise<any>[] = [];
         // If the map has GL nodes, use them instead of trying to triangulate the sector manually.
         const hasGlNodes = false;
         // Map of sector indices to lines that form that sector
@@ -1378,7 +1391,10 @@ export class MapGeometryBuilder {
         // Construct all of the quads for the lines on this map
         for(const line of this.map.enumerateLines()){
             // Add quads for this line to quads array
-            Array.prototype.push.apply(wallQuads, this.getQuadsForLine(line));
+            promises.push(this.getQuadsForLine(line).then((quads) => {
+                console.log("lineQuads promise");
+                Array.prototype.push.apply(wallQuads, quads);
+            }));
             // Add line to lists of lines per sector
             if(line.frontSidedef !== 0xffff){  // 0xffff means no sidedef.
                 const front = this.map.sides.getSide(line.frontSidedef);
@@ -1424,13 +1440,17 @@ export class MapGeometryBuilder {
         for(const sector in sectorLines){
             // Number.parseInt is required because object keys are strings
             const sectorNumber = Number.parseInt(sector, 10);
-            for(const triangle of this.getSectorTriangles(sectorNumber, sectorLines[sector])){
-                sectorTriangles.push(triangle);
-            }
+            promises.push(this.getSectorTriangles(sectorNumber, sectorLines[sector]).then((triangles) => {
+                console.log("sectorTriangles promise");
+                Array.prototype.push.apply(sectorTriangles, triangles);
+            }));
         }
-        return {
-            wallQuads,
-            sectorTriangles,
-        };
+        return Promise.all(promises).then(() => {
+            console.log("All .rebuild promises done!");
+            return Promise.resolve({
+                wallQuads,
+                sectorTriangles
+            });
+        });
     }
 }

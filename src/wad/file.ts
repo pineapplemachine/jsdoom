@@ -29,16 +29,16 @@ export class WADFile {
     }
     
     // Add a lump to the end of the list.
-    addLump(lump: WADLump): void {
+    private addLump(lump: WADLump): void {
         this.lumps.push(lump);
     }
     
     // Synchronously read a WAD file from a data buffer.
-    // The function will throw an error if there is a problem reading the WAD.
-    loadData(data: Buffer): void {
+    // The function will return a rejected promise if there is a problem reading the WAD.
+    async loadData(data: Buffer): Promise<void> {
         // Make sure the buffer is long enough to even contain a file header.
         if(data.length < 12){
-            throw new Error("File is too small to be a valid WAD.");
+            return Promise.reject("File is too small to be a valid WAD.");
         }
         // Read the file header.
         const typeName: string = readPaddedString(data, 0, 4);
@@ -46,7 +46,7 @@ export class WADFile {
         // If the file header wasn't either "IWAD" or "PWAD" then immediately
         // abort; this is not a WAD file.
         if(this.type === WADFileType.Invalid){
-            throw new Error("File is corrupt or not a WAD.");
+            return Promise.reject("File is corrupt or not a WAD.");
         }
         // Read the rest of the header...
         const numEntries: number = data.readUInt32LE(4);
@@ -66,7 +66,7 @@ export class WADFile {
             const lumpEnd: number = lumpStart + lumpSize;
             // Make sure the lump metadata makes sense
             if(lumpEnd > data.length) {
-                throw new Error(
+                return Promise.reject(
                     `Malformed lump in WAD directory at offset ${dirPosition}.`
                 );
             }
@@ -102,7 +102,7 @@ export class WADFile {
             dirPosition += 16;
         }
         // All done!
-        return;
+        return Promise.resolve();
     }
     
     // Synchronously get a Buffer representing the WAD's binary file content.

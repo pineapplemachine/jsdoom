@@ -20,7 +20,7 @@ export class WADLumpMap {
     // Add a single lump to the map.
     // Lumps should be added from the first loaded file to the last loaded
     // file and, within each file, from the first lump to the last lump.
-    addLump(lump: WADLump): void {
+    private addLump(lump: WADLump): void {
         const upperName: string = lump.name.toUpperCase();
         if(this.lumps[upperName]){
             this.lumps[upperName].push(lump);

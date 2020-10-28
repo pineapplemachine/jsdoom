@@ -436,15 +436,15 @@ const LumpTypeViewMap3D = function(
                 createError(`Lump ${mapLump.name} is not a map!`, root);
                 return null;
             }
+            util.removeChildren(root);
+            createError("Please wait...", root);
             // Map is valid, convert it to geometry
-            let convertedMap: map3D.MapGeometry | null = null;
-            try{
-                convertedMap = ConvertMapToGeometry(lump);
-            }catch(error){
-                createError(`Could not get map geometry: ${error}`, root);
-                return null;
-            }
+            ConvertMapToGeometry(lump).then((convertedMap) => {
+            // Now that the map geometry has been converted, convert it to a
+            // model that can be used by THREE.js.
+            ConvertMapToThree(convertedMap, sharedDataManager.textureLibrary).then((meshGroup) => {
             // Set up canvas
+            util.removeChildren(root);
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",
@@ -470,12 +470,6 @@ const LumpTypeViewMap3D = function(
                 // Needed for WebXR support, otherwise you get InvalidStateErrors
                 xrCompatible: vrSupported,
             });
-            // Now that the map geometry has been converted, convert it to a
-            // model that can be used by THREE.js.
-            const meshGroup = ConvertMapToThree(
-                convertedMap!,
-                sharedDataManager.textureLibrary,
-            );
             // Initialize scene, renderer, and camera
             const mapScene = new THREE.Scene();
             // disposables.push(mapScene);
@@ -735,6 +729,10 @@ const LumpTypeViewMap3D = function(
                 renderer.render(mapScene, mapCamera);
             };
             renderer.setAnimationLoop(render); // Needed for VR support
+            });
+            }).catch((error) => {
+                createError(`Could not get map geometry: ${error}`, root);
+            });
         },
         clear: () => {
             window.removeEventListener("resize", handleResize);
@@ -786,32 +784,25 @@ export const LumpTypeViewMapOBJ = function(rawMtlNames: boolean = false): LumpTy
                 content: "Please wait...",
                 appendTo: root,
             });
-            let convertedMap: map3D.MapGeometry | null = null;
-            try{
-                convertedMap = ConvertMapToGeometry(lump);
-                if(!convertedMap){
-                    util.removeChildren(root);
-                    createError("Could not find the map lump", root);
-                    return;
-                }
-            }catch(error){
-                createError(`${error}`, root);
-                return;
-            }
-            const textureLibrary = sharedDataManager.textureLibrary;
-            const objText = ConvertMapToOBJ(convertedMap, textureLibrary, rawMtlNames);
-            util.removeChildren(root);
-            if(objText.length >= BigLumpThreshold){
-                root.appendChild(createWarning((
-                    "This OBJ is very large and your browser may not be " +
-                    "able to safely view it."
-                ), () => {
-                    util.removeChildren(root);
+            ConvertMapToGeometry(lump).then((convertedMap) => {
+                const textureLibrary = sharedDataManager.textureLibrary;
+                const objText = ConvertMapToOBJ(convertedMap, textureLibrary, rawMtlNames);
+                util.removeChildren(root);
+                if(objText.length >= BigLumpThreshold){
+                    root.appendChild(createWarning((
+                        "This OBJ is very large and your browser may not be " +
+                        "able to safely view it."
+                    ), () => {
+                        util.removeChildren(root);
+                        showText(objText);
+                    }));
+                }else{
                     showText(objText);
-                }));
-            }else{
-                showText(objText);
-            }
+                }
+            }).catch((error) => {
+                util.removeChildren(root);
+                createError(`${error}`, root);
+            });
         },
     });
 };
@@ -835,31 +826,24 @@ export const LumpTypeViewMapMTL = function(): LumpTypeView {
                 content: "Please wait...",
                 appendTo: root,
             });
-            let convertedMap: map3D.MapGeometry | null = null;
-            try{
-                convertedMap = ConvertMapToGeometry(lump);
-                if(!convertedMap){
-                    util.removeChildren(root);
-                    createError("Could not find the map lump", root);
-                    return;
-                }
-            }catch(error){
-                createError(`${error}`, root);
-                return;
-            }
-            const mtlText = ConvertMapToMTL(convertedMap);
-            util.removeChildren(root);
-            if(mtlText.length >= BigLumpThreshold){
-                root.appendChild(createWarning((
-                    "This lump is very large and your browser may not be " +
-                    "able to safely view it."
-                ), () => {
-                    util.removeChildren(root);
+            ConvertMapToGeometry(lump).then((convertedMap) => {
+                const mtlText = ConvertMapToMTL(convertedMap);
+                util.removeChildren(root);
+                if(mtlText.length >= BigLumpThreshold){
+                    root.appendChild(createWarning((
+                        "This lump is very large and your browser may not be " +
+                        "able to safely view it."
+                    ), () => {
+                        util.removeChildren(root);
+                        showText(mtlText);
+                    }));
+                }else{
                     showText(mtlText);
-                }));
-            }else{
-                showText(mtlText);
-            }
+                }
+            }).catch((error) => {
+                util.removeChildren(root);
+                createError(`${error}`, root);
+            });
         },
     });
 };
