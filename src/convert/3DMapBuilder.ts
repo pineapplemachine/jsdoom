@@ -989,15 +989,13 @@ export class MapGeometryBuilder {
     }
 
     // Create all of the sector triangles for the map
-    protected async getSectorTriangles(sector: number, lines: WADMapLine[]): Promise<SectorTriangle[]> {
-        return new Promise((resolve, reject) => {
-        setTimeout(() => {
+    protected getSectorTriangles(sector: number, lines: WADMapLine[]): SectorTriangle[] {
         // if(hasGlNodes){  // GL nodes contain data useful for triangulating sectors
         // }else{
         // Get sector polygons and triangulate the sector
         const sectorRawPolygons = this.getPolygonsFromLines(lines, sector);
         if(sectorRawPolygons.length === 0){
-            return resolve([]);
+            return [];
         }
         const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
         (rawPolygon) => {
@@ -1093,9 +1091,7 @@ export class MapGeometryBuilder {
                 });
             });
         });
-        return resolve(sectorTriangles);
-        });
-        });
+        return sectorTriangles;
     }
 
     protected findDuplicateVertices(vertices: WADMapVertex[]){
@@ -1115,12 +1111,10 @@ export class MapGeometryBuilder {
     }
 
     // Get quads for a particular line
-    protected async getQuadsForLine(line: WADMapLine): Promise<LineQuad[]> {
-        return new Promise<LineQuad[]>((resolve, reject) => {
-        setTimeout(() => {
+    protected getQuadsForLine(line: WADMapLine): LineQuad[] {
         // Ensure line has a valid front sidedef
         if(line.frontSidedef === 0xffff){
-            return resolve([]);
+            return [];
         }
         // All lines have a start and end vertex.
         const startX = this.vertices[line.startVertex].x;
@@ -1151,7 +1145,7 @@ export class MapGeometryBuilder {
                     TextureAlignmentFlags.LowerUnpegged :
                     TextureAlignmentFlags.Normal,
             };
-            return resolve([{
+            return [{
                 width: lineLength,
                 height: frontHeight,
                 xOffset: front.x,
@@ -1170,7 +1164,7 @@ export class MapGeometryBuilder {
                 lightLevel: frontLight,
                 reverse: false,
                 place: LineQuadPlace.Middle,
-            }]);
+            }];
         }else{
             // This line is a two-sided line. In other words, it has a sector
             // on both sides.
@@ -1362,11 +1356,9 @@ export class MapGeometryBuilder {
                     place: LineQuadPlace.Lower,
                 });
             }
-            return resolve(lineQuads);
+            return lineQuads;
         }
-        return resolve([]);
-        });
-        });
+        return [];
     }
 
     // Build the 3D mesh for the map
@@ -1377,8 +1369,6 @@ export class MapGeometryBuilder {
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
             return Promise.reject("Some map data is missing!");
         }
-        // Promises to resolve before returning
-        const promises: Promise<any>[] = [];
         // If the map has GL nodes, use them instead of trying to triangulate the sector manually.
         const hasGlNodes = false;
         // Map of sector indices to lines that form that sector
@@ -1386,15 +1376,12 @@ export class MapGeometryBuilder {
         // Vertices
         this.vertices = Array.from(this.map.enumerateVertexes());
         this.findDuplicateVertices(this.vertices);
-        // Array of quads - used for rendering walls
-        const wallQuads: LineQuad[] = [];
+        // Array of lines for converting to "quads"
+        const linesToConvert: WADMapLine[] = [];
         // Construct all of the quads for the lines on this map
         for(const line of this.map.enumerateLines()){
             // Add quads for this line to quads array
-            promises.push(this.getQuadsForLine(line).then((quads) => {
-                console.log("lineQuads promise");
-                Array.prototype.push.apply(wallQuads, quads);
-            }));
+            linesToConvert.push(line);
             // Add line to lists of lines per sector
             if(line.frontSidedef !== 0xffff){  // 0xffff means no sidedef.
                 const front = this.map.sides.getSide(line.frontSidedef);
@@ -1435,21 +1422,34 @@ export class MapGeometryBuilder {
                 }
             }
         }
-        // Sector triangles - used for rendering sectors
-        const sectorTriangles: SectorTriangle[] = [];
-        for(const sector in sectorLines){
-            // Number.parseInt is required because object keys are strings
-            const sectorNumber = Number.parseInt(sector, 10);
-            promises.push(this.getSectorTriangles(sectorNumber, sectorLines[sector]).then((triangles) => {
-                console.log("sectorTriangles promise");
+        // Wall quads - used for rendering walls. Each quad is turned into a
+        // pair of triangles.
+        const quadsPromise = new Promise<LineQuad[]>((resolve, reject) => {
+            console.log("quadsPromise started!");
+            const wallQuads: LineQuad[] = [];
+            for(const line of linesToConvert){
+                const lineQuads = this.getQuadsForLine(line);
+                Array.prototype.push.apply(wallQuads, lineQuads);
+            }
+            return resolve(wallQuads);
+        });
+        // Sector triangles - used for rendering floors and ceilings of sectors.
+        const trianglesPromise = new Promise<SectorTriangle[]>((resolve, reject) => {
+            console.log("trianglesPromise started!");
+            const sectorTriangles: SectorTriangle[] = [];
+            for(const sector in sectorLines){
+                // Number.parseInt is required because object keys are strings
+                const sectorNumber = Number.parseInt(sector, 10);
+                const triangles = this.getSectorTriangles(sectorNumber, sectorLines[sector]);
                 Array.prototype.push.apply(sectorTriangles, triangles);
-            }));
-        }
-        return Promise.all(promises).then(() => {
+            }
+            return resolve(sectorTriangles);
+        });
+        return Promise.all([quadsPromise, trianglesPromise]).then((value: [LineQuad[], SectorTriangle[]]) => {
             console.log("All .rebuild promises done!");
             return Promise.resolve({
-                wallQuads,
-                sectorTriangles
+                wallQuads: value[0],
+                sectorTriangles: value[1]
             });
         });
     }

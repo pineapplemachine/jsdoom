@@ -439,7 +439,7 @@ const LumpTypeViewMap3D = function(
             util.removeChildren(root);
             createError("Please wait...", root);
             // Map is valid, convert it to geometry
-            ConvertMapToGeometry(lump).then((convertedMap) => {
+            ConvertMapToGeometry(map).then((convertedMap) => {
             // Now that the map geometry has been converted, convert it to a
             // model that can be used by THREE.js.
             ConvertMapToThree(convertedMap, sharedDataManager.textureLibrary).then((meshGroup) => {
@@ -784,7 +784,19 @@ export const LumpTypeViewMapOBJ = function(rawMtlNames: boolean = false): LumpTy
                 content: "Please wait...",
                 appendTo: root,
             });
-            ConvertMapToGeometry(lump).then((convertedMap) => {
+            // Get map lump
+            const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
+            if(!mapLump){
+                createError("Could not find the map lump", root);
+                return null;
+            }
+            // Get map from the lump and attempt to convert it to 3D
+            const map = lumps.WADMap.from(mapLump);
+            if(!map){
+                createError(`Lump ${mapLump.name} is not a map!`, root);
+                return null;
+            }
+            ConvertMapToGeometry(map).then((convertedMap) => {
                 const textureLibrary = sharedDataManager.textureLibrary;
                 const objText = ConvertMapToOBJ(convertedMap, textureLibrary, rawMtlNames);
                 util.removeChildren(root);
@@ -826,7 +838,19 @@ export const LumpTypeViewMapMTL = function(): LumpTypeView {
                 content: "Please wait...",
                 appendTo: root,
             });
-            ConvertMapToGeometry(lump).then((convertedMap) => {
+            // Get map lump
+            const mapLump: (WADLump | null) = lumps.WADMap.findMarker(lump);
+            if(!mapLump){
+                createError("Could not find the map lump", root);
+                return null;
+            }
+            // Get map from the lump and attempt to convert it to 3D
+            const map = lumps.WADMap.from(mapLump);
+            if(!map){
+                createError(`Lump ${mapLump.name} is not a map!`, root);
+                return null;
+            }
+            ConvertMapToGeometry(map).then((convertedMap) => {
                 const mtlText = ConvertMapToMTL(convertedMap);
                 util.removeChildren(root);
                 if(mtlText.length >= BigLumpThreshold){
