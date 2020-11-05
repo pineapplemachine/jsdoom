@@ -60,12 +60,13 @@ export class WADMap {
         if(lump.length !== 0){
             return false;
         }
+        const episodicName: RegExp = /\w+\d+\w\d+/g;
         const name: string = lump.name.toUpperCase();
         return (
             // MAPxx
             (name.length >= 5 && name.startsWith("MAP")) ||
             // ExMx
-            (name.length >= 4 && name[0] === "E" && name[2] === "M")
+            (name.length >= 4 && episodicName.test(name))
         );
     }
     
