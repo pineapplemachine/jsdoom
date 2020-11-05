@@ -16,6 +16,8 @@ interface HandledEscape {
 }
 
 export class ZParser {
+    // Regular expression for parsing strings, either C-style, or plain
+    static readonly stringRegex: RegExp = /"(.+[^\\])"|\S+/gm;
     // The text data as a string
     data: string;
     // Parser position
