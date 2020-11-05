@@ -207,14 +207,14 @@ class BufferModel {
                 paletteInterpolation: {value: true},
             },
         });
-        softwareVertexResource.onComplete.push((data) => {
+        softwareVertexResource.on("complete", (data) => {
             if(data != null){
                 material.vertexShader = data;
                 material.needsUpdate = true;
             }
         });
         softwareVertexResource.fetch(5);
-        softwareFragmentResource.onComplete.push((data) => {
+        softwareFragmentResource.on("complete", (data) => {
             if(data != null){
                 material.fragmentShader = data;
                 material.needsUpdate = true;
@@ -238,14 +238,14 @@ class BufferModel {
                 tex: {value: texture},
             },
         });
-        basicVertexResource.onComplete.push((data) => {
+        basicVertexResource.on("complete", (data) => {
             if(data != null){
                 material.vertexShader = data;
                 material.needsUpdate = true;
             }
         });
         basicVertexResource.fetch(5);
-        N64FragmentResource.onComplete.push((data) => {
+        N64FragmentResource.on("complete", (data) => {
             if(data != null){
                 material.fragmentShader = data;
                 material.needsUpdate = true;
@@ -592,9 +592,8 @@ export async function ConvertMapToThree(
     }
     // "Groups" for walls, midtextures, and flats
     const wallPromise = new Promise<BufferModel>((resolve, reject) => {
-        setTimeout(() => {
         console.log("Starting wallModel promise");
-        // Sort by texture name
+        // Sort by texture name to minimize groups (and thus draw calls)
         wallQuads.sort((a, b) => a.texture.localeCompare(b.texture));
         const currentGroup: ThreeGroup = {
             material: wallQuads[0].texture,
@@ -613,13 +612,12 @@ export async function ConvertMapToThree(
             currentGroup.count += 6; // Count is in vertices
         }
         wallModel.addGroup(currentGroup);
+        console.log("wallModel promise finished!");
         return resolve(wallModel);
-        });
     });
     const flatPromise = new Promise<BufferModel>((resolve, reject) => {
-        setTimeout(() => {
         console.log("Starting flatModel promise");
-        // Sort by texture name
+        // Sort by texture name to minimize groups (and thus draw calls)
         sectorTriangles.sort((a, b) => a.texture.localeCompare(b.texture));
         const currentGroup: ThreeGroup = {
             material: sectorTriangles[0].texture,
@@ -638,13 +636,12 @@ export async function ConvertMapToThree(
             currentGroup.count += 3;
         }
         flatModel.addGroup(currentGroup);
+        console.log("flatModel promise finished!");
         return resolve(flatModel);
-        });
     });
     const midPromise = new Promise<BufferModel>((resolve, reject) => {
-        setTimeout(() => {
         console.log("Starting midModel promise");
-        // Sort by texture name
+        // Sort by texture name to minimize groups (and thus draw calls)
         midQuads.sort((a, b) => a.texture.localeCompare(b.texture));
         const currentGroup: ThreeGroup = {
             material: midQuads.length > 0 ? midQuads[0].texture : "-",
@@ -663,8 +660,8 @@ export async function ConvertMapToThree(
             currentGroup.count += 6;
         }
         midModel.addGroup(currentGroup);
+        console.log("midModel promise finished!");
         return resolve(midModel);
-        });
     });
     return Promise.all([wallPromise, flatPromise, midPromise]).then((models: BufferModel[]) => {
         console.log("All ConvertMapToThree promises done!");

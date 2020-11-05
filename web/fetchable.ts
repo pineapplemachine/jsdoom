@@ -16,18 +16,18 @@ export abstract class Fetchable<T> {
     protected init: RequestInit | undefined;
     // The cached response data
     protected _data: T | null;
-    // Functions to call when the request finishes successfully
-    public onComplete: ((data: T) => void)[];
-    // Functions to call when the request fails
-    public onError: ((error: any) => void)[];
+    // Callbacks for when the request finishes successfully, or errors out
+    protected _eventHandlers: {[name: string]: ((data: T) => void)[]};
     
     constructor(url: string, init?: RequestInit){
         this.url = url;
         this.init = init;
         this._data = null;
         this._fetchStatus = FetchStatus.NotCached;
-        this.onComplete = [];
-        this.onError = [];
+        this._eventHandlers = {
+            complete: [],
+            error: []
+        };
     }
     
     public get data(): T | null {
@@ -52,9 +52,9 @@ export abstract class Fetchable<T> {
         }
         // If the resource is already cached, return it immediately.
         if(this._fetchStatus === FetchStatus.Cached){
-            this.onComplete.forEach((callback) => callback(this._data!));
+            this._eventHandlers["complete"].forEach((callback) => callback(this._data!));
             // Avoid calling the onComplete callbacks more than once.
-            this.onComplete = [];
+            this._eventHandlers["complete"] = [];
             return null;
         }
         // Set up the fetch.
@@ -91,7 +91,13 @@ export abstract class Fetchable<T> {
     
     // Function to call if the request fails
     protected handleError(error: any){
-        this.onError.forEach((callback) => callback(error));
+        this._eventHandlers["error"].forEach((callback) => callback(error));
+    }
+
+    on(eventName: string, handler: (data: T) => void) {
+        if(this._eventHandlers.hasOwnProperty(eventName)){
+            this._eventHandlers[eventName].push(handler);
+        }
     }
 }
 
@@ -103,9 +109,9 @@ export class FetchableString extends Fetchable<string | void> {
                 this._fetchStatus = FetchStatus.Cached;
                 // Cache response data
                 this._data = data;
-                this.onComplete.forEach((callback) => callback(data));
+                this._eventHandlers["complete"].forEach((callback) => callback(data));
                 // Avoid calling the onComplete callbacks more than once.
-                this.onComplete = [];
+                this._eventHandlers["complete"] = [];
             });
         }
     }

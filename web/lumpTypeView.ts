@@ -554,14 +554,14 @@ const LumpTypeViewMap3D = function(
                     "projectionMode": {value: 0},
                 },
             });
-            omniDirVertex.onComplete.push((data) => {
+            omniDirVertex.on("complete", (data) => {
                 if(data != null){
                     omniDirViewMaterial.vertexShader = data;
                     omniDirViewMaterial.needsUpdate = true;
                 }
             });
             omniDirVertex.fetch(5);
-            omniDirFragment.onComplete.push((data) => {
+            omniDirFragment.on("complete", (data) => {
                 if(data != null){
                     omniDirViewMaterial.fragmentShader = data;
                     omniDirViewMaterial.needsUpdate = true;
