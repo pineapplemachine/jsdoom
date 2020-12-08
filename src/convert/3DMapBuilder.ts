@@ -168,7 +168,7 @@ class SectorPolygonBuilder {
         const dot = ab.dot(cb);
         const cross = ab.cross(cb);
         // Angle - will always be positive
-        return Math.atan2(clockwise ? cross : -cross, -dot) + Math.PI;
+        return Math.atan2(clockwise ? cross : -cross, -dot);
     }
 
     // Get sector vertex info (map index)
@@ -420,16 +420,15 @@ class SectorPolygonBuilder {
         const incompletePolygons: number[][] = [];
         // It's faster to count the edges that are used than to repeatedly
         // iterate through the sectorEdges array
-        const edgesToUse = this.sectorEdges.length;
-        let edgesUsed = 1; // The number of edges currently used
-        while(edgesUsed !== edgesToUse){
+        let edgesLeft = this.sectorEdges.length;
+        while(edgesLeft){
             // The edge from which to start the search for the next vertex
             const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
             // Mark edge as used
             let edgeStatus = this.visitEdge(prevVertex, lastVertex);
             if(edgeStatus === EdgeVisitStatus.NotUsed){
                 console.log("prevVertex lastVertex not used");
-                edgesUsed += 1;
+                edgesLeft -= 1;
             }
             // The next vertex to add to the polygon
             const nextVertex = this.findNextVertex(lastVertex, prevVertex, exterior);
@@ -483,7 +482,7 @@ class SectorPolygonBuilder {
                 // There is another edge in the polygon, mark it as added.
                 sectorPolygons[curPolygon].push(nextVertex);
                 if(edgeStatus === EdgeVisitStatus.NotUsed){
-                    edgesUsed += 1;
+                    edgesLeft -= 1;
                 }
             }
         }
