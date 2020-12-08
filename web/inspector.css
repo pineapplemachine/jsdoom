@@ -542,16 +542,17 @@ body {
     cursor: pointer;
     user-select: none;
     font-size: 12px;
-    vertical-align: middle;
 }
 #lump-view-dropdown .dropdown-button {
     width: 100%;
 }
 .dropdown-button::before {
     content: "\25BC";
+    vertical-align: middle;
 }
 .dropdown-button.dropped::before {
     content: "\25B2";
+    vertical-align: middle;
 }
 .dropdown-button:hover,
 .dropdown-button:active {
@@ -606,10 +607,13 @@ body {
     right: 5px;
     top: 5px;
     z-index: 3;
-    width: 40px;
-    height: 40px;
+    width: 25px;
+    height: 25px;
     overflow: hidden;
     border: 1px solid #AAA;
+    background-image: url("/assets/icons/control-fullscreen.png");
+    background-position: center;
+    background-repeat: no-repeat;
     background-color: rgba(0,0,0,.25);
     border-radius: 7px;
     text-align: center;
