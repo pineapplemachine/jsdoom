@@ -1364,7 +1364,7 @@ export class MapGeometryBuilder {
     // Build the 3D mesh for the map
     // Sectors is an optional array of indices for the sectors to (re)build the
     // geometry for.
-    public rebuild(sectors?: number[]): Promise<MapGeometry> {
+    public async rebuild(sectors?: number[]): Promise<MapGeometry> {
         // The map is missing one of the necessary data lumps
         if(!this.map.sides || !this.map.sectors || !this.map.lines || !this.map.vertexes){
             return Promise.reject("Some map data is missing!");
