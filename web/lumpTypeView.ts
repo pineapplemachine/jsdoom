@@ -458,7 +458,6 @@ const LumpTypeViewMap3D = function(
             });
             document.addEventListener("pointerlockchange", handleLockedPointer);
             // WebVR/WebXR supported?
-            const vrSupported = "xr" in navigator || "getVRDisplays" in navigator;
             let context: WebGLRenderingContext | undefined = undefined;
             // Prefer WebGL2 context, since that allows non-power-of-2 textures
             // to tile. If this fails, THREE.js will create its own context.
@@ -468,7 +467,7 @@ const LumpTypeViewMap3D = function(
                 powerPreference: "high-performance",
                 depth: true,
                 // Needed for WebXR support, otherwise you get InvalidStateErrors
-                xrCompatible: vrSupported,
+                xrCompatible: true,
             });
             // Now that the map geometry has been converted, convert it to a
             // model that can be used by THREE.js.
@@ -492,24 +491,29 @@ const LumpTypeViewMap3D = function(
             renderer.setSize(root.clientWidth, root.clientHeight, false);
             renderer.setPixelRatio(window.devicePixelRatio);
             // Allow VR
-            if(vrSupported){
-                renderer.xr.enabled = true;
-                // VR is supported
-                const vrButton = VRButton.createButton(renderer);
-                root.appendChild(vrButton);
-            }else{
-                // Allow 3D view to be expanded to full screen
-                const fullscreenButton = util.createElement({
-                    tag: "div",
-                    class: "fullscreen-button",
-                    content: "\u26F6",
-                    onleftclick: () => {
-                        fscreen.requestFullscreen(canvas);
-                    },
-                    appendTo: root,
-                });
-                root.appendChild(fullscreenButton);
-            }
+            /*
+            const vrButton = VRButton.createButton(renderer);
+            vrButton.addEventListener("change", () => {
+                if(vrButton.textContent !== "VR NOT SUPPORTED"){
+                    // VR is supported
+                    renderer.xr.enabled = true;
+                    root.appendChild(vrButton);
+                }else{
+                    */
+                    // Allow 3D view to be expanded to full screen
+                    const fullscreenButton = util.createElement({
+                        tag: "div",
+                        class: "fullscreen-button",
+                        onleftclick: () => {
+                            fscreen.requestFullscreen(canvas);
+                        },
+                        appendTo: root,
+                    });
+                    root.appendChild(fullscreenButton);
+                    /*
+                }
+            });
+            */
             disposables.push(renderer);
             // The "head" which moves around, and contains the camera(s).
             // All cameras are contained by this object so that orientation
