@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {DeviceOrientationControls} from "three/examples/jsm/controls/DeviceOrientationControls.js";
-import {VRButton} from "three/examples/jsm/webxr/VRButton.js";
+// import {VRButton} from "three/examples/jsm/webxr/VRButton.js";
 
 // Fullscreen support
 import fscreen from "fscreen";
