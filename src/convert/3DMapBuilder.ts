@@ -102,6 +102,17 @@ enum EdgeVisitStatus {
     AlreadyUsed,
 }
 
+// Sort a pair of numbers
+function sortPair(pair: Edge): Edge {
+    let temp = 0;
+    if(pair[0] > pair[1]){
+        temp = pair[0];
+        pair[0] = pair[1];
+        pair[1] = temp;
+    }
+    return pair;
+}
+
 // Takes lines of a sector, and converts it to polygons
 class SectorPolygonBuilder {
     // The "edges" (start/end vertex of each line)
@@ -131,22 +142,17 @@ class SectorPolygonBuilder {
         // Add edges to sector edges, ensuring duplicate edges are not added in
         // the process.
         for(const line of sectorLines){
-            const edge: Edge = [
+            // "Sorting" the edge avoids the need to duplicate it
+            const edge: Edge = sortPair([
                 fixVertexReference(line.startVertex),
                 fixVertexReference(line.endVertex)
-            ];
-            const edgeDuplicate: Edge = [
-                fixVertexReference(line.endVertex),
-                fixVertexReference(line.startVertex)
-            ];
+            ]);
             // Hash table key lookups are faster than repeatedly iterating
             // through an array to check for the existence of a specific value.
-            const edgeString = edge.join(" ");
-            const edgeDuplicateString = edgeDuplicate.join(" ");
-            if(!this.edgesLeft.hasOwnProperty(edgeString) &&
-                    !this.edgesLeft.hasOwnProperty(edgeDuplicateString)){
+            const edgeKey = `${edge[0]} ${edge[1]}`;
+            if(!this.edgesLeft.hasOwnProperty(edgeKey)){
                 this.sectorEdges.push(edge);
-                this.edgesLeft[edge.join(" ")] = false;
+                this.edgesLeft[edgeKey] = false;
             }
         }
         // Sector vertices
@@ -183,7 +189,8 @@ class SectorPolygonBuilder {
         // Filter out vertices to skip
         const usableEdges = this.sectorEdges.filter((edge) => {
             // Ensure I pick an edge which has not been added.
-            return this.edgesLeft[edge.join(" ")] === false;
+            const edgeKey = `${edge[0]} ${edge[1]}`;
+            return this.edgesLeft[edgeKey] === false;
         });
         if(usableEdges.length === 0){
             return null;
@@ -211,9 +218,10 @@ class SectorPolygonBuilder {
         }, usableVertices[0]);
         // Find edges connected to the rightmost vertex
         const rightMostEdges = this.sectorEdges.filter((edge) => {
+            const edgeKey = `${edge[0]} ${edge[1]}`;
             if(edge.includes(rightMostVertex.index)){
                 // Ensure no used edges are picked
-                return this.edgesLeft[edge.join(" ")] === false;
+                return this.edgesLeft[edgeKey] === false;
             }
             return false;
         })!;
@@ -252,7 +260,10 @@ class SectorPolygonBuilder {
             }
             return currentLowestVertex;
         }, rightMostConnectedVertices[0]);
-        return [rightMostVertex.index, otherVertex.index];
+        return [
+            rightMostVertex.index,
+            otherVertex.index
+        ];
     }
 
     protected findNextVertex(
@@ -265,11 +276,9 @@ class SectorPolygonBuilder {
         // - Are attached to the "from" vertex
         // - Are not the "previous" vertex
         const edges: Edge[] = this.sectorEdges.filter((edge) => {
+            const edgeKey = `${edge[0]} ${edge[1]}`;
             if(edge.includes(from) && !edge.includes(previous)){
-                if(this.edgesLeft[edge.join(" ")] === true){
-                    return false;
-                }
-                return true;
+                return this.edgesLeft[edgeKey] !== true;
             }
             return false;
         });
@@ -318,22 +327,19 @@ class SectorPolygonBuilder {
     // Checks whether or not the edge specified by the start and end vertices
     // exists. Returns the key string representing the edge if it does, or an
     // empty string if it does not.
-    protected edgeExists(edgeStart: number, edgeEnd: number): string {
+    protected edgeExists(edgeStart: number, edgeEnd: number): boolean {
+        [edgeStart, edgeEnd] = sortPair([edgeStart, edgeEnd]);
         const edgeKey = `${edgeStart} ${edgeEnd}`;
-        const reversedEdgeKey = `${edgeEnd} ${edgeStart}`;
-        if(this.edgesLeft.hasOwnProperty(edgeKey)){
-            return edgeKey;
-        }else if(this.edgesLeft.hasOwnProperty(reversedEdgeKey)){
-            return reversedEdgeKey;
-        }
-        return "";
+        return this.edgesLeft.hasOwnProperty(edgeKey);
     }
 
     // Marks the given edge as being added to a polygon
     // Returns whether or not the given edge exists
     protected visitEdge(edgeStart: number, edgeEnd: number): EdgeVisitStatus {
-        const edgeKey = this.edgeExists(edgeStart, edgeEnd);
-        if(edgeKey !== ""){
+        [edgeStart, edgeEnd] = sortPair([edgeStart, edgeEnd]);
+        const edgeKey = `${edgeStart} ${edgeEnd}`;
+        const edgeExists = this.edgeExists(edgeStart, edgeEnd);
+        if(edgeExists){
             const status: EdgeVisitStatus = (
                 this.edgesLeft[edgeKey] === false ?
                 EdgeVisitStatus.NotUsed :
@@ -494,7 +500,7 @@ class SectorPolygonBuilder {
             const first = polygon[0];
             const last = polygon[polygon.length - 1];
             // Is polygon incomplete?
-            if(polygon.length < 3 || this.edgeExists(first, last) === ""){
+            if(polygon.length < 3 || !this.edgeExists(first, last)){
                 // Remove it and add it to the list of incomplete polygons
                 const badPolygon = polygon;
                 incompletePolygons.push(badPolygon);
