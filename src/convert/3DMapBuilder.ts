@@ -5,8 +5,7 @@ import {WADMap} from "@src/lumps/doom/map";
 import {WADMapLine} from "@src/lumps/doom/mapLines";
 import {WADMapSector} from "@src/lumps/doom/mapSectors";
 import {WADMapVertex} from "@src/lumps/doom/mapVertexes";
-import {WADTexture} from "@src/lumps/doom/textures";
-import {TextureSet, TextureLibrary, isWadFlat, isWadTexture} from "@src/lumps/textureLibrary";
+import {TextureSet} from "@src/lumps/textureLibrary";
 
 type nil = null | undefined;
 
@@ -192,9 +191,9 @@ class SectorPolygonBuilder {
         // Get positions for all usable vertices
         const usableVertices: SectorVertex[] = usableEdges.reduce<number[]>((vertices, edge) => {
             // Add vertices which have not been added yet
-            return vertices.concat(edge.filter((edgeVertex) => !vertices.includes(edgeVertex)));
+            return vertices.concat(edge.filter((edgeVertex) => { return !vertices.includes(edgeVertex); }));
             // Get position and map vertex index for each of them
-        }, usableEdges[0]).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
+        }, usableEdges[0]).map<SectorVertex>((vertexIndex) => { return this.vertexFor(vertexIndex); });
         // And then find the upper rightmost vertex among them
         const rightMostVertex = usableVertices.reduce(
         (currentRightMostVertex, nextVertex) => {
@@ -221,8 +220,10 @@ class SectorPolygonBuilder {
         // Get vertices connected to the rightmost vertex
         const rightMostConnectedVertices: SectorVertex[] = rightMostEdges.map(
             // Choose the vertex which isn't the rightmost vertex
-            (edge) => edge[0] === rightMostVertex.index ? edge[1] : edge[0]
-        ).map<SectorVertex>((vertexIndex) => this.vertexFor(vertexIndex));
+            (edge) => {
+                return edge[0] === rightMostVertex.index ? edge[1] : edge[0];
+            }
+        ).map<SectorVertex>((vertexIndex) => { return this.vertexFor(vertexIndex); });
         // Get lowermost rightmost vertex out of those
         const otherVertex = rightMostConnectedVertices.reduce(
         (currentLowestVertex, nextVertex) => {
@@ -421,7 +422,7 @@ class SectorPolygonBuilder {
         // It's faster to count the edges that are used than to repeatedly
         // iterate through the sectorEdges array
         let edgesLeft = this.sectorEdges.length;
-        while(edgesLeft){
+        while(edgesLeft){ // Will stop at 0
             // The edge from which to start the search for the next vertex
             const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
             // Mark edge as used
@@ -1010,8 +1011,9 @@ export class MapGeometryBuilder {
         // Sort by area in descending order.
         // I think this will make it faster to build the sector
         // ceiling/floor triangles.
-        sectorPolygons.sort((polyA, polyB) =>
-            polyB.boundingBox.area() - polyA.boundingBox.area());
+        sectorPolygons.sort((polyA, polyB) => {
+            return polyB.boundingBox.area() - polyA.boundingBox.area();
+        });
         // Find holes
         sectorPolygons.forEach((polygon, polygonIndex) => {
             // Find out which polygons "contain" this one
@@ -1028,9 +1030,10 @@ export class MapGeometryBuilder {
                 });
                 // The polygon is a container if all vertices are shared, or at
                 // least one unique vertex is inside the other polygon
-                return uniqueVertices.some(
-                    (point) => pointInPolygon(point, otherPolygon.vertices)) ||
-                    uniqueVertices.length === 0;
+                return uniqueVertices.length === 0 || uniqueVertices.some(
+                    (point) => {
+                        return pointInPolygon(point, otherPolygon.vertices);
+                    });
             });
             // The polygon is a hole if the amount of polygons containing this
             // one is odd.
@@ -1063,7 +1066,9 @@ export class MapGeometryBuilder {
             triangles.forEach((triangle) => {
                 const triangleVertices: THREE.Vector2[] = (
                     triangle.map<THREE.Vector2>(
-                        (vertexIndex) => polygonVertices[vertexIndex]));
+                        (vertexIndex) => {
+                            return polygonVertices[vertexIndex];
+                        }));
                 sectorTriangles.push({ // Floor
                     sector,
                     lightLevel: mapSector.light,
