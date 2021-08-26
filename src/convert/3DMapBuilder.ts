@@ -338,8 +338,7 @@ class SectorPolygonBuilder {
     protected visitEdge(edgeStart: number, edgeEnd: number): EdgeVisitStatus {
         [edgeStart, edgeEnd] = sortPair([edgeStart, edgeEnd]);
         const edgeKey = `${edgeStart} ${edgeEnd}`;
-        const edgeExists = this.edgeExists(edgeStart, edgeEnd);
-        if(edgeExists){
+        if(this.edgesLeft.hasOwnProperty(edgeKey)){
             const status: EdgeVisitStatus = (
                 this.edgesLeft[edgeKey] === false ?
                 EdgeVisitStatus.NotUsed :
