@@ -160,6 +160,11 @@ class SectorPolygonBuilder {
         this.debug = debug;
         if(debug){
             console.log("new SectorPolygonBuilder");
+            console.log("sectorLines:", sectorLines);
+            console.log("mapVertices:", mapVertices);
+            console.log("duplicateVertices:", duplicateVertices);
+            console.log("edgesLeft:", this.edgesLeft);
+            console.log("sectorEdges:", this.sectorEdges);
         }
     }
 
@@ -278,7 +283,7 @@ class SectorPolygonBuilder {
         const edges: Edge[] = this.sectorEdges.filter((edge) => {
             const edgeKey = `${edge[0]} ${edge[1]}`;
             if(edge.includes(from) && !edge.includes(previous)){
-                return this.edgesLeft[edgeKey] !== true;
+                return this.edgesLeft[edgeKey] === false;
             }
             return false;
         });
@@ -1141,7 +1146,7 @@ export class MapGeometryBuilder {
             return Math.sqrt(lineX * lineX + lineY * lineY);
         })();
         const frontHeight = frontSector.ceilingHeight - frontSector.floorHeight;
-        if(!line.twoSidedFlag || line.backSidedef === 0xffff){
+        if(line.backSidedef === 0xffff){
             // This line has no back side. Some maps have linedefs marked as
             // two-sided, but without a back sidedef.
             // The line is the same height as the sector.
@@ -1389,42 +1394,43 @@ export class MapGeometryBuilder {
             // Add quads for this line to quads array
             Array.prototype.push.apply(wallQuads, this.getQuadsForLine(line));
             // Add line to lists of lines per sector
+            let frontSector: number | null = null;
+            let backSector: number | null = null;
             if(line.frontSidedef !== 0xffff){  // 0xffff means no sidedef.
                 const front = this.map.sides.getSide(line.frontSidedef);
-                if(!line.twoSidedFlag || line.backSidedef === 0xffff){
-                    // Discard this line if it's front side is not in the given
-                    // array of sectors to rebuild
-                    if(sectors && !sectors.includes(front.sector)){
-                        continue;
+                frontSector = front.sector;
+                // Discard this line if it's front side is not in the given
+                // array of sectors to rebuild
+                if(sectors && !sectors.includes(frontSector)){
+                    continue;
+                }
+            }
+            // Some maps may have lines which have the one-sided flag, but are
+            // actually two-sided, and vice versa.
+            if(line.backSidedef !== 0xffff){
+                const back = this.map.sides.getSide(line.backSidedef);
+                backSector = back.sector;
+                if(sectors && !sectors.includes(backSector)){
+                    continue;
+                }
+            }
+            // Only add lines which have different front and back sectors,
+            // since lines which have the same front and back sectors don't
+            // affect the sector floor/ceiling geometry.
+            if(frontSector !== backSector){
+                if(frontSector !== null){
+                    // Ensure the array exists, and add the line to the array
+                    if(sectorLines[frontSector] == null){
+                        sectorLines[frontSector] = [];
                     }
-                    // Ancient aliens MAP24 has some one-sided sidedefs marked
-                    // as two-sided. There may be other maps that suffer from
-                    // this issue as well.
-                    if(sectorLines[front.sector] == null){
-                        sectorLines[front.sector] = [];
+                    sectorLines[frontSector].push(line);
+                }
+                if(backSector !== null){
+                    // Ditto for the back sector
+                    if(sectorLines[backSector] == null){
+                        sectorLines[backSector] = [];
                     }
-                    sectorLines[front.sector].push(line);
-                }else{
-                    if(line.backSidedef !== 0xffff){
-                        // Line is two-sided
-                        const back = this.map.sides.getSide(line.backSidedef);
-                        // Discard this line if both front and back sectors are
-                        // not in the array of sectors to rebuild
-                        if(sectors && sectors.includes(front.sector) &&
-                            sectors.includes(back.sector)){
-                            continue;
-                        }
-                        if(front.sector !== back.sector){
-                            if(sectorLines[front.sector] == null){
-                                sectorLines[front.sector] = [];
-                            }
-                            if(sectorLines[back.sector] == null){
-                                sectorLines[back.sector] = [];
-                            }
-                            sectorLines[front.sector].push(line);
-                            sectorLines[back.sector].push(line);
-                        }
-                    }
+                    sectorLines[backSector].push(line);
                 }
             }
         }
