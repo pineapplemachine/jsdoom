@@ -113,6 +113,43 @@ function sortPair(pair: Edge): Edge {
     return pair;
 }
 
+class RawSectorPolygon {
+    // The indices of each vertex in the polygon
+    public vertices: number[];
+    // Which polygon this polygon is a hole of
+    public holeOf: number | null;
+
+    constructor(vertices: [number, number], holeOf: number | null = null) {
+        this.vertices = vertices;
+        this.holeOf = holeOf;
+    }
+
+    // Return the last two vertices of this polygon
+    public lastTwo(): number[] {
+        return this.vertices.slice(-2);
+    }
+
+    // Return the last vertex of this polygon
+    public last(): number {
+        return this.vertices[this.vertices.length - 1];
+    }
+
+    // Return the first vertex of this polygon
+    public first(): number {
+        return this.vertices[0];
+    }
+
+    // Is this polygon complete?
+    public isComplete(last: number): boolean {
+        if(this.vertices.length < 3){
+            return false;
+        }
+        // The polygon is expected to be cyclic.
+        const first = this.vertices[0];
+        return last === first;
+    }
+}
+
 // Takes lines of a sector, and converts it to polygons
 class SectorPolygonBuilder {
     // The "edges" (start/end vertex of each line)
@@ -393,13 +430,13 @@ class SectorPolygonBuilder {
 
     // Checks an edge to see whether it is inside a polygon
     // Returns true if it is, otherwise it returns false
-    protected edgeInPolygon(edge: Edge, polygon: number[]): boolean {
+    protected edgeInPolygon(edge: Edge, polygon: RawSectorPolygon): boolean {
         // Get each vertex for the edge, and find the midpoint. Then, test
         // whether the midpoint is in the given polygon.
         const edgeVertices = edge.map((edgeVertex) => {
             return this.vertexFor(edgeVertex).position;
         });
-        const polygonVertices = polygon.map((polygonVertex) => {
+        const polygonVertices = polygon.vertices.map((polygonVertex) => {
             return this.vertexFor(polygonVertex).position;
         });
         const edgeMidpoint = edgeVertices[0].clone().add(edgeVertices[1]);
@@ -408,7 +445,7 @@ class SectorPolygonBuilder {
     }
 
     // Get the polygons that make up the sector, as indices in the VERTEXES lump
-    getPolygons(): number[][] {
+    getPolygons(): RawSectorPolygon[] {
         // Make a new array with the sector polygons
         const startEdge = this.findNextStartEdge();
         if(!startEdge){
@@ -425,16 +462,18 @@ class SectorPolygonBuilder {
         let exterior = false;
         // Polygon array
         // e.g. [[0, 1, 2, 3], [4, 5, 6, 7]]
-        const sectorPolygons: number[][] = [startEdge];
+        const sectorPolygons: RawSectorPolygon[] = [
+            new RawSectorPolygon(startEdge, null)
+        ];
         // Incomplete polygons - polygons will be added to this array if they
         // are incomplete (no edge connecting the first and last vertices)
-        const incompletePolygons: number[][] = [];
+        const incompletePolygons: RawSectorPolygon[] = [];
         // It's faster to count the edges that are used than to repeatedly
         // iterate through the sectorEdges array
         let edgesLeft = this.sectorEdges.length;
         while(edgesLeft){ // Will stop at 0
             // The edge from which to start the search for the next vertex
-            const [prevVertex, lastVertex] = sectorPolygons[curPolygon].slice(-2);
+            const [prevVertex, lastVertex] = sectorPolygons[curPolygon].lastTwo();
             // Mark edge as used
             let edgeStatus = this.visitEdge(prevVertex, lastVertex);
             if(edgeStatus === EdgeVisitStatus.NotUsed){
@@ -452,9 +491,8 @@ class SectorPolygonBuilder {
                 edgeStatus = EdgeVisitStatus.DoesntExist;
             }
             // No more vertices left in this polygon
-            if(nextVertex === null || this.isPolygonComplete(sectorPolygons[curPolygon], nextVertex!)){
-                if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon][0]) ||
-                    sectorPolygons[curPolygon].length < 3){
+            if(nextVertex === null || sectorPolygons[curPolygon].isComplete(nextVertex!)){
+                if(!this.visitEdge(lastVertex, sectorPolygons[curPolygon].first())){
                     // Last polygon is incomplete
                     const badPolygon = sectorPolygons.pop();
                     if(badPolygon != null){
@@ -471,27 +509,29 @@ class SectorPolygonBuilder {
                 if(this.debug){
                     console.log("new polygon starting with", nextStartEdge);
                 }
+                let holeOf: number | null = null;
                 exterior = false;
                 // Should the next vertex be picked by interior or exterior angle?
-                for(const polygon of sectorPolygons){
+                sectorPolygons.forEach((polygon, polyIndex) => {
                     if(this.edgeInPolygon(nextStartEdge, polygon)){
                         if(this.debug){
                             console.log("this edge is inside a polygon!");
                         }
                         exterior = !exterior;
+                        holeOf = exterior ? polyIndex : null;
                     }
-                }
+                });
                 if(this.debug){
                     console.log("exterior", exterior);
                 }
                 // Go to the next polygon
                 curPolygon += 1;
-                sectorPolygons.push(nextStartEdge);
+                sectorPolygons.push(new RawSectorPolygon(nextStartEdge, holeOf));
                 // Mark the starting edge as added to the polygon
                 this.visitEdge.apply(this, nextStartEdge);
             }else if(edgeStatus !== EdgeVisitStatus.DoesntExist){
                 // There is another edge in the polygon, mark it as added.
-                sectorPolygons[curPolygon].push(nextVertex);
+                sectorPolygons[curPolygon].vertices.push(nextVertex);
                 if(edgeStatus === EdgeVisitStatus.NotUsed){
                     edgesLeft -= 1;
                 }
@@ -501,10 +541,10 @@ class SectorPolygonBuilder {
         // incomplete polygons.
         for(let polygonIndex: number = sectorPolygons.length - 1; polygonIndex >= 0; polygonIndex--){
             const polygon = sectorPolygons[polygonIndex];
-            const first = polygon[0];
-            const last = polygon[polygon.length - 1];
+            const first = polygon.first();
+            const last = polygon.last();
             // Is polygon incomplete?
-            if(polygon.length < 3 || !this.edgeExists(first, last)){
+            if(polygon.vertices.length < 3 || !this.edgeExists(first, last)){
                 // Remove it and add it to the list of incomplete polygons
                 const badPolygon = polygon;
                 incompletePolygons.push(badPolygon);
@@ -516,78 +556,6 @@ class SectorPolygonBuilder {
             console.log("incompletePolygons", incompletePolygons);
         }
         return sectorPolygons;
-    }
-}
-
-// Represents a bounding box
-interface IBoundingBox {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-}
-
-enum BoundingBoxComparison {
-    Within, // This bounding box is within the other one
-    Contains, // This bounding box contains the other one
-    Outside, // This bounding box is outside the other one
-    Edge, // This bounding box is on the edge of the other one
-}
-
-// Class for convenient comparisons and operations for bounding boxes
-class BoundingBox implements IBoundingBox {
-    // Minimum/Maximum X/Y
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-    constructor(minX: number, minY: number, maxX: number, maxY: number){
-        this.minX = minX;
-        this.minY = minY;
-        this.maxX = maxX;
-        this.maxY = maxY;
-    }
-
-    static from(vertices: THREE.Vector2[]): BoundingBox {
-        let minX = vertices[0].x;
-        let minY = vertices[0].y;
-        let maxX = vertices[0].x;
-        let maxY = vertices[0].y;
-        for(const vertex of vertices){
-            if(vertex.x < minX){
-                minX = vertex.x;
-            }
-            if(vertex.y < minY){
-                minY = vertex.y;
-            }
-            if(vertex.x > maxX){
-                maxX = vertex.x;
-            }
-            if(vertex.y > maxY){
-                maxY = vertex.y;
-            }
-        }
-        return new BoundingBox(minX, minY, maxX, maxY);
-    }
-
-    // Determine whether this bounding box is within the other one, or otherwise contains the other one.
-    compare(other: IBoundingBox): BoundingBoxComparison {
-        if(this.minX < other.minX && this.maxX > other.maxX && this.minY < other.minY && this.maxY > other.maxY){
-            return BoundingBoxComparison.Contains;
-        }else if(other.minX < this.minX && other.maxX > this.maxX && other.minY < this.minY && other.maxY > this.maxY){
-            return BoundingBoxComparison.Within;
-        }else if((this.minX < other.minX && this.maxX < other.maxX) || (this.minY < other.minY && this.maxY < other.maxY)){
-            return BoundingBoxComparison.Edge;
-        }else{
-            return BoundingBoxComparison.Outside;
-        }
-    }
-
-    // Get the area of this bounding box - very simple math
-    area(): number {
-        const width = this.maxX - this.minX;
-        const height = this.maxY - this.minY;
-        return width * height;
     }
 }
 
@@ -696,8 +664,6 @@ interface SectorPolygon {
     vertices: THREE.Vector2[];
     // An array of contours representing the holes in this polygon
     holes: THREE.Vector2[][];
-    // The bounding box for this polygon
-    boundingBox: BoundingBox;
     // Is this sector polygon a hole in another polygon?
     isHole: boolean;
 }
@@ -985,10 +951,10 @@ export class MapGeometryBuilder {
 
     // Turn a list of sector lines into a list of vertex indices
     protected getPolygonsFromLines(sectorLines: WADMapLine[],
-            sector: number): number[][] {
+            sector: number): RawSectorPolygon[] {
         const sectorPolygonBuilder = new SectorPolygonBuilder(
             sectorLines, this.vertices, this.duplicateVertices);
-        let sectorPolygons: number[][] = [];
+        let sectorPolygons: RawSectorPolygon[] = [];
         try{
             sectorPolygons = sectorPolygonBuilder.getPolygons();
         }catch(error){
@@ -1004,61 +970,31 @@ export class MapGeometryBuilder {
         // }else{
         // Get sector polygons and triangulate the sector
         const sectorRawPolygons = this.getPolygonsFromLines(lines, sector);
+        const polygonHoles: {[index: number]: number[]} = {};
         const sectorPolygons: SectorPolygon[] = sectorRawPolygons.map(
-        (rawPolygon) => {
+        (rawPolygon, polygonIndex) => {
             // Convert indices to positions
-            const polygonVertices = rawPolygon.map((vertexIndex) => {
+            const polygonVertices = rawPolygon.vertices.map((vertexIndex) => {
                 return new THREE.Vector2(
                     this.vertices[vertexIndex].x, -this.vertices[vertexIndex].y);
             });
+            if (rawPolygon.holeOf !== null) {
+                if (!polygonHoles[rawPolygon.holeOf]) {
+                    polygonHoles[rawPolygon.holeOf] = [];
+                }
+                polygonHoles[rawPolygon.holeOf].push(polygonIndex);
+            }
             return {
                 vertices: polygonVertices,
                 holes: [],
-                boundingBox: BoundingBox.from(polygonVertices),
-                isHole: false,
+                isHole: rawPolygon.holeOf !== null,
             };
         });
-        // Sort by area in descending order.
-        // I think this will make it faster to build the sector
-        // ceiling/floor triangles.
-        sectorPolygons.sort((polyA, polyB) => {
-            return polyB.boundingBox.area() - polyA.boundingBox.area();
-        });
-        // Find holes
-        sectorPolygons.forEach((polygon, polygonIndex) => {
-            // Find out which polygons "contain" this one
-            let containerPolygons = sectorPolygons.slice(0, polygonIndex);
-            containerPolygons = containerPolygons.filter((otherPolygon) => {
-                // Get vertices of this polygon that are not part of the other
-                const uniqueVertices = polygon.vertices.filter((vertex) => {
-                    for(const otherVertex of otherPolygon.vertices){
-                        if(vertex.equals(otherVertex)){
-                            return false;
-                        }
-                    }
-                    return true;
-                });
-                // The polygon is a container if all vertices are shared, or at
-                // least one unique vertex is inside the other polygon
-                return uniqueVertices.length === 0 || uniqueVertices.some(
-                    (point) => {
-                        return pointInPolygon(point, otherPolygon.vertices);
-                    });
-            });
-            // The polygon is a hole if the amount of polygons containing this
-            // one is odd.
-            const isHole = containerPolygons.length % 2 === 1;
-            // Get the smallest polygon containing this one, and make this
-            // polygon a hole if the smallest polygon containing this one is not.
-            const smallestContainerPolygon: SectorPolygon | undefined = (
-                containerPolygons[containerPolygons.length - 1]);
-            if(isHole){
-                if(smallestContainerPolygon && !smallestContainerPolygon.isHole){
-                    smallestContainerPolygon.holes.push(polygon.vertices);
-                    polygon.isHole = true;
-                }
-            }
-        });
+        for (const polygonIndex in polygonHoles) {
+            const holePolyIndices = polygonHoles[polygonIndex];
+            sectorPolygons[polygonIndex].holes = holePolyIndices.map(
+                (holePolyIndex) => sectorPolygons[holePolyIndex].vertices);
+        }
         const mapSector = this.map.sectors!.getSector(sector);
         const sectorTriangles: SectorTriangle[] = [];
         sectorPolygons.forEach((polygon) => {
