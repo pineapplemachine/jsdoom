@@ -44,7 +44,7 @@ export function drawMapGeometry(
         return margin + ((x - mapBox.left) * drawWidth / mapWidth);
     }
     function yTransform(y: number): number {
-        return margin + ((y - mapBox.top) * drawHeight / mapHeight);
+        return margin + ((mapBox.bottom - y) * drawHeight / mapHeight);
     }
     function widthTransform(width: number) : number {
         return width * drawWidth / mapWidth;
