@@ -1,8 +1,9 @@
 // Listen for keyboard events
 type KeyEventListener = (e: KeyboardEvent) => void;
 export class KeyboardListener {
-    // Listens for keyboard inputs on the document, and stores the up/down state of each key as a boolean value.
-    keyState: {[key: string]: boolean};
+    // Listens for keyboard inputs on the document, and stores the up/down
+    // state of each key as a boolean value.
+    private keyState: {[key: string]: boolean};
     private readonly keyPressed: KeyEventListener;
     private readonly keyReleased: KeyEventListener;
     constructor(){
@@ -11,6 +12,12 @@ export class KeyboardListener {
         this.keyReleased = (e: KeyboardEvent) => this.keyState[e.key] = false;
         document.addEventListener("keydown", this.keyPressed);
         document.addEventListener("keyup", this.keyReleased);
+    }
+    get(key: string): boolean {
+        if(this.keyState[key] === undefined){
+            this.keyState[key] = false;
+        }
+        return this.keyState[key];
     }
     dispose(){
         document.removeEventListener("keydown", this.keyPressed);

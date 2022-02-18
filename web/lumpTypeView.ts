@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import {DeviceOrientationControls} from "three/examples/jsm/controls/DeviceOrientationControls.js";
+import {PointerLockControls} from "three/examples/jsm/controls/PointerLockControls.js";
 // import {VRButton} from "three/examples/jsm/webxr/VRButton.js";
 
 // Fullscreen support
@@ -382,41 +382,15 @@ interface Map3DViewOptions {
     textured: boolean;
 }
 
-const omniDirVertex = new FetchableString("assets/shaders/basic.vert", {mode: "no-cors"});
-const omniDirFragment = new FetchableString("assets/shaders/equirectangularCamera.frag", {mode: "no-cors"});
+// const omniDirVertex = new FetchableString("assets/shaders/basic.vert", {mode: "no-cors"});
+// const omniDirFragment = new FetchableString("assets/shaders/equirectangularCamera.frag", {mode: "no-cors"});
 
 const LumpTypeViewMap3D = function(
     options: Map3DViewOptions
 ): LumpTypeView {
-    // Pointer lock related stuff
-    // Mouse controls that manipulate a THREE.Spherical
-    let mouseController: ((event: MouseEvent) => void) | null = null;
-    const makeMouseController = (direction: THREE.Spherical): (event: MouseEvent) => void => {
-        mouseController = (event: MouseEvent) => {
-            direction.theta -= event.movementX / (180 / Math.PI);
-            direction.phi -= event.movementY / (180 / Math.PI);
-            direction.makeSafe();
-        };
-        return mouseController;
-    };
-    // Handle mouse movement when pointer is locked
-    let hasPointerLock = false;
-    const handleLockedPointer = () => {
-        if(!mouseController){
-            return;
-        }
-        if(hasPointerLock){
-            document.removeEventListener("mousemove", mouseController);
-        }else{
-            document.addEventListener("mousemove", mouseController);
-        }
-        hasPointerLock = !hasPointerLock;
-    };
     // Ensure any event handlers can be unbound in clear()
     let handleResize: () => void = () => {};
     let handleFullscreen: () => void = () => {};
-    let handleTouchStart: () => void = () => {};
-    let handleTouchEnd: () => void = () => {};
     let ticker: NodeJS.Timeout | null = null;
     // Stuff to dispose when 3D view is cleared
     const disposables: {dispose(): void}[] = [];
@@ -444,19 +418,26 @@ const LumpTypeViewMap3D = function(
                 createError(`Could not get map geometry: ${error}`, root);
                 return null;
             }
+            // Now that the map geometry has been converted, convert it to a
+            // model that can be used by THREE.js.
+            const meshGroup = ConvertMapToThree(
+                convertedMap!,
+                sharedDataManager.textureLibrary,
+            );
+            // ===============================================================
+            // ===============================================================
+            // ===============================================================
             // Set up canvas
             const canvas = util.createElement({
                 tag: "canvas",
                 class: "lump-view-map-geometry",
-                onleftclick: () => {
-                    // Lock pointer if user left-clicks on 3D view
-                    if(!hasPointerLock){
-                        canvas.requestPointerLock();
-                    }
-                },
                 appendTo: root,
+                onleftclick: () => {
+                    if (!mouseControls.isLocked){
+                        mouseControls.lock();
+                    }
+                }
             });
-            document.addEventListener("pointerlockchange", handleLockedPointer);
             // WebVR/WebXR supported?
             let context: WebGLRenderingContext | undefined = undefined;
             // Prefer WebGL2 context, since that allows non-power-of-2 textures
@@ -469,12 +450,9 @@ const LumpTypeViewMap3D = function(
                 // Needed for WebXR support, otherwise you get InvalidStateErrors
                 xrCompatible: true,
             });
-            // Now that the map geometry has been converted, convert it to a
-            // model that can be used by THREE.js.
-            const meshGroup = ConvertMapToThree(
-                convertedMap!,
-                sharedDataManager.textureLibrary,
-            );
+            // ===============================================================
+            // ===============================================================
+            // ===============================================================
             // Initialize scene, renderer, and camera
             const mapScene = new THREE.Scene();
             // disposables.push(mapScene);
@@ -490,45 +468,20 @@ const LumpTypeViewMap3D = function(
             });
             renderer.setSize(root.clientWidth, root.clientHeight, false);
             renderer.setPixelRatio(window.devicePixelRatio);
-            // Allow VR
-            /*
-            const vrButton = VRButton.createButton(renderer);
-            vrButton.addEventListener("change", () => {
-                if(vrButton.textContent !== "VR NOT SUPPORTED"){
-                    // VR is supported
-                    renderer.xr.enabled = true;
-                    root.appendChild(vrButton);
-                }else{
-                    */
-                    // Allow 3D view to be expanded to full screen
-                    const fullscreenButton = util.createElement({
-                        tag: "div",
-                        class: "fullscreen-button",
-                        onleftclick: () => {
-                            fscreen.requestFullscreen(canvas);
-                        },
-                        appendTo: root,
-                    });
-                    root.appendChild(fullscreenButton);
-                    /*
-                }
+            // Allow 3D view to be expanded to full screen
+            const fullscreenButton = util.createElement({
+                tag: "div",
+                class: "fullscreen-button",
+                onleftclick: () => {
+                    fscreen.requestFullscreen(canvas);
+                },
+                appendTo: root,
             });
-            */
+            root.appendChild(fullscreenButton);
             disposables.push(renderer);
             // The "head" which moves around, and contains the camera(s).
             // All cameras are contained by this object so that orientation
             // is more consistent across devices and camera types.
-            const viewHead = new THREE.Object3D();
-            // VR controls
-            const controller = renderer.xr.getController(0);
-            let viewHeadMoving = false;
-            controller.addEventListener("selectstart", () => {
-                viewHeadMoving = true;
-            });
-            controller.addEventListener("selectend", () => {
-                viewHeadMoving = false;
-            });
-            mapScene.add(viewHead);
             const mapCamera = new THREE.PerspectiveCamera(
                 options.fov || 90, // FOV
                 root.clientWidth / root.clientHeight, // Aspect ratio
@@ -536,6 +489,7 @@ const LumpTypeViewMap3D = function(
                 10000, // Far clip
             );
             mapCamera.layers.set(0);
+            /*
             const mapCubeTarget = new THREE.WebGLCubeRenderTarget(1024);
             const mapCubeCamera = new THREE.CubeCamera(1, 10000, mapCubeTarget);
             mapCubeCamera.layers.set(0);
@@ -585,32 +539,17 @@ const LumpTypeViewMap3D = function(
             omniDirViewMesh.layers.set(0);
             omniDirViewScene.add(omniDirViewMesh);
             omniDirViewScene.add(omniDirViewCamera);
-            viewHead.add(mapCamera);
-            viewHead.add(mapCubeCamera);
+            */
+            mapScene.add(mapCamera);
+            // viewHead.add(mapCubeCamera);
+            // ===============================================================
+            // ===============================================================
+            // ===============================================================
             // Set up controls
-            // Detect devices that have a built-in compass and/or accelerometer
-            let orientableDevice = false;
-            if(window.DeviceOrientationEvent && "ontouchstart" in window){
-                // Thanks to https://stackoverflow.com/a/22097717
-                orientableDevice = true;
-            }
-            // DeviceOrientationControls does not *really* need a camera, based
-            // on the source code of DeviceOrientationControls.js
-            const controls: (KeyboardListener | DeviceOrientationControls) = (
-                orientableDevice ? new DeviceOrientationControls(viewHead as any) :
-                new KeyboardListener());
-            // Handle touches
-            handleTouchStart = () => {
-                viewHeadMoving = true;
-            };
-            handleTouchEnd = () => {
-                viewHeadMoving = false;
-            };
-            window.addEventListener("touchstart", handleTouchStart);
-            window.addEventListener("touchend", handleTouchEnd);
-            // Luckily, both KeyboardListener and DeviceOrientationControls have
-            // dispose methods
-            disposables.push(controls);
+            // RIP DeviceOrientationControls: https://github.com/mrdoob/three.js/issues/22613
+            const mouseControls: PointerLockControls = new PointerLockControls(mapCamera, root);
+            const keyboardControls = new KeyboardListener();
+            disposables.push(mouseControls);
             // Bind resize and fullscreen event handler
             handleResize = () => {
                 // Map camera
@@ -618,6 +557,7 @@ const LumpTypeViewMap3D = function(
                 renderer.setSize(root.clientWidth, root.clientHeight, false);
                 renderer.setPixelRatio(window.devicePixelRatio);
                 mapCamera.updateProjectionMatrix();
+                /*
                 // Omnidirectional view
                 const viewAspectRatio = root.clientHeight / root.clientWidth;
                 if(viewAspectRatio < .5){
@@ -632,6 +572,7 @@ const LumpTypeViewMap3D = function(
                     omniDirViewCamera.right = .5;
                 }
                 omniDirViewCamera.updateProjectionMatrix();
+                */
             };
             handleFullscreen = () => {
                 if(fscreen.fullscreenElement){
@@ -643,6 +584,7 @@ const LumpTypeViewMap3D = function(
                     renderer.setPixelRatio(window.devicePixelRatio);
                     mapCamera.updateProjectionMatrix();
                     // Omnidirectional view
+                    /*
                     const viewAspectRatio = sceneHeight / sceneWidth;
                     if(viewAspectRatio < .5){
                         omniDirViewCamera.top = -.5;
@@ -656,6 +598,7 @@ const LumpTypeViewMap3D = function(
                         omniDirViewCamera.right = .5;
                     }
                     omniDirViewCamera.updateProjectionMatrix();
+                    */
                 }else{
                     handleResize();
                 }
@@ -664,77 +607,37 @@ const LumpTypeViewMap3D = function(
             fscreen.addEventListener("fullscreenchange", handleFullscreen);
             // Set viewpoint from player 1 start
             const playerStart = map.getPlayerStart(1);
-            viewHead.position.set(
+            mapCamera.position.set(
                 playerStart ? playerStart.x : 0,
                 0, playerStart ? -playerStart.y : 0);
-            // Direction control
             const playerAngle = playerStart ? // Player angle is 0-360 degrees
                 (playerStart.angle / (180 / Math.PI)) - (Math.PI / 2) : 0;
-            const directionSphere = new THREE.Spherical(
-                1, 90 / (180 / Math.PI), playerAngle);
-            makeMouseController(directionSphere);
+            mapCamera.rotation.set(0, playerAngle, 0);
             const maxMoveSpeed = 7; // Distance to move camera
             const moveAcceleration = 24; // Acceleration/deceleration per second
-            // Axis to translate view head on
+            // Vector to move camera
             const velocity: Velocity = new Velocity(maxMoveSpeed);
+            // This function is run every "tick", 1/35 of a second
             const tickRate = 1000 / 35;
             const tickDelta = tickRate / 1000; // Tick rate is in milliseconds
-            // This function is run every "tick", 1/35 of a second
             ticker = setInterval(() => {
-                if(renderer.xr.isPresenting || orientableDevice){
-                    if(viewHeadMoving){
-                        velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
-                    }else{
-                        velocity.move(moveAcceleration * tickDelta);
-                    }
-                }else{
-                    // Handle keyboard input. WASD moves the camera like in an FPS game
-                    const keyboardControls = controls as KeyboardListener;
-                    viewHeadMoving = (
-                        keyboardControls.keyState["w"] ||
-                        keyboardControls.keyState["s"] ||
-                        keyboardControls.keyState["a"] ||
-                        keyboardControls.keyState["d"]
-                    );
-                    if(viewHeadMoving){
-                        if(keyboardControls.keyState["w"]){
-                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, -1));
-                        }else if(keyboardControls.keyState["s"]){
-                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(0, 0, 1));
-                        }
-                        if(keyboardControls.keyState["a"]){
-                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(-1, 0, 0));
-                        }else if(keyboardControls.keyState["d"]){
-                            velocity.move(moveAcceleration * tickDelta, new THREE.Vector3(1, 0, 0));
-                        }
-                    }else{
-                        velocity.move(moveAcceleration * tickDelta);
-                    }
+                // Handle keyboard input. WASD moves the camera like in an FPS game
+                const moveVec = new THREE.Vector3(0, 0, 0);
+                if(keyboardControls.get("w")){
+                    moveVec.z = -1;
+                }else if(keyboardControls.get("s")){
+                    moveVec.z = 1;
                 }
+                if(keyboardControls.get("a")){
+                    moveVec.x = -1;
+                }else if(keyboardControls.get("d")){
+                    moveVec.x = 1;
+                }
+                velocity.move(moveAcceleration * tickDelta, moveVec);
             }, Math.floor(tickRate));
             const render = () => {
-                // Movement in VR
-                let directionQuaternion: THREE.Quaternion = viewHead.quaternion;
-                if(renderer.xr.isPresenting){
-                    directionQuaternion = renderer.xr.getCamera(mapCamera).quaternion;
-                }else if(orientableDevice){
-                    const touchControls = controls as DeviceOrientationControls;
-                    touchControls.update();
-                    directionQuaternion = viewHead.quaternion;
-                }else{
-                    // Set view head direction (for non-VR users)
-                    const lookAtMe = new THREE.Vector3();
-                    lookAtMe.setFromSpherical(directionSphere).add(viewHead.position);
-                    viewHead.lookAt(lookAtMe);
-                }
-                const destination = velocity.vector;
-                destination.applyQuaternion(directionQuaternion);
-                viewHead.position.add(destination);
-                // Render (omnidirectional view)
-                /*
-                mapCubeCamera.update(renderer, mapScene);
-                renderer.render(omniDirViewScene, omniDirViewCamera);
-                */
+                const toMove = velocity.vector.applyQuaternion(mapCamera.quaternion);
+                mapCamera.position.add(toMove);
                 // Render (default view)
                 renderer.render(mapScene, mapCamera);
             };
@@ -743,14 +646,10 @@ const LumpTypeViewMap3D = function(
         clear: () => {
             window.removeEventListener("resize", handleResize);
             fscreen.removeEventListener("fullscreenchange", handleFullscreen);
-            window.removeEventListener("touchstart", handleTouchStart);
-            window.removeEventListener("touchend", handleTouchEnd);
-            window.removeEventListener("pointerlockchange", handleLockedPointer);
+            // window.removeEventListener("touchstart", handleTouchStart);
+            // window.removeEventListener("touchend", handleTouchEnd);
             if(ticker){
                 clearInterval(ticker);
-            }
-            if(mouseController){
-                document.removeEventListener("mousemove", mouseController);
             }
             for(const disposableThing of disposables){
                 disposableThing.dispose();

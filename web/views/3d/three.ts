@@ -368,7 +368,7 @@ class BufferModel {
                     this.library.getIndexed(name, set) : null);
                 const format = (
                     softwareStyleBuffer != null ?
-                    THREE.RGBFormat : THREE.RGBAFormat);
+                    THREE.RGIntegerFormat : THREE.RGBAFormat);
                 const buffer = (
                     softwareStyleBuffer != null ?
                     softwareStyleBuffer :
@@ -388,6 +388,7 @@ class BufferModel {
                     minFilter, // Downscale filter
                     anisotropy // Anisotropy
                 );
+                texture.needsUpdate = true;
                 // Is the texture transparent?
                 const transparent = (place == null) ? false : (
                     // Only midtextures can be transparent

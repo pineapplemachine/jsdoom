@@ -112,7 +112,7 @@ export class WADTexture {
     // format
     getPixelDataIndexed(files: WADFileList): Buffer {
         // The buffer will have two channels: index and alpha
-        const channels = 3;
+        const channels = 2;
         // Create the pixel data: size in pixels * 2 color channels
         const data: Buffer = Buffer.alloc(this.width * this.height * channels, 0);
         // Get texture patches as WADPicture objects.
