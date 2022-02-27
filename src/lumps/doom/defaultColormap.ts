@@ -1,3 +1,4 @@
+import {Buffer} from "buffer";
 // Represents the Doom 1 shareware's COLORMAP lump data.
 
 export const DoomColormapData: Buffer = Buffer.from([

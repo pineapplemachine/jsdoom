@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADLump} from "@src/wad/lump";
 
 // Represents DMX-format audio read from a WAD lump.

@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import * as UPNG from "upng-js";
 
 import {WADFileList} from "@src/wad/fileList";

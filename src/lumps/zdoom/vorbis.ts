@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADLump} from "@src/wad/lump";
 
 // Represents OGG Vorbis audio read from a WAD lump.

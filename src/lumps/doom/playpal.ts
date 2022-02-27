@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADLump} from "@src/wad/lump";
 
 import {DoomPlaypalData} from "@src/lumps/doom/defaultPlaypal";

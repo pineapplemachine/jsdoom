@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADLump} from "@src/wad/lump";
 
 // Used to structure information about the possible DIB headers

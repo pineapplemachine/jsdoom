@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADLump, WADCategory} from "@src/wad/lump";
 
 import {WADColors} from "@src/lumps/doom/colors";

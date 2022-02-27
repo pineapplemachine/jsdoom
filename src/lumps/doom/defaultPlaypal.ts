@@ -1,3 +1,4 @@
+import {Buffer} from "buffer";
 // Represents the Doom 1 shareware's PLAYPAL lump data.
 
 export const DoomPlaypalData: Buffer = Buffer.from([

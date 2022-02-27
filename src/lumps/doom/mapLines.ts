@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADLump} from "@src/wad/lump";
 
 import {WADMapLineSpecial, WADMapLineSpecialList} from "./mapLineSpecial";

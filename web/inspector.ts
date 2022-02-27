@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADFile} from "@src/wad/file";
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump} from "@src/wad/lump";

@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 // Read a null-padded ASCII string from a data buffer at an offset
 // of arbitrary length.
 export function readPaddedString(

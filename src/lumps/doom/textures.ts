@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADFileList} from "@src/wad/fileList";
 import {WADLump, WADCategory} from "@src/wad/lump";
 import {readPaddedString8} from "@src/wad/string";

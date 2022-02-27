@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADFileType} from "./fileType";
 import {WADLump, WADCategory} from "./lump";
 

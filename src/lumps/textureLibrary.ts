@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {Mappable} from "@src/convert/3DGeneral";
 import {WADColorMap} from "@src/lumps/doom/colormap";
 import {WADFlat} from "@src/lumps/doom/flat";

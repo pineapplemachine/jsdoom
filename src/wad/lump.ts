@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 import {WADFile} from "@src/wad/file";
 
 // The namespace a WAD lump is in.
