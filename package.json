@@ -25,6 +25,7 @@
     "buffer": "^6.0.3",
     "extract-zip": "^2.0.0",
     "three": "^0.138.0",
+    "tscpaths": "^0.0.9",
     "typescript": "^3.8.3",
     "webpack": "^5.69.1",
     "webpack-cli": "^4.9.2"
@@ -50,12 +51,13 @@
     }
   ],
   "scripts": {
-    "build": "npm run tsc",
+    "build": "npm run tsc && npm run tscpaths",
     "test": "npm run build && node ./dist/test/test.js",
     "lint": "wotan -m @fimbul/valtyr -c tslint.json -p tsconfig.json",
     "lint-fix": "wotan -m @fimbul/valtyr -c tslint.json -p tsconfig.json --fix",
     "prepare": "npm test",
     "tsc": "./node_modules/typescript/bin/tsc",
+    "tscpaths": "tscpaths -p tsconfig.json -s src -o dist/src && tscpaths -p tsconfig.json -s test -o dist/test",
     "tsc-trace-resolution": "npm run tsc -- --traceResolution",
     "watch": "node util/watch.js $@",
     "watch-tsc": "npm run watch \"./src\" \"./web\" \"npm run build\"",
